@@ -30,6 +30,9 @@ interface GeminiPromptPanelProps {
   selectedCount: number;
   useSelectedAsInput: boolean;
   onUseSelectedAsInputChange: (value: boolean) => void;
+  hasCanvasInput: boolean;
+  useCanvasAsInput: boolean;
+  onUseCanvasAsInputChange: (value: boolean) => void;
   onGenerate: () => void;
 }
 
@@ -49,6 +52,9 @@ export function GeminiPromptPanel({
   selectedCount,
   useSelectedAsInput,
   onUseSelectedAsInputChange,
+  hasCanvasInput,
+  useCanvasAsInput,
+  onUseCanvasAsInputChange,
   onGenerate,
 }: GeminiPromptPanelProps) {
   return (
@@ -72,7 +78,11 @@ export function GeminiPromptPanel({
           disabled={!hasApiKey || isGenerating}
           id="prompt"
           onChange={(e) => onPromptChange(e.target.value)}
-          placeholder="Describe how you want to transform the image..."
+          placeholder={
+            hasCanvasInput && useCanvasAsInput
+              ? "Describe how you want to transform the image..."
+              : "Describe the image you want to generate..."
+          }
           value={prompt}
         />
       </div>
@@ -85,6 +95,19 @@ export function GeminiPromptPanel({
             {error}
           </span>
         </div>
+      )}
+
+      {/* Canvas as input toggle */}
+      {hasCanvasInput && (
+        <label className="flex cursor-pointer items-center gap-1.5 text-muted-foreground text-xs hover:text-foreground">
+          <Checkbox
+            checked={useCanvasAsInput}
+            onCheckedChange={(checked) =>
+              onUseCanvasAsInputChange(checked === true)
+            }
+          />
+          <span>Use canvas as input</span>
+        </label>
       )}
 
       {/* Use selected as input checkbox */}
@@ -120,13 +143,13 @@ export function GeminiPromptPanel({
       </Button>
 
       {/* Model and Count selects */}
-      <div className="-mt-3 flex items-center gap-1">
+      <div className="-mt-3 flex flex-col gap-0">
         <Select
           onValueChange={(v) => onModelChange(v as GeminiImageModel)}
           value={model}
         >
           <SelectTrigger
-            className="!h-7 !bg-transparent w-auto border-0 px-2"
+            className="!h-7 !bg-transparent w-full border-0 px-2"
             id="model-select"
           >
             <SelectValue>
@@ -147,7 +170,7 @@ export function GeminiPromptPanel({
           value={String(generationCount)}
         >
           <SelectTrigger
-            className="!h-7 !bg-transparent w-14 border-0 px-2"
+            className="!h-7 !bg-transparent w-20 border-0 px-2"
             id="count-select"
           >
             <SelectValue>{generationCount}×</SelectValue>

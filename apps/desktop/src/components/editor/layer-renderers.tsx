@@ -1,6 +1,9 @@
 import type Konva from "konva";
+import { useEffect, useRef, useState } from "react";
 import { Ellipse, Group, Image, Rect, Text } from "react-konva";
 import type {
+  AnimatedImageLayer as AnimatedImageLayerType,
+  DrawLayer as DrawLayerType,
   Layer as EditorLayer,
   ImageLayer as ImageLayerType,
   ShapeLayer as ShapeLayerType,
@@ -11,7 +14,7 @@ interface LayerRenderProps {
   layer: EditorLayer;
   activeTool: string;
   imageCache: React.MutableRefObject<Map<string, HTMLImageElement>>;
-  onDragStart: () => void;
+  onDragStart: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onDragMove: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onDragEnd: (e: Konva.KonvaEventObject<DragEvent>, layerId: string) => void;
   onTransformStart: () => void;
@@ -25,7 +28,13 @@ interface LayerRenderProps {
 
 // Helper to draw a rounded rect path for clipping
 function drawRoundedRectPath(
-  ctx: CanvasRenderingContext2D,
+  ctx: {
+    beginPath(): void;
+    moveTo(x: number, y: number): void;
+    lineTo(x: number, y: number): void;
+    arcTo(x1: number, y1: number, x2: number, y2: number, r: number): void;
+    closePath(): void;
+  },
   width: number,
   height: number,
   cornerRadius: number | [number, number, number, number]
@@ -105,7 +114,7 @@ export function renderImageLayer(
   // Use a Group with clipFunc for rounded corners
   return (
     <Group
-      clipFunc={(ctx: CanvasRenderingContext2D) => {
+      clipFunc={(ctx) => {
         drawRoundedRectPath(ctx, layer.width, layer.height, layer.cornerRadius);
       }}
       draggable={!layer.locked && activeTool === "select"}
@@ -235,6 +244,185 @@ export function renderShapeLayer(
       stroke={layer.stroke}
       strokeWidth={layer.strokeWidth}
       width={layer.width}
+    />
+  );
+}
+
+// Animated Image Layer Component for frame-by-frame animation
+function AnimatedImageLayerComponent({
+  layer,
+  activeTool,
+  imageCache,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+  onTransformStart,
+  onTransformEnd,
+  onSelect,
+}: LayerRenderProps & { layer: AnimatedImageLayerType }) {
+  const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
+  const animationRef = useRef<number | null>(null);
+  const lastFrameTimeRef = useRef<number>(0);
+
+  // Preload all frames into cache
+  useEffect(() => {
+    for (const frameUrl of layer.frames) {
+      if (!imageCache.current.has(frameUrl)) {
+        const img = new window.Image();
+        img.src = frameUrl;
+        imageCache.current.set(frameUrl, img);
+      }
+    }
+  }, [layer.frames, imageCache]);
+
+  // Animation loop
+  useEffect(() => {
+    if (layer.frames.length <= 1 || !layer.visible) {
+      return;
+    }
+
+    const animate = (timestamp: number) => {
+      if (!lastFrameTimeRef.current) {
+        lastFrameTimeRef.current = timestamp;
+      }
+
+      const elapsed = timestamp - lastFrameTimeRef.current;
+      const currentDelay = layer.delays[currentFrameIndex] || 100;
+
+      if (elapsed >= currentDelay) {
+        setCurrentFrameIndex((prev) => (prev + 1) % layer.frames.length);
+        lastFrameTimeRef.current = timestamp;
+      }
+
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [layer.frames.length, layer.delays, layer.visible, currentFrameIndex]);
+
+  const currentFrameUrl = layer.frames[currentFrameIndex];
+  const image = imageCache.current.get(currentFrameUrl);
+
+  // If image not loaded yet, try to get it
+  if (!image) {
+    const img = new window.Image();
+    img.src = currentFrameUrl;
+    imageCache.current.set(currentFrameUrl, img);
+  }
+
+  const hasCornerRadius =
+    (typeof layer.cornerRadius === "number" && layer.cornerRadius > 0) ||
+    (Array.isArray(layer.cornerRadius) &&
+      layer.cornerRadius.some((r: number) => r > 0));
+
+  if (!hasCornerRadius) {
+    return (
+      <Image
+        draggable={!layer.locked && activeTool === "select"}
+        height={layer.height}
+        id={layer.id}
+        image={image}
+        key={layer.id}
+        onClick={() => onSelect(layer.id)}
+        onDragEnd={(e) => onDragEnd(e, layer.id)}
+        onDragMove={onDragMove}
+        onDragStart={onDragStart}
+        onTap={() => onSelect(layer.id)}
+        onTransformEnd={(e) => onTransformEnd(e, layer)}
+        onTransformStart={onTransformStart}
+        opacity={layer.opacity}
+        rotation={layer.rotation}
+        scaleX={layer.scaleX}
+        scaleY={layer.scaleY}
+        width={layer.width}
+        x={layer.x}
+        y={layer.y}
+      />
+    );
+  }
+
+  return (
+    <Group
+      clipFunc={(ctx) => {
+        drawRoundedRectPath(ctx, layer.width, layer.height, layer.cornerRadius);
+      }}
+      draggable={!layer.locked && activeTool === "select"}
+      id={layer.id}
+      key={layer.id}
+      onClick={() => onSelect(layer.id)}
+      onDragEnd={(e) => onDragEnd(e, layer.id)}
+      onDragMove={onDragMove}
+      onDragStart={onDragStart}
+      onTap={() => onSelect(layer.id)}
+      onTransformEnd={(e) => onTransformEnd(e, layer)}
+      onTransformStart={onTransformStart}
+      opacity={layer.opacity}
+      rotation={layer.rotation}
+      scaleX={layer.scaleX}
+      scaleY={layer.scaleY}
+      x={layer.x}
+      y={layer.y}
+    >
+      <Image height={layer.height} image={image} width={layer.width} />
+    </Group>
+  );
+}
+
+export function renderAnimatedImageLayer(
+  props: LayerRenderProps & { layer: AnimatedImageLayerType }
+) {
+  return <AnimatedImageLayerComponent {...props} key={props.layer.id} />;
+}
+
+export function renderDrawLayer(
+  props: LayerRenderProps & { layer: DrawLayerType }
+) {
+  const {
+    layer,
+    activeTool,
+    imageCache,
+    onDragStart,
+    onDragMove,
+    onDragEnd,
+    onTransformStart,
+    onTransformEnd,
+    onSelect,
+  } = props;
+
+  let image = imageCache.current.get(layer.dataUrl);
+  if (!image) {
+    image = new window.Image();
+    image.src = layer.dataUrl;
+    imageCache.current.set(layer.dataUrl, image);
+  }
+
+  return (
+    <Image
+      draggable={!layer.locked && activeTool === "select"}
+      height={layer.height}
+      id={layer.id}
+      image={image}
+      key={layer.id}
+      onClick={() => onSelect(layer.id)}
+      onDragEnd={(e) => onDragEnd(e, layer.id)}
+      onDragMove={onDragMove}
+      onDragStart={onDragStart}
+      onTap={() => onSelect(layer.id)}
+      onTransformEnd={(e) => onTransformEnd(e, layer)}
+      onTransformStart={onTransformStart}
+      opacity={layer.opacity}
+      rotation={layer.rotation}
+      scaleX={layer.scaleX}
+      scaleY={layer.scaleY}
+      width={layer.width}
+      x={layer.x}
+      y={layer.y}
     />
   );
 }

@@ -47,7 +47,29 @@ export interface ShapeLayer extends BaseLayer {
   strokeWidth: number;
   cornerRadius: number | [number, number, number, number];
 }
-export type Layer = ImageLayer | TextLayer | ShapeLayer;
+// Animated Image layer (for APNGs like Fluent Emojis)
+export interface AnimatedImageLayer extends BaseLayer {
+  type: "animated-image";
+  frames: string[]; // Array of data URLs for each frame
+  delays: number[]; // Delay for each frame in ms
+  currentFrame: number;
+  width: number;
+  height: number;
+  cornerRadius: number | [number, number, number, number];
+}
+// Draw layer — raster paint/draw strokes, always full-canvas or per-layer
+export interface DrawLayer extends BaseLayer {
+  type: "draw";
+  dataUrl: string;
+  width: number;
+  height: number;
+}
+export type Layer =
+  | ImageLayer
+  | TextLayer
+  | ShapeLayer
+  | AnimatedImageLayer
+  | DrawLayer;
 
 export interface Page {
   id: string;
@@ -62,20 +84,33 @@ interface EditorState {
   layers: Layer[];
 
   activeLayerIds: string[];
-  activeTool: "select" | "text" | "rect" | "ellipse";
+  activeTool: "select" | "text" | "rect" | "ellipse" | "brush" | "eraser";
   canvasWidth: number;
   canvasHeight: number;
+  // Brush settings
+  brushSize: number;
+  brushColor: string;
+  brushOpacity: number;
   history: Page[][]; // History now tracks pages snapshot
   historyIndex: number;
   clipboard: Layer[];
   // Layer CRUD
   addImageLayer: (dataUrl: string, width: number, height: number) => void;
+  addAnimatedImageLayer: (
+    frames: string[],
+    delays: number[],
+    width: number,
+    height: number
+  ) => void;
   addTextLayer: (text: string) => void;
   addShapeLayer: (shapeType: "rect" | "ellipse") => void;
+  addDrawLayer: (dataUrl: string, width: number, height: number) => void;
   removeLayer: (id: string) => void;
   removeLayers: (ids: string[]) => void;
   copyLayers: () => void;
   pasteLayers: () => void;
+  duplicateLayer: (id: string) => void;
+  setLayerAsBackground: (id: string) => void;
   updateLayer: (id: string, updates: Partial<Layer>) => void;
   // Page CRUD
   addPage: () => void;
@@ -87,7 +122,13 @@ interface EditorState {
   // Selection
   setActiveLayers: (ids: string[]) => void;
   toggleLayerSelection: (id: string) => void;
-  setActiveTool: (tool: "select" | "text" | "rect" | "ellipse") => void;
+  setActiveTool: (
+    tool: "select" | "text" | "rect" | "ellipse" | "brush" | "eraser"
+  ) => void;
+  // Brush settings
+  setBrushSize: (size: number) => void;
+  setBrushColor: (color: string) => void;
+  setBrushOpacity: (opacity: number) => void;
   // Ordering
   moveLayer: (id: string, direction: "up" | "down") => void;
   reorderLayers: (fromIndex: number, toIndex: number) => void;
@@ -112,6 +153,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   activeTool: "select",
   canvasWidth: 1280,
   canvasHeight: 720,
+  brushSize: 20,
+  brushColor: "#000000",
+  brushOpacity: 1,
   history: [],
   historyIndex: -1,
 
@@ -150,7 +194,43 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       layers: [...newPages[activePageIndex].layers, newLayer],
     };
 
-    set((state) => ({
+    set(() => ({
+      pages: newPages,
+      layers: newPages[activePageIndex].layers,
+      activeLayerIds: [newLayer.id],
+    }));
+  },
+
+  addAnimatedImageLayer: (frames, delays, width, height) => {
+    get().pushHistory();
+    const newLayer: AnimatedImageLayer = {
+      id: crypto.randomUUID(),
+      type: "animated-image",
+      name: "Animated Image",
+      visible: true,
+      locked: false,
+      x: 0,
+      y: 0,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1,
+      opacity: 1,
+      frames,
+      delays,
+      currentFrame: 0,
+      width,
+      height,
+      cornerRadius: 0,
+    };
+
+    const { pages, activePageIndex } = get();
+    const newPages = [...pages];
+    newPages[activePageIndex] = {
+      ...newPages[activePageIndex],
+      layers: [...newPages[activePageIndex].layers, newLayer],
+    };
+
+    set(() => ({
       pages: newPages,
       layers: newPages[activePageIndex].layers,
       activeLayerIds: [newLayer.id],
@@ -191,7 +271,40 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       layers: [...newPages[activePageIndex].layers, newLayer],
     };
 
-    set((state) => ({
+    set(() => ({
+      pages: newPages,
+      layers: newPages[activePageIndex].layers,
+      activeLayerIds: [newLayer.id],
+    }));
+  },
+
+  addDrawLayer: (dataUrl, width, height) => {
+    get().pushHistory();
+    const newLayer: DrawLayer = {
+      id: crypto.randomUUID(),
+      type: "draw",
+      name: "Paint",
+      visible: true,
+      locked: false,
+      x: 0,
+      y: 0,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1,
+      opacity: 1,
+      dataUrl,
+      width,
+      height,
+    };
+
+    const { pages, activePageIndex } = get();
+    const newPages = [...pages];
+    newPages[activePageIndex] = {
+      ...newPages[activePageIndex],
+      layers: [...newPages[activePageIndex].layers, newLayer],
+    };
+
+    set(() => ({
       pages: newPages,
       layers: newPages[activePageIndex].layers,
       activeLayerIds: [newLayer.id],
@@ -228,7 +341,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       layers: [...newPages[activePageIndex].layers, newLayer],
     };
 
-    set((state) => ({
+    set(() => ({
       pages: newPages,
       layers: newPages[activePageIndex].layers,
       activeLayerIds: [newLayer.id],
@@ -246,7 +359,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       layers: currentCallback.layers.filter((l) => l.id !== id),
     };
 
-    set((state) => ({
+    set(() => ({
       pages: newPages,
       layers: newPages[activePageIndex].layers,
       activeLayerIds: activeLayerIds.filter((currentId) => currentId !== id),
@@ -265,14 +378,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     );
     const safeIdsToRemove = new Set(layersToRemove.map((l) => l.id));
 
-    if (safeIdsToRemove.size === 0) return;
+    if (safeIdsToRemove.size === 0) {
+      return;
+    }
 
     newPages[activePageIndex] = {
       ...currentCallback,
       layers: currentCallback.layers.filter((l) => !safeIdsToRemove.has(l.id)),
     };
 
-    set((state) => ({
+    set(() => ({
       pages: newPages,
       layers: newPages[activePageIndex].layers,
       activeLayerIds: activeLayerIds.filter((id) => !safeIdsToRemove.has(id)),
@@ -293,7 +408,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   pasteLayers: () => {
     const { clipboard, pages, activePageIndex } = get();
-    if (!clipboard || clipboard.length === 0) return;
+    if (!clipboard || clipboard.length === 0) {
+      return;
+    }
 
     const newPages = [...pages];
     const currentCallback = newPages[activePageIndex];
@@ -311,11 +428,63 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       layers: [...currentCallback.layers, ...newLayers],
     };
 
-    set((state) => ({
+    set(() => ({
       pages: newPages,
       layers: newPages[activePageIndex].layers,
       activeLayerIds: newLayers.map((l) => l.id), // Select pasted layers
     }));
+  },
+
+  duplicateLayer: (id) => {
+    get().pushHistory();
+    const { layers, pages, activePageIndex } = get();
+    const layer = layers.find((l) => l.id === id);
+    if (!layer) return;
+    const newLayer = {
+      ...JSON.parse(JSON.stringify(layer)),
+      id: crypto.randomUUID(),
+      x: layer.x + 20,
+      y: layer.y + 20,
+    };
+    const newPages = [...pages];
+    newPages[activePageIndex] = {
+      ...newPages[activePageIndex],
+      layers: [...newPages[activePageIndex].layers, newLayer],
+    };
+    set({
+      pages: newPages,
+      layers: newPages[activePageIndex].layers,
+      activeLayerIds: [newLayer.id],
+    });
+  },
+
+  setLayerAsBackground: (id) => {
+    get().pushHistory();
+    const { layers, pages, activePageIndex, canvasWidth, canvasHeight } = get();
+    const layerIndex = layers.findIndex((l) => l.id === id);
+    if (layerIndex === -1) return;
+    const layer = layers[layerIndex];
+    const newLayers = layers.filter((_, i) => i !== layerIndex);
+    const updatedLayer = {
+      ...layer,
+      x: 0,
+      y: 0,
+      scaleX: 1,
+      scaleY: 1,
+      rotation: 0,
+      ...(layer.type === "image" ||
+      layer.type === "animated-image" ||
+      layer.type === "shape"
+        ? { width: canvasWidth, height: canvasHeight }
+        : {}),
+    } as Layer;
+    newLayers.unshift(updatedLayer);
+    const newPages = [...pages];
+    newPages[activePageIndex] = {
+      ...newPages[activePageIndex],
+      layers: newLayers,
+    };
+    set({ pages: newPages, layers: newLayers });
   },
 
   updateLayer: (id, updates) => {
@@ -330,7 +499,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       ),
     };
 
-    set((state) => ({
+    set(() => ({
       pages: newPages,
       layers: newPages[activePageIndex].layers,
     }));
@@ -346,6 +515,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return { activeLayerIds: [...currentIds, id] };
     }),
   setActiveTool: (tool) => set({ activeTool: tool }),
+  setBrushSize: (size) => set({ brushSize: size }),
+  setBrushColor: (color) => set({ brushColor: color }),
+  setBrushOpacity: (opacity) => set({ brushOpacity: opacity }),
 
   moveLayer: (id, direction) => {
     get().pushHistory();
@@ -355,10 +527,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const layers = [...currentCallback.layers];
 
     const index = layers.findIndex((l) => l.id === id);
-    if (index === -1) return;
+    if (index === -1) {
+      return;
+    }
 
     const newIndex = direction === "up" ? index + 1 : index - 1;
-    if (newIndex < 0 || newIndex >= layers.length) return;
+    if (newIndex < 0 || newIndex >= layers.length) {
+      return;
+    }
 
     [layers[index], layers[newIndex]] = [layers[newIndex], layers[index]];
 
@@ -397,7 +573,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       id: crypto.randomUUID(),
       type: "shape",
       shapeType: "rect",
-      name: "Background Layer",
+      name: "Background",
       visible: true,
       locked: true,
       x: 0,
@@ -435,15 +611,17 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   removePage: (index) => {
     get().pushHistory();
     const { pages, activePageIndex } = get();
-    if (pages.length <= 1) return; // Cannot remove last page
+    if (pages.length <= 1) {
+      return; // Cannot remove last page
+    }
 
     const newPages = pages.filter((_, i) => i !== index);
-    const newActiveIndex =
-      index === activePageIndex
-        ? Math.max(0, index - 1)
-        : activePageIndex > index
-          ? activePageIndex - 1
-          : activePageIndex;
+    let newActiveIndex = activePageIndex;
+    if (index === activePageIndex) {
+      newActiveIndex = Math.max(0, index - 1);
+    } else if (activePageIndex > index) {
+      newActiveIndex = activePageIndex - 1;
+    }
 
     set({
       pages: newPages,
@@ -468,7 +646,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     get().pushHistory();
     const { pages } = get();
     const pageToDup = pages[index];
-    if (!pageToDup) return;
+    if (!pageToDup) {
+      return;
+    }
 
     // Deep clone layers
     const newLayers = JSON.parse(JSON.stringify(pageToDup.layers)).map(
@@ -523,8 +703,27 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     });
   },
 
-  setCanvasSize: (width, height) =>
-    set({ canvasWidth: width, canvasHeight: height }),
+  setCanvasSize: (width, height) => {
+    const { pages, activePageIndex } = get();
+    const newPages = pages.map((page) => ({
+      ...page,
+      layers: page.layers.map((layer) =>
+        layer.name === "Background" &&
+        layer.type === "shape" &&
+        layer.x === 0 &&
+        layer.y === 0
+          ? { ...layer, width, height }
+          : layer
+      ),
+    }));
+    const newLayers = newPages[activePageIndex].layers;
+    set({
+      canvasWidth: width,
+      canvasHeight: height,
+      pages: newPages,
+      layers: newLayers,
+    });
+  },
 
   reset: () => {
     const { canvasWidth, canvasHeight } = get();
@@ -532,7 +731,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       id: crypto.randomUUID(),
       type: "shape",
       shapeType: "rect",
-      name: "Background Layer",
+      name: "Background",
       visible: true,
       locked: true,
       x: 0,
@@ -555,6 +754,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       layers: [bgLayer],
       activeLayerIds: [],
       activeTool: "select",
+      brushSize: 20,
+      brushColor: "#000000",
+      brushOpacity: 1,
       history: [],
       historyIndex: -1,
     });
@@ -572,7 +774,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   undo: () => {
     const { history, historyIndex, pages } = get();
-    if (historyIndex < 0) return;
+    if (historyIndex < 0) {
+      return;
+    }
 
     if (historyIndex === history.length - 1) {
       const newHistory = [...history];
@@ -599,7 +803,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   redo: () => {
     const { history, historyIndex } = get();
-    if (historyIndex >= history.length - 1) return;
+    if (historyIndex >= history.length - 1) {
+      return;
+    }
 
     const newIndex = historyIndex + 1;
     const nextPages = history[newIndex];
@@ -618,6 +824,4 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   canUndo: () => get().historyIndex >= 0,
   canRedo: () => get().historyIndex < get().history.length - 1,
-
-  _syncLayers: () => {}, // placeholder
 }));

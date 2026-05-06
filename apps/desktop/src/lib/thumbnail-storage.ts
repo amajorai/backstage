@@ -42,6 +42,9 @@ async function ensureDir(path: string): Promise<void> {
  */
 function dataUrlToBytes(dataUrl: string): Uint8Array {
   const base64 = dataUrl.split(",")[1];
+  if (!base64) {
+    throw new Error("Invalid data URL: missing base64 content");
+  }
   const binaryString = atob(base64);
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
@@ -333,7 +336,6 @@ export async function deleteFromTrash(id: string): Promise<void> {
   try {
     const trashDir = await getTrashDir(id);
     if (await exists(trashDir)) {
-      await remove(trashDir, { recursive: true });
       await remove(trashDir, { recursive: true });
       logger.info(
         { thumbnailId: id },

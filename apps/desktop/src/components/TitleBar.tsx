@@ -7,6 +7,7 @@ import { SnowfallBackground } from "./snow-flakes";
 interface TitleBarProps {
   title?: ReactNode;
   actions?: ReactNode;
+  center?: ReactNode;
   showIcon?: boolean;
   className?: string;
 }
@@ -21,6 +22,7 @@ import {
 export function TitleBar({
   title,
   actions,
+  center,
   showIcon = true,
   className,
 }: TitleBarProps) {
@@ -75,6 +77,12 @@ export function TitleBar({
           )}
           {title && <div className="flex items-center">{title}</div>}
         </div>
+
+        {center && (
+          <div className="absolute left-1/2 z-[1001] -translate-x-1/2">
+            {center}
+          </div>
+        )}
 
         <div className="relative z-[1001] mr-[160px] flex items-center gap-2">
           {actions}

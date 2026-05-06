@@ -3,6 +3,7 @@ import {
   Download,
   MoreHorizontal,
   Pencil,
+  Sparkles,
   Trash2,
   Wand2,
 } from "lucide-react";
@@ -26,6 +27,7 @@ interface ThumbnailActionButtonsProps {
   ) => Promise<void>;
   onRename: (thumbnail: ThumbnailItem) => void;
   onDelete: (thumbnail: ThumbnailItem) => void;
+  onAutoRename: (thumbnail: ThumbnailItem) => Promise<void>;
 }
 
 export function ThumbnailActionButtons({
@@ -34,6 +36,7 @@ export function ThumbnailActionButtons({
   onRemoveBackground,
   onRename,
   onDelete,
+  onAutoRename,
 }: ThumbnailActionButtonsProps) {
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const duplicateThumbnail = useGalleryStore((s) => s.duplicateThumbnail);
@@ -43,6 +46,21 @@ export function ThumbnailActionButtons({
       className="absolute right-2 bottom-2 z-10 flex gap-1"
       onClick={(e) => e.stopPropagation()}
     >
+      <Tooltip>
+        <TooltipTrigger
+          className={buttonVariants({
+            size: "icon-sm",
+            variant: "ghost",
+          })}
+          onClick={async (e) => {
+            e.stopPropagation();
+            await onAutoRename(thumbnail);
+          }}
+        >
+          <Sparkles className="size-4" />
+        </TooltipTrigger>
+        <TooltipContent>Auto Rename with AI</TooltipContent>
+      </Tooltip>
       <Tooltip>
         <TooltipTrigger
           className={buttonVariants({

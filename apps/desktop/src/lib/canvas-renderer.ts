@@ -23,45 +23,62 @@ export async function renderLayersToCanvas(
     ctx.scale(layer.scaleX || 1, layer.scaleY || 1);
     ctx.globalAlpha = layer.opacity;
 
-    if (layer.type === "rect") {
+    if (layer.type === "shape") {
       ctx.fillStyle = layer.fill;
-      if (layer.cornerRadius) {
-        // Simplified rounded rect
+      if (layer.shapeType === "rect") {
+        if (layer.cornerRadius) {
+          // Simplified rounded rect
+          ctx.beginPath();
+          ctx.roundRect(0, 0, layer.width, layer.height, layer.cornerRadius);
+          ctx.fill();
+        } else {
+          ctx.fillRect(0, 0, layer.width, layer.height);
+        }
+        if (layer.strokeWidth > 0) {
+          ctx.strokeStyle = layer.stroke;
+          ctx.lineWidth = layer.strokeWidth;
+          ctx.strokeRect(0, 0, layer.width, layer.height);
+        }
+      } else if (layer.shapeType === "ellipse") {
         ctx.beginPath();
-        ctx.roundRect(0, 0, layer.width, layer.height, layer.cornerRadius);
+        ctx.ellipse(
+          layer.width / 2,
+          layer.height / 2,
+          layer.width / 2,
+          layer.height / 2,
+          0,
+          0,
+          Math.PI * 2
+        );
         ctx.fill();
-      } else {
-        ctx.fillRect(0, 0, layer.width, layer.height);
+        if (layer.strokeWidth > 0) {
+          ctx.strokeStyle = layer.stroke;
+          ctx.lineWidth = layer.strokeWidth;
+          ctx.stroke();
+        }
       }
-      if (layer.strokeWidth > 0) {
-        ctx.strokeStyle = layer.stroke;
-        ctx.lineWidth = layer.strokeWidth;
-        ctx.strokeRect(0, 0, layer.width, layer.height);
-      }
-    } else if (layer.type === "ellipse") {
-      ctx.fillStyle = layer.fill;
-      ctx.beginPath();
-      ctx.ellipse(
-        layer.width / 2,
-        layer.height / 2,
-        layer.width / 2,
-        layer.height / 2,
-        0,
-        0,
-        Math.PI * 2
-      );
-      ctx.fill();
-      if (layer.strokeWidth > 0) {
-        ctx.strokeStyle = layer.stroke;
-        ctx.lineWidth = layer.strokeWidth;
-        ctx.stroke();
-      }
-    } else if (layer.type === "image") {
+    } else if (layer.type === "image" || layer.type === "animated-image") {
       const img = new Image();
-      img.src = layer.dataUrl;
+      // For animated images, use the current frame or the first frame
+      if (layer.type === "animated-image") {
+        const frameIndex = layer.currentFrame ?? 0;
+        img.src = layer.frames[frameIndex];
+      } else {
+        img.src = layer.dataUrl;
+      }
+
       await new Promise((resolve) => {
         img.onload = () => {
-          ctx.drawImage(img, 0, 0, layer.width, layer.height);
+          if (layer.cornerRadius) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.roundRect(0, 0, layer.width, layer.height, layer.cornerRadius);
+            ctx.clip();
+            ctx.drawImage(img, 0, 0, layer.width, layer.height);
+            ctx.restore();
+          } else {
+            ctx.drawImage(img, 0, 0, layer.width, layer.height);
+          }
           resolve(null);
         };
         img.onerror = () => resolve(null);

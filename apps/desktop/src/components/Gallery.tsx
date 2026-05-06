@@ -49,6 +49,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VideoExtractor } from "@/components/VideoExtractor";
 import { useDragSelection } from "@/hooks/use-drag-selection";
 import { openAndLoadImages } from "@/lib/image-file-utils";
+import { useAutoRenameQueue } from "@/stores/use-auto-rename-queue";
 import {
   type ThumbnailItem,
   useGalleryStore,
@@ -80,9 +81,10 @@ export function Gallery({
   const [selectedThumbnail, setSelectedThumbnail] =
     useState<ThumbnailItem | null>(null);
   const [newName, setNewName] = useState("");
+  const addToRenameQueue = useAutoRenameQueue((s) => s.addToQueue);
   const addThumbnail = useGalleryStore((s) => s.addThumbnail);
   const deleteThumbnail = useGalleryStore((s) => s.deleteThumbnail);
-  const updateThumbnailName = useGalleryStore((s) => s.updateThumbnailName);
+  const updateThumbnailName = useGalleryStore((s) => s.updateThumbnailName); // used by rename dialog
   const sortField = useGalleryStore((s) => s.sortField);
   const sortOrder = useGalleryStore((s) => s.sortOrder);
   const rawThumbnails = useGalleryStore((s) => s.thumbnails);
@@ -178,6 +180,13 @@ export function Gallery({
     [addThumbnail, loadFullImageForId]
   );
 
+  const handleAutoRename = useCallback(
+    async (thumbnail: ThumbnailItem) => {
+      addToRenameQueue([{ thumbnailId: thumbnail.id, name: thumbnail.name }]);
+    },
+    [addToRenameQueue]
+  );
+
   const handleRename = useCallback((thumbnail: ThumbnailItem) => {
     setSelectedThumbnail(thumbnail);
     setNewName(thumbnail.name);
@@ -197,6 +206,7 @@ export function Gallery({
         return (
           <ThumbnailGridItem
             isProcessing={processingId === thumbnail.id}
+            onAutoRename={handleAutoRename}
             onDelete={handleDelete}
             onExportClick={onExportClick}
             onRemoveBackground={handleRemoveBackground}
@@ -214,6 +224,7 @@ export function Gallery({
       return (
         <ThumbnailGridItem
           isProcessing={processingId === thumbnail.id}
+          onAutoRename={handleAutoRename}
           onDelete={handleDelete}
           onExportClick={onExportClick}
           onRemoveBackground={handleRemoveBackground}
@@ -234,6 +245,7 @@ export function Gallery({
       projects,
       templates,
       processingId,
+      handleAutoRename,
       handleDelete,
       onExportClick,
       handleRemoveBackground,
@@ -267,30 +279,28 @@ export function Gallery({
         value={activeTab}
       >
         <TitleBar
-          actions={
-            <div className="flex items-center gap-2">
-              <div className="relative z-[50]">
-                <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/50" />
-                <Input
-                  className="h-8 w-48 border-none bg-muted/30 pr-8 pl-9 transition-all focus-visible:w-64 focus-visible:ring-1 focus-visible:ring-primary/20"
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search projects..."
-                  type="text"
-                  value={searchQuery}
-                />
-                {(activeTab === "templates"
-                  ? templates.length
-                  : projects.length) > 0 && (
-                  <Badge
-                    className="absolute top-1/2 right-2 h-5 -translate-y-1/2 border-none bg-primary/10 px-1.5 font-bold text-[10px] text-primary"
-                    variant="outline"
-                  >
-                    {activeTab === "templates"
-                      ? templates.length
-                      : projects.length}
-                  </Badge>
-                )}
-              </div>
+          center={
+            <div className="relative z-[50]">
+              <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/50" />
+              <Input
+                className="h-8 w-64 border-none bg-muted/30 pr-8 pl-9 transition-all focus-visible:w-96 focus-visible:ring-1 focus-visible:ring-primary/20"
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search projects..."
+                type="text"
+                value={searchQuery}
+              />
+              {(activeTab === "templates"
+                ? templates.length
+                : projects.length) > 0 && (
+                <Badge
+                  className="absolute top-1/2 right-2 h-5 -translate-y-1/2 border-none bg-primary/10 px-1.5 font-bold text-[10px] text-primary"
+                  variant="outline"
+                >
+                  {activeTab === "templates"
+                    ? templates.length
+                    : projects.length}
+                </Badge>
+              )}
             </div>
           }
           title={
@@ -316,6 +326,14 @@ export function Gallery({
             <ContextMenuTrigger className="h-full">
               <div
                 className="h-full w-full overflow-hidden"
+                onClick={(e) => {
+                  if (
+                    isSelectionMode &&
+                    !(e.target as HTMLElement).closest("[data-thumbnail-id]")
+                  ) {
+                    exitSelectionMode();
+                  }
+                }}
                 onMouseDown={handleMouseDown}
                 ref={containerRef}
               >

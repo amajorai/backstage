@@ -3,9 +3,9 @@ import type { ViewMode } from "@/App";
 import { Button } from "@/components/ui/button";
 
 const viewModeIcons: Record<ViewMode, React.ReactNode> = {
-  "3": <Grid3X3 className="size-4" />,
-  "4": <Grid2X2 className="size-4" />,
-  "5": <Grid2X2 className="size-3" />,
+  "3": <Grid2X2 className="size-4" />,
+  "4": <Grid2X2 className="size-3.5" />,
+  "5": <Grid3X3 className="size-4" />,
   row: <List className="size-4" />,
 };
 

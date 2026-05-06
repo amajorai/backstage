@@ -1,4 +1,4 @@
-import { Loader2, Settings, Trash2 } from "lucide-react";
+import { Loader2, Settings, Sparkles, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { ViewMode } from "@/App";
@@ -17,6 +17,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useAutoRenameQueue } from "@/stores/use-auto-rename-queue";
 import { useBackgroundRemovalQueue } from "@/stores/use-background-removal-queue";
 import { useGalleryStore } from "@/stores/use-gallery-store";
 import { useSelectionStore } from "@/stores/use-selection-store";
@@ -29,6 +30,8 @@ interface BottomToolbarProps {
   onSettingsClick: () => void;
   onTrashClick: () => void;
   onNewProjectClick: () => void;
+  onAiGenerateClick: () => void;
+  onExportSelected?: () => void;
 }
 
 export function BottomToolbar({
@@ -38,6 +41,8 @@ export function BottomToolbar({
   onSettingsClick,
   onTrashClick,
   onNewProjectClick,
+  onAiGenerateClick,
+  onExportSelected,
 }: BottomToolbarProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -56,15 +61,14 @@ export function BottomToolbar({
   const selectAll = useSelectionStore((s) => s.selectAll);
   const exitSelectionMode = useSelectionStore((s) => s.exitSelectionMode);
 
-  const addToQueue = useBackgroundRemovalQueue((s) => s.addToQueue);
+  const addToBgQueue = useBackgroundRemovalQueue((s) => s.addToQueue);
+  const addToRenameQueue = useAutoRenameQueue((s) => s.addToQueue);
 
   const trashItems = useTrashStore((s) => s.trashItems);
   const trashCount = trashItems.length;
 
   const handleBulkDuplicate = useCallback(async () => {
-    if (isDuplicating) {
-      return;
-    }
+    if (isDuplicating) return;
     setIsDuplicating(true);
     try {
       const ids = Array.from(selectedIds);
@@ -92,15 +96,20 @@ export function BottomToolbar({
   const handleBulkRemoveBackground = useCallback(() => {
     const itemsToProcess = thumbnails
       .filter((t) => selectedIds.has(t.id))
-      .map((t) => ({
-        thumbnailId: t.id,
-        name: t.name,
-      }));
-
-    addToQueue(itemsToProcess);
+      .map((t) => ({ thumbnailId: t.id, name: t.name }));
+    addToBgQueue(itemsToProcess);
     toast.success(`Added ${itemsToProcess.length} items to processing queue`);
     clearSelection();
-  }, [thumbnails, selectedIds, addToQueue, clearSelection]);
+  }, [thumbnails, selectedIds, addToBgQueue, clearSelection]);
+
+  const handleBulkAutoRename = useCallback(() => {
+    const itemsToRename = thumbnails
+      .filter((t) => selectedIds.has(t.id))
+      .map((t) => ({ thumbnailId: t.id, name: t.name }));
+    addToRenameQueue(itemsToRename);
+    toast.success(`Added ${itemsToRename.length} items to rename queue`);
+    clearSelection();
+  }, [thumbnails, selectedIds, addToRenameQueue, clearSelection]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -168,9 +177,11 @@ export function BottomToolbar({
       {isSelectionMode && selectedIds.size > 0 ? (
         <SelectionToolbar
           isDuplicating={isDuplicating}
+          onAutoRename={handleBulkAutoRename}
           onClearSelection={clearSelection}
           onDelete={() => setDeleteDialogOpen(true)}
           onDuplicate={handleBulkDuplicate}
+          onExport={onExportSelected}
           onRemoveBackground={handleBulkRemoveBackground}
           selectedCount={selectedIds.size}
         />
@@ -214,6 +225,15 @@ export function BottomToolbar({
 
         {showDefaultToolbar && (
           <>
+            <Button
+              aria-label="Generate with AI"
+              onClick={onAiGenerateClick}
+              size="icon-sm"
+              title="Generate with AI"
+              variant="ghost"
+            >
+              <Sparkles className="size-4" />
+            </Button>
             <Button
               aria-label="Settings"
               onClick={onSettingsClick}

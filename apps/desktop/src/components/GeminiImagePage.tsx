@@ -36,9 +36,9 @@ import {
 import { getGeminiApiKey } from "@/lib/gemini-store";
 
 interface GeminiImagePageProps {
-  inputImageDataUrl: string;
+  inputImageDataUrl: string | null;
   onClose: () => void;
-  onSaveAsLayer: (dataUrl: string) => void;
+  onSaveAsLayer?: (dataUrl: string) => void;
   onSaveAsImage: (dataUrl: string) => void;
 }
 
@@ -66,6 +66,9 @@ export function GeminiImagePage({
   );
   const [viewingIndex, setViewingIndex] = useState(0);
   const [currentInputUrl, setCurrentInputUrl] = useState(inputImageDataUrl);
+  const [useCanvasAsInput, setUseCanvasAsInput] = useState(
+    inputImageDataUrl !== null
+  );
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [useSelectedAsInput, setUseSelectedAsInput] = useState(false);
@@ -107,7 +110,9 @@ export function GeminiImagePage({
       return;
     }
 
-    let inputImages: string[] = [currentInputUrl];
+    let inputImages: (string | undefined)[] = [
+      useCanvasAsInput && currentInputUrl ? currentInputUrl : undefined,
+    ];
     if (useSelectedAsInput && selectedIndices.size > 0) {
       inputImages = generatedImages
         .filter((_, idx) => selectedIndices.has(idx))
@@ -152,7 +157,7 @@ export function GeminiImagePage({
     setUseSelectedAsInput(false);
 
     if (results.length > 0) {
-      if (inputImages[0] !== currentInputUrl) {
+      if (inputImages[0] && inputImages[0] !== currentInputUrl) {
         setCurrentInputUrl(inputImages[0]);
       }
       toast.success(
@@ -173,6 +178,7 @@ export function GeminiImagePage({
     prompt,
     currentInputUrl,
     generationCount,
+    useCanvasAsInput,
     useSelectedAsInput,
     selectedIndices,
     generatedImages,
@@ -199,6 +205,7 @@ export function GeminiImagePage({
   }, []);
 
   const handleSaveSelectedAsLayers = useCallback(() => {
+    if (!onSaveAsLayer) return;
     const selected = generatedImages.filter((_, idx) =>
       selectedIndices.has(idx)
     );
@@ -225,6 +232,7 @@ export function GeminiImagePage({
   }, [generatedImages, selectedIndices, onSaveAsImage, onClose]);
 
   const handleSaveAllAsLayers = useCallback(() => {
+    if (!onSaveAsLayer) return;
     for (const img of generatedImages) {
       onSaveAsLayer(img.url);
     }
@@ -283,6 +291,7 @@ export function GeminiImagePage({
           error={error}
           generationCount={generationCount}
           hasApiKey={hasApiKey}
+          hasCanvasInput={inputImageDataUrl !== null}
           hasGeneratedImages={hasGeneratedImages}
           hasSelection={hasSelection}
           isGenerating={isGenerating}
@@ -291,10 +300,12 @@ export function GeminiImagePage({
           onGenerationCountChange={setGenerationCount}
           onModelChange={setModel}
           onPromptChange={setPrompt}
+          onUseCanvasAsInputChange={setUseCanvasAsInput}
           onUseSelectedAsInputChange={setUseSelectedAsInput}
           progress={progress}
           prompt={prompt}
           selectedCount={selectedIndices.size}
+          useCanvasAsInput={useCanvasAsInput}
           useSelectedAsInput={useSelectedAsInput}
         />
 
@@ -303,32 +314,46 @@ export function GeminiImagePage({
           <div className="relative flex flex-1 items-center justify-center overflow-auto bg-background p-6">
             {hasGeneratedImages ? (
               <div className="flex h-full w-full flex-col gap-4">
-                {/* Main compare slider */}
+                {/* Main preview / compare slider */}
                 <div className="relative flex-1">
-                  <CompareSlider className="h-full w-full overflow-hidden rounded-lg border border-border">
-                    <CompareSliderAfter>
+                  {useCanvasAsInput && currentInputUrl ? (
+                    <CompareSlider className="h-full w-full overflow-hidden rounded-lg border border-border">
+                      <CompareSliderAfter>
+                        <img
+                          alt="Generated"
+                          className="h-full w-full object-contain"
+                          src={viewingImage?.url}
+                        />
+                      </CompareSliderAfter>
+                      <CompareSliderBefore>
+                        <img
+                          alt="Original"
+                          className="h-full w-full object-contain"
+                          src={currentInputUrl}
+                        />
+                      </CompareSliderBefore>
+                      <CompareSliderHandle />
+                      <span className="pointer-events-none absolute top-3 left-3 z-30 rounded-md border border-border bg-background/80 px-2 py-1 font-medium text-xs backdrop-blur-sm">
+                        Original
+                      </span>
+                      <span className="pointer-events-none absolute top-3 right-3 z-30 rounded-md border border-border bg-background/80 px-2 py-1 font-medium text-xs backdrop-blur-sm">
+                        Version{" "}
+                        {generatedImages.length > 1 ? viewingIndex + 1 : ""}
+                      </span>
+                    </CompareSlider>
+                  ) : (
+                    <div className="relative h-full w-full overflow-hidden rounded-lg border border-border">
                       <img
                         alt="Generated"
                         className="h-full w-full object-contain"
                         src={viewingImage?.url}
                       />
-                    </CompareSliderAfter>
-                    <CompareSliderBefore>
-                      <img
-                        alt="Original"
-                        className="h-full w-full object-contain"
-                        src={currentInputUrl}
-                      />
-                    </CompareSliderBefore>
-                    <CompareSliderHandle />
-                    <span className="pointer-events-none absolute top-3 left-3 z-30 rounded-md border border-border bg-background/80 px-2 py-1 font-medium text-xs backdrop-blur-sm">
-                      Original
-                    </span>
-                    <span className="pointer-events-none absolute top-3 right-3 z-30 rounded-md border border-border bg-background/80 px-2 py-1 font-medium text-xs backdrop-blur-sm">
-                      Version{" "}
-                      {generatedImages.length > 1 ? viewingIndex + 1 : ""}
-                    </span>
-                  </CompareSlider>
+                      <span className="pointer-events-none absolute top-3 right-3 z-30 rounded-md border border-border bg-background/80 px-2 py-1 font-medium text-xs backdrop-blur-sm">
+                        Version{" "}
+                        {generatedImages.length > 1 ? viewingIndex + 1 : ""}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Navigation arrows */}
                   {generatedImages.length > 1 && (
@@ -365,7 +390,7 @@ export function GeminiImagePage({
                   viewingIndex={viewingIndex}
                 />
               </div>
-            ) : (
+            ) : currentInputUrl ? (
               <div className="max-h-full max-w-full overflow-hidden rounded-lg border border-border">
                 <img
                   alt="Input"
@@ -373,45 +398,68 @@ export function GeminiImagePage({
                   src={currentInputUrl}
                 />
               </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-muted-foreground text-sm">
+                <span>Enter a prompt to generate an image from scratch</span>
+              </div>
             )}
           </div>
 
           {/* Footer with save actions */}
           {hasGeneratedImages && (
             <div className="flex shrink-0 items-center justify-end gap-2 bg-background px-4 py-3">
-              <DropdownMenu>
-                <DropdownMenuTrigger>
-                  <Button disabled={!hasSelection} size="sm" variant="ghost">
-                    Save Selected ({selectedIndices.size})
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleSaveSelectedAsLayers}>
-                    <Layers className="mr-2 size-4" />
-                    Save as Layers
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleSaveSelectedAsImages}>
-                    <ImagePlus className="mr-2 size-4" />
-                    Save to Gallery
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {onSaveAsLayer ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger>
+                    <Button disabled={!hasSelection} size="sm" variant="ghost">
+                      Save Selected ({selectedIndices.size})
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleSaveSelectedAsLayers}>
+                      <Layers className="mr-2 size-4" />
+                      Save as Layers
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleSaveSelectedAsImages}>
+                      <ImagePlus className="mr-2 size-4" />
+                      Save to Gallery
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Button
+                  disabled={!hasSelection}
+                  onClick={handleSaveSelectedAsImages}
+                  size="sm"
+                  variant="ghost"
+                >
+                  Save Selected ({selectedIndices.size})
+                </Button>
+              )}
 
-              <DropdownMenu>
-                <DropdownMenuTrigger>
-                  <Button size="sm">Save All ({generatedImages.length})</Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleSaveAllAsLayers}>
-                    <Layers className="mr-2 size-4" />
-                    Save as Layers
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleSaveAllAsImages}>
-                    <ImagePlus className="mr-2 size-4" />
-                    Save to Gallery
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {onSaveAsLayer ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger>
+                    <Button size="sm">
+                      Save All ({generatedImages.length})
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleSaveAllAsLayers}>
+                      <Layers className="mr-2 size-4" />
+                      Save as Layers
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleSaveAllAsImages}>
+                      <ImagePlus className="mr-2 size-4" />
+                      Save to Gallery
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Button onClick={handleSaveAllAsImages} size="sm">
+                  Save All ({generatedImages.length})
+                </Button>
+              )}
             </div>
           )}
         </div>

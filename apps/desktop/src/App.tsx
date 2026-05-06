@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AutoRenameQueue } from "@/components/AutoRenameQueue";
 import { BackgroundRemovalQueue } from "@/components/BackgroundRemovalQueue";
 import { BottomToolbar } from "@/components/BottomToolbar";
 import { ExportDialog } from "@/components/ExportDialog";
@@ -19,6 +20,7 @@ import {
   useGalleryStore,
 } from "@/stores/use-gallery-store";
 import { useLicenseStore } from "@/stores/use-license-store";
+import { useSelectionStore } from "@/stores/use-selection-store";
 
 export type ViewMode = "3" | "4" | "5" | "row";
 type Page = "gallery" | "editor" | "ai-generate" | "trash" | "settings";
@@ -38,7 +40,13 @@ export default function App() {
     useState<ThumbnailItem | null>(null);
   const [exportingThumbnail, setExportingThumbnail] =
     useState<ThumbnailItem | null>(null);
+  const [exportingThumbnails, setExportingThumbnails] = useState<
+    ThumbnailItem[]
+  >([]);
   const [aiInputImage, setAiInputImage] = useState<string | null>(null);
+  const [aiGenerateSource, setAiGenerateSource] = useState<
+    "editor" | "gallery"
+  >("editor");
 
   const saveProject = useGalleryStore((s) => s.saveProject);
 
@@ -68,6 +76,17 @@ export default function App() {
   if (!isValidated) {
     return <LicenseActivation />;
   }
+
+  const handleExportSelected = () => {
+    const { selectedIds } = useSelectionStore.getState();
+    const { thumbnails } = useGalleryStore.getState();
+    const selected = thumbnails.filter((t) => selectedIds.has(t.id));
+    if (selected.length === 1) {
+      setExportingThumbnail(selected[0]);
+    } else if (selected.length > 1) {
+      setExportingThumbnails(selected);
+    }
+  };
 
   const handleEditThumbnail = (thumbnail: ThumbnailItem) => {
     setEditingThumbnail(thumbnail);
@@ -109,12 +128,19 @@ export default function App() {
 
   const handleOpenAiGenerate = (imageDataUrl: string) => {
     setAiInputImage(imageDataUrl);
+    setAiGenerateSource("editor");
+    setPage("ai-generate");
+  };
+
+  const handleOpenAiGenerateFromGallery = () => {
+    setAiInputImage(null);
+    setAiGenerateSource("gallery");
     setPage("ai-generate");
   };
 
   const handleCloseAiGenerate = () => {
     setAiInputImage(null);
-    setPage("editor");
+    setPage(aiGenerateSource);
   };
 
   const handleCreateProject = async (
@@ -182,14 +208,16 @@ export default function App() {
   };
 
   // AI Generate page
-  if (page === "ai-generate" && aiInputImage) {
+  if (page === "ai-generate") {
     return (
       <div className="flex h-screen flex-col bg-background">
         <GeminiImagePage
           inputImageDataUrl={aiInputImage}
           onClose={handleCloseAiGenerate}
           onSaveAsImage={handleSaveAiImage}
-          onSaveAsLayer={handleSaveAiLayer}
+          onSaveAsLayer={
+            aiGenerateSource === "editor" ? handleSaveAiLayer : undefined
+          }
         />
         <Toaster />
       </div>
@@ -250,6 +278,8 @@ export default function App() {
       />
       <BottomToolbar
         onAddVideoClick={() => setShowExtractor(true)}
+        onAiGenerateClick={handleOpenAiGenerateFromGallery}
+        onExportSelected={handleExportSelected}
         onNewProjectClick={() => setNewProjectOpen(true)}
         onSettingsClick={() => setPage("settings")}
         onTrashClick={() => setPage("trash")}
@@ -265,6 +295,12 @@ export default function App() {
           thumbnail={exportingThumbnail}
         />
       )}
+      {exportingThumbnails.length > 0 && (
+        <ExportDialog
+          onClose={() => setExportingThumbnails([])}
+          thumbnails={exportingThumbnails}
+        />
+      )}
       <NewProjectDialog
         onCreate={handleCreateProject}
         onOpenChange={setNewProjectOpen}
@@ -272,6 +308,7 @@ export default function App() {
       />
       <Toaster />
       <BackgroundRemovalQueue />
+      <AutoRenameQueue />
       <UpdateChecker />
     </div>
   );

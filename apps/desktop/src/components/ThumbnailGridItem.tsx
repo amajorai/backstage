@@ -33,6 +33,7 @@ interface ThumbnailGridItemProps {
   ) => Promise<void>;
   onRename: (thumbnail: ThumbnailItem) => void;
   onDelete: (thumbnail: ThumbnailItem) => void;
+  onAutoRename: (thumbnail: ThumbnailItem) => Promise<void>;
 }
 
 export const ThumbnailGridItem = memo(function ThumbnailGridItem({
@@ -43,6 +44,7 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
   onRemoveBackground,
   onRename,
   onDelete,
+  onAutoRename,
 }: ThumbnailGridItemProps) {
   const isSelectionMode = useSelectionStore((s) => s.isSelectionMode);
   const selectedIds = useSelectionStore((s) => s.selectedIds);
@@ -148,6 +150,7 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
               </span>
             ) : isSelectionMode ? null : (
               <ThumbnailActionButtons
+                onAutoRename={onAutoRename}
                 onDelete={onDelete}
                 onExportClick={onExportClick}
                 onRemoveBackground={onRemoveBackground}

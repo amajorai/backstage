@@ -22,7 +22,19 @@ import {
 import { ResizablePanel } from "@/components/ui/resizable-panel";
 import { VerticalResizablePanel } from "@/components/ui/vertical-resizable-panel";
 import { getGeminiApiKey } from "@/lib/gemini-store";
-import { generateCarouselContent } from "@/lib/gemini-text";
+import {
+  type CanvasContext,
+  type CarouselGeneratorConfig,
+  type CarouselSlideKonva,
+  generateCarouselKonvaFull,
+  generateCarouselKonvaTemplate,
+  type KonvaLayerSpec,
+} from "@/lib/gemini-text";
+import {
+  resolveFormattedEmoji,
+  resolveIconToDataUrl,
+} from "@/lib/icon-resolver";
+import { exportTemplate, importTemplate } from "@/lib/template-manager";
 import type { ImageLayer } from "@/stores/use-editor-store";
 import { useEditorStore } from "@/stores/use-editor-store";
 import {
@@ -65,7 +77,7 @@ export function ImageEditor({
   const [projectName, setProjectName] = useState(thumbnail.name);
   const {
     layers,
-    activeLayerId,
+    activeLayerIds,
     addImageLayer,
     setCanvasSize: setStoreCanvasSize,
     reset,
@@ -73,6 +85,7 @@ export function ImageEditor({
     redo,
     historyIndex,
   } = useEditorStore();
+  const activeLayerId = activeLayerIds[0] ?? null;
 
   const hasUnsavedChanges = historyIndex !== savedHistoryIndex;
 
@@ -332,8 +345,11 @@ export function ImageEditor({
           useEditorStore.getState().copyLayers();
         } else if (e.key === "v") {
           e.preventDefault();
-          // Paste
           useEditorStore.getState().pasteLayers();
+        } else if (e.key === "j" || e.key === "J") {
+          e.preventDefault();
+          const { activeLayerIds, duplicateLayer } = useEditorStore.getState();
+          for (const id of activeLayerIds) duplicateLayer(id);
         }
       } else if (e.key === "Backspace" || e.key === "Delete") {
         e.preventDefault();
@@ -415,13 +431,99 @@ export function ImageEditor({
 
   const effectiveScale = fitScale * zoom;
 
+  // Helper to apply a single layer spec from AI-generated Konva JSON
+  const applyLayerSpec = useCallback((spec: KonvaLayerSpec) => {
+    const store = useEditorStore.getState();
+
+    if (spec.type === "text" && spec.text) {
+      store.addTextLayer(spec.text);
+      const id = store.activeLayerId;
+      if (id) {
+        store.updateLayer(id, {
+          name: spec.name || "Text",
+          x: spec.x ?? 50,
+          y: spec.y ?? 50,
+          fontSize: spec.fontSize ?? 32,
+          fontFamily: spec.fontFamily ?? "Inter",
+          fontStyle: spec.fontStyle ?? "normal",
+          fill: spec.fill ?? "#1f2937",
+        });
+      }
+    } else if (spec.type === "shape") {
+      store.addShapeLayer(spec.shapeType ?? "rect");
+      const id = store.activeLayerId;
+      if (id) {
+        store.updateLayer(id, {
+          name: spec.name || "Shape",
+          x: spec.x ?? 0,
+          y: spec.y ?? 0,
+          width: spec.width ?? 200,
+          height: spec.height ?? 200,
+          fill: spec.fill ?? "#3b82f6",
+          stroke: spec.stroke ?? "",
+          strokeWidth: spec.strokeWidth ?? 0,
+          cornerRadius: spec.cornerRadius ?? 0,
+        });
+      }
+    } else if (spec.type === "icon" && spec.iconKeyword) {
+      const dataUrl = resolveIconToDataUrl(
+        spec.iconKeyword,
+        spec.iconLibrary || "lucide",
+        spec.iconSize || 64,
+        spec.iconColor || spec.fill || "#000000"
+      );
+      if (dataUrl) {
+        store.addImageLayer(dataUrl, spec.width || 64, spec.height || 64);
+        const id = store.activeLayerId;
+        if (id) {
+          store.updateLayer(id, {
+            name: spec.name || `Icon: ${spec.iconKeyword}`,
+            x: spec.x ?? 0,
+            y: spec.y ?? 0,
+          });
+        }
+      }
+    } else if (spec.type === "emoji" && spec.emojiKeyword) {
+      const emojiData = resolveFormattedEmoji(spec.emojiKeyword);
+      if (emojiData) {
+        store.addAnimatedImageLayer(
+          emojiData.frames,
+          emojiData.delays,
+          spec.width || 64,
+          spec.height || 64
+        );
+        const id = store.activeLayerId;
+        if (id) {
+          store.updateLayer(id, {
+            name: spec.name || `Emoji: ${spec.emojiKeyword}`,
+            x: spec.x ?? 0,
+            y: spec.y ?? 0,
+          });
+        }
+      }
+    }
+  }, []);
+
+  // Get current canvas context for template mode
+  const getCanvasContext = useCallback((): CanvasContext => {
+    const store = useEditorStore.getState();
+    const currentPage = store.pages[store.activePageIndex];
+    return {
+      width: canvasSize.width,
+      height: canvasSize.height,
+      layers: (currentPage?.layers || []).map((l) => ({
+        name: l.name || "Layer",
+        type: l.type,
+        x: l.x,
+        y: l.y,
+        width: l.width,
+        height: l.height,
+      })),
+    };
+  }, [canvasSize]);
+
   const handleGenerateCarousel = useCallback(
-    async (
-      topic: string,
-      count: number,
-      style: string,
-      mode: "full" | "template"
-    ) => {
+    async (config: CarouselGeneratorConfig) => {
       const apiKey = await getGeminiApiKey();
       if (!apiKey) {
         toast.error("Please set your Gemini API key in Settings");
@@ -429,15 +531,28 @@ export function ImageEditor({
       }
 
       setIsProcessing(true);
+      setShowCarouselGenerator(false);
       const toastId = toast.loading("Generating carousel with Gemini AI...");
 
       try {
-        const slides = await generateCarouselContent(
-          apiKey,
-          topic,
-          count,
-          style
-        );
+        let slides: CarouselSlideKonva[];
+
+        if (config.mode === "full") {
+          slides = await generateCarouselKonvaFull(
+            apiKey,
+            config,
+            canvasSize.width,
+            canvasSize.height
+          );
+        } else {
+          const context = getCanvasContext();
+          slides = await generateCarouselKonvaTemplate(
+            apiKey,
+            config,
+            context,
+            config.count
+          );
+        }
 
         const state = useEditorStore.getState();
         const isPage0Empty =
@@ -448,79 +563,49 @@ export function ImageEditor({
 
         for (let i = 0; i < slides.length; i++) {
           const slide = slides[i];
-          if (i === 0 && isPage0Empty) {
-            // Reuse page 0
-          } else {
-            useEditorStore.getState().addPage();
-          }
 
-          // Background Logic
-          const currentLayers = useEditorStore.getState().layers;
-          const bgLayer = currentLayers.find(
-            (l) => l.name === "Background Layer"
-          );
+          if (config.mode === "full") {
+            // Full mode: Create new pages with all layers
+            if (i === 0 && isPage0Empty) {
+              // Reuse page 0
+            } else {
+              useEditorStore.getState().addPage();
+            }
 
-          if (bgLayer) {
-            if (mode === "full") {
-              useEditorStore.getState().updateLayer(bgLayer.id, {
-                fill: slide.backgroundColor || "#ffffff",
-                width: canvasSize.width,
-                height: canvasSize.height,
-              });
+            // Apply each layer spec from the AI
+            for (const layerSpec of slide.layers) {
+              applyLayerSpec(layerSpec);
             }
           } else {
-            useEditorStore.getState().addShapeLayer("rect");
-            const newBgId = useEditorStore.getState().activeLayerId;
-            if (newBgId) {
-              useEditorStore.getState().updateLayer(newBgId, {
-                x: 0,
-                y: 0,
-                width: canvasSize.width,
-                height: canvasSize.height,
-                fill:
-                  mode === "full"
-                    ? slide.backgroundColor || "#ffffff"
-                    : "#ffffff",
-                name: "Background Layer",
-                locked: true,
-              });
+            // Template mode: Duplicate current page and update matching layers
+            if (i > 0) {
+              useEditorStore.getState().duplicatePage(state.activePageIndex);
             }
-          }
 
-          // Title
-          useEditorStore.getState().addTextLayer(slide.title);
-          const titleId = useEditorStore.getState().activeLayerId;
-          if (titleId) {
-            useEditorStore.getState().updateLayer(titleId, {
-              x: 50,
-              y: 100,
-              fontSize: 64,
-              fontStyle: "bold",
-              fill: slide.textColor || "#1f2937",
-              width: canvasSize.width - 100,
-              name: "Title",
-            });
-          }
+            const currentPage =
+              useEditorStore.getState().pages[
+                useEditorStore.getState().activePageIndex
+              ];
 
-          // Subtitle / Content
-          useEditorStore.getState().addTextLayer(slide.content);
-          const contentId = useEditorStore.getState().activeLayerId;
-          if (contentId) {
-            useEditorStore.getState().updateLayer(contentId, {
-              x: 50,
-              y: 200,
-              fontSize: 32,
-              fill: slide.textColor || "#374151",
-              width: canvasSize.width - 100,
-              name: "Content",
-            });
+            // Update layers by matching names
+            for (const update of slide.layers) {
+              const targetLayer = currentPage.layers.find(
+                (l) => l.name === update.name
+              );
+              if (targetLayer && update.text) {
+                useEditorStore.getState().updateLayer(targetLayer.id, {
+                  text: update.text,
+                  fill: update.fill || targetLayer.fill,
+                });
+              }
+            }
           }
         }
 
         // Go back to first page
         useEditorStore.getState().setActivePage(0);
 
-        toast.success("AI Carousel generated!", { id: toastId });
+        toast.success(`Generated ${slides.length} slides!`, { id: toastId });
       } catch (error) {
         console.error("Carousel generation failed:", error);
         toast.error("Failed to generate carousel. Check console for details.", {
@@ -530,7 +615,7 @@ export function ImageEditor({
         setIsProcessing(false);
       }
     },
-    [canvasSize]
+    [canvasSize, applyLayerSpec, getCanvasContext]
   );
   const [showCarouselGenerator, setShowCarouselGenerator] = useState(false);
 
@@ -542,11 +627,79 @@ export function ImageEditor({
     }
   }, []);
 
+  const handleExportTemplate = useCallback(async () => {
+    setIsProcessing(true);
+    const toastId = toast.loading("Exporting template...");
+    try {
+      const { pages, canvasWidth, canvasHeight } = useEditorStore.getState();
+      await exportTemplate(projectName, pages, canvasWidth, canvasHeight);
+      toast.success("Template exported successfully!", { id: toastId });
+    } catch (error) {
+      console.error("Template export failed:", error);
+      toast.error("Failed to export template", { id: toastId });
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [projectName]);
+
+  const handleImportTemplate = useCallback(async () => {
+    setIsProcessing(true);
+    const toastId = toast.loading("Importing template...");
+    try {
+      const result = await importTemplate();
+      if (!result) {
+        toast.dismiss(toastId);
+        return;
+      }
+
+      const { pages, width, height, name } = result;
+
+      // Update store
+      setStoreCanvasSize(width, height);
+      setCanvasSize({ width, height });
+      setProjectName(name);
+
+      // We need to use setState directly to replace pages as there is no "setPages" action
+      // But we can reset and then add pages.
+      // However, useEditorStore doesn't expose a direct "setPages".
+      // Let's use `reset()` then iteratively add if needed, or add a `loadState` action.
+      // Since we don't want to modify the store contract right now, we can use `replaceState` pattern if available, or hack it?
+      // Actually, standard way is to clear and rebuild.
+
+      // Let's check reset() behavior. It resets pages to [empty_page].
+      useEditorStore.getState().reset();
+
+      // Now we intentionally hack/inject the state because rebuilding page-by-page might be tedious
+      // if we have complex IDs.
+      // But `useEditorStore` is a Zustand store. We can call setState on it directly if exported?
+      // It is not exported as a variable we can setState on from here directly without the hook...
+      // ACTUALLY `useEditorStore.setState({ pages, ... })` works because it's a zustand store!
+
+      useEditorStore.setState({
+        pages,
+        canvasWidth: width,
+        canvasHeight: height,
+        activePageIndex: 0,
+        history: [pages], // Reset history to this state
+        historyIndex: 0,
+      });
+
+      toast.success("Template imported successfully!", { id: toastId });
+    } catch (error) {
+      console.error("Template import failed:", error);
+      toast.error("Failed to import template", { id: toastId });
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [setStoreCanvasSize]);
+
   return (
     <div className="flex h-full flex-col bg-background">
       <EditorHeader
         hasUnsavedChanges={hasUnsavedChanges}
         onClose={onClose}
+        onExportTemplate={handleExportTemplate}
+        onImportTemplate={handleImportTemplate}
         onNameChange={handleNameChange}
         onShowConfirmClose={() => setShowConfirmClose(true)}
         projectName={projectName}
@@ -579,6 +732,11 @@ export function ImageEditor({
         <div className="flex flex-1 flex-col overflow-hidden">
           <div
             className="relative flex flex-1 items-center justify-center overflow-auto bg-neutral-900"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) {
+                useEditorStore.getState().setActiveLayers([]);
+              }
+            }}
             onWheel={handleWheel}
             ref={containerRef}
           >
@@ -591,6 +749,7 @@ export function ImageEditor({
               <KonvaCanvas
                 height={canvasSize.height}
                 onExportRef={exportRef}
+                scale={effectiveScale}
                 width={canvasSize.width}
               />
             </div>
@@ -632,6 +791,9 @@ export function ImageEditor({
       </div>
 
       <CarouselGeneratorDialog
+        currentCanvasContext={
+          showCarouselGenerator ? getCanvasContext() : undefined
+        }
         onGenerate={handleGenerateCarousel}
         onOpenChange={setShowCarouselGenerator}
         open={showCarouselGenerator}

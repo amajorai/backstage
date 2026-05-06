@@ -1,5 +1,6 @@
 import { Bold, Check, ChevronsUpDown, Italic, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { Virtuoso } from "react-virtuoso";
 import { Button } from "@/components/ui/button";
 import {
   ColorPicker,
@@ -10,14 +11,7 @@ import {
   ColorPickerInput,
   ColorPickerTrigger,
 } from "@/components/ui/color-picker";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+import { Command, CommandInput, CommandList } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -43,6 +37,12 @@ export function TextProperties({
 }: TextPropertiesProps) {
   const [openFont, setOpenFont] = useState(false);
   const [searchFont, setSearchFont] = useState("");
+
+  const filteredFonts = useMemo(() => {
+    if (!searchFont) return fontFamilies;
+    const lower = searchFont.toLowerCase();
+    return fontFamilies.filter((f) => f.toLowerCase().includes(lower));
+  }, [fontFamilies, searchFont]);
 
   const toggleBold = () => {
     const current = layer.fontStyle;
@@ -112,50 +112,72 @@ export function TextProperties({
             </Button>
           </PopoverTrigger>
           <PopoverContent className="p-0">
-            <Command>
+            <Command shouldFilter={false}>
               <CommandInput
                 onValueChange={setSearchFont}
                 placeholder="Search font..."
+                value={searchFont}
               />
               <CommandList>
-                <CommandEmpty>
-                  <p className="p-2 text-sm">Font not found.</p>
-                  <button
-                    className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
-                    onClick={() => {
-                      onUpdate({ fontFamily: searchFont });
-                      setOpenFont(false);
+                {filteredFonts.length === 0 ? (
+                  <div className="p-2">
+                    <p className="text-muted-foreground text-sm">
+                      Font not found.
+                    </p>
+                    {searchFont && (
+                      <button
+                        className="mt-1 w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                        onClick={() => {
+                          onUpdate({ fontFamily: searchFont });
+                          setOpenFont(false);
+                        }}
+                        type="button"
+                      >
+                        Use &quot;{searchFont}&quot;
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <Virtuoso
+                    itemContent={(index) => {
+                      const font = filteredFonts[index];
+                      return (
+                        <div
+                          aria-selected={layer.fontFamily === font}
+                          className={cn(
+                            "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
+                            layer.fontFamily === font &&
+                              "bg-accent text-accent-foreground"
+                          )}
+                          onClick={() => {
+                            onUpdate({ fontFamily: font });
+                            setOpenFont(false);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              onUpdate({ fontFamily: font });
+                              setOpenFont(false);
+                            }
+                          }}
+                          role="option"
+                          tabIndex={0}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 size-4 shrink-0",
+                              layer.fontFamily === font
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                          <span className="truncate">{font}</span>
+                        </div>
+                      );
                     }}
-                  >
-                    Use "{searchFont}"
-                  </button>
-                </CommandEmpty>
-                <CommandGroup>
-                  {fontFamilies.map((font) => (
-                    <CommandItem
-                      key={font}
-                      onSelect={(currentValue) => {
-                        // currentValue is lowercased by cmdk usually, but we want the real font name
-                        // We use the font name from the list
-                        onUpdate({ fontFamily: font });
-                        setOpenFont(false);
-                      }}
-                      value={font}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 size-4",
-                          layer.fontFamily === font
-                            ? "opacity-100"
-                            : "opacity-0"
-                        )}
-                      />
-                      <span className="truncate" style={{ fontFamily: font }}>
-                        {font}
-                      </span>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
+                    style={{ height: "300px" }}
+                    totalCount={filteredFonts.length}
+                  />
+                )}
               </CommandList>
             </Command>
           </PopoverContent>

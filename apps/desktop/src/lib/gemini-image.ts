@@ -1,18 +1,23 @@
 import { GoogleGenAI } from "@google/genai";
 
 export type GeminiImageModel =
+  | "gemini-3.1-flash-image-preview"
   | "gemini-3-pro-image-preview"
   | "gemini-2.5-flash-image";
 
 export const GEMINI_IMAGE_MODELS: { value: GeminiImageModel; label: string }[] =
   [
     {
+      value: "gemini-3.1-flash-image-preview",
+      label: "Gemini 3.1 Flash Image (Nano Banana 2)",
+    },
+    {
       value: "gemini-3-pro-image-preview",
-      label: "Gemini 3 Pro Image",
+      label: "Gemini 3 Pro Image (Nano Banana Pro)",
     },
     {
       value: "gemini-2.5-flash-image",
-      label: "Gemini 2.5 Flash Image",
+      label: "Gemini 2.5 Flash Image (Nano Banana)",
     },
   ];
 
@@ -25,32 +30,30 @@ export async function generateImageWithGemini(
   apiKey: string,
   model: GeminiImageModel,
   prompt: string,
-  inputImageBase64: string,
+  inputImageBase64?: string,
   inputMimeType = "image/png"
 ): Promise<GenerateImageResult> {
   const ai = new GoogleGenAI({ apiKey });
 
-  // Remove data URL prefix if present to get raw base64
-  const base64Data = inputImageBase64.includes(",")
-    ? inputImageBase64.split(",")[1]
-    : inputImageBase64;
+  const contentParts: {
+    inlineData?: { mimeType: string; data: string };
+    text?: string;
+  }[] = [];
+
+  if (inputImageBase64) {
+    const base64Data = inputImageBase64.includes(",")
+      ? inputImageBase64.split(",")[1]
+      : inputImageBase64;
+    contentParts.push({
+      inlineData: { mimeType: inputMimeType, data: base64Data },
+    });
+  }
+
+  contentParts.push({ text: prompt });
 
   const response = await ai.models.generateContent({
     model,
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {
-            inlineData: {
-              mimeType: inputMimeType,
-              data: base64Data,
-            },
-          },
-          { text: prompt },
-        ],
-      },
-    ],
+    contents: [{ role: "user", parts: contentParts }],
     config: {
       responseModalities: ["TEXT", "IMAGE"],
     },

@@ -28,7 +28,7 @@
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
     "dev:server": "turbo -F server dev",
-    "dev:desktop": "cd apps/desktop && bun run desktop:dev"
+    "dev:desktop": "turbo -F desktop dev"
   },
   "dependencies": {
     "dotenv": "catalog:",

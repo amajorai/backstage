@@ -105,15 +105,7 @@ export const useGalleryStore = create<GalleryState>()((set, get) => ({
   addThumbnail: async (dataUrl, name) => {
     const now = Date.now();
     const id = crypto.randomUUID();
-    const itemName =
-      name ||
-      `;
-Thumbnail;
-$;
-{
-  get().thumbnails.length + 1;
-}
-`;
+    const itemName = name || `Thumbnail ${get().thumbnails.length + 1}`;
 
     logger.info({ itemName }, "[Gallery] Adding thumbnail");
 
@@ -179,12 +171,7 @@ $;
 
     const newItem: ThumbnailItem = {
       id: newId,
-      name: `;
-$;
-{
-  original.name;
-}
-Copy`,
+      name: `${original.name} Copy`,
       createdAt: now,
       updatedAt: now,
       canvasWidth: original.canvasWidth,

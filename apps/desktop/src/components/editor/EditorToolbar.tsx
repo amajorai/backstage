@@ -1,9 +1,12 @@
 import {
   Bot,
+  Building2,
   Circle,
+  Eraser,
   ImageDown,
   ImagePlus,
   MousePointer,
+  Paintbrush,
   RectangleHorizontal,
   Redo2,
   Smile,
@@ -15,12 +18,18 @@ import {
 import { useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useEditorStore } from "@/stores/use-editor-store";
 import { IconPicker } from "./IconPicker";
+import { LogoPicker } from "./LogoPicker";
 
 interface EditorToolbarProps {
   isProcessing: boolean;
@@ -42,6 +51,7 @@ export function EditorToolbar({
   onAddIcon,
 }: EditorToolbarProps) {
   const [showIconPicker, setShowIconPicker] = useState(false);
+  const [showLogoPicker, setShowLogoPicker] = useState(false);
   const {
     activeTool,
     canUndo,
@@ -56,6 +66,12 @@ export function EditorToolbar({
     updateLayer,
     undo,
     redo,
+    brushSize,
+    brushColor,
+    brushOpacity,
+    setBrushSize,
+    setBrushColor,
+    setBrushOpacity,
   } = useEditorStore();
 
   const activeLayer = layers.find((l) => activeLayerIds.includes(l.id));
@@ -86,6 +102,9 @@ export function EditorToolbar({
     setActiveTool("select");
   };
 
+  const isBrushActive = activeTool === "brush";
+  const isEraserActive = activeTool === "eraser";
+
   return (
     <div className="flex w-12 shrink-0 flex-col items-center gap-1 border-border border-r bg-background py-2">
       <Tooltip>
@@ -101,6 +120,7 @@ export function EditorToolbar({
         </TooltipTrigger>
         <TooltipContent side="right">Select (V)</TooltipContent>
       </Tooltip>
+
       <Tooltip>
         <TooltipTrigger
           aria-label="Add Text"
@@ -111,6 +131,7 @@ export function EditorToolbar({
         </TooltipTrigger>
         <TooltipContent side="right">Add Text (T)</TooltipContent>
       </Tooltip>
+
       <Tooltip>
         <TooltipTrigger
           aria-label="Add Rectangle"
@@ -121,6 +142,7 @@ export function EditorToolbar({
         </TooltipTrigger>
         <TooltipContent side="right">Add Rectangle (R)</TooltipContent>
       </Tooltip>
+
       <Tooltip>
         <TooltipTrigger
           aria-label="Add Ellipse"
@@ -131,6 +153,107 @@ export function EditorToolbar({
         </TooltipTrigger>
         <TooltipContent side="right">Add Ellipse (O)</TooltipContent>
       </Tooltip>
+
+      {/* Brush tool */}
+      <Popover>
+        <PopoverTrigger
+          aria-label="Brush Tool"
+          className={buttonVariants({
+            size: "icon-sm",
+            variant: isBrushActive ? "secondary" : "ghost",
+          })}
+          onClick={() => setActiveTool("brush")}
+        >
+          <Paintbrush className="size-4" />
+        </PopoverTrigger>
+        <PopoverContent className="w-52 p-3" side="right">
+          <p className="mb-2 font-medium text-sm">Brush</p>
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-muted-foreground text-xs">
+                Color
+              </label>
+              <input
+                className="h-8 w-full cursor-pointer rounded border border-border bg-transparent"
+                onChange={(e) => setBrushColor(e.target.value)}
+                type="color"
+                value={brushColor}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-muted-foreground text-xs">
+                Size: {brushSize}px
+              </label>
+              <input
+                className="w-full accent-primary"
+                max={200}
+                min={1}
+                onChange={(e) => setBrushSize(Number(e.target.value))}
+                type="range"
+                value={brushSize}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-muted-foreground text-xs">
+                Opacity: {Math.round(brushOpacity * 100)}%
+              </label>
+              <input
+                className="w-full accent-primary"
+                max={100}
+                min={1}
+                onChange={(e) => setBrushOpacity(Number(e.target.value) / 100)}
+                type="range"
+                value={Math.round(brushOpacity * 100)}
+              />
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      {/* Eraser tool */}
+      <Popover>
+        <PopoverTrigger
+          aria-label="Eraser Tool"
+          className={buttonVariants({
+            size: "icon-sm",
+            variant: isEraserActive ? "secondary" : "ghost",
+          })}
+          onClick={() => setActiveTool("eraser")}
+        >
+          <Eraser className="size-4" />
+        </PopoverTrigger>
+        <PopoverContent className="w-52 p-3" side="right">
+          <p className="mb-2 font-medium text-sm">Eraser</p>
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-muted-foreground text-xs">
+                Size: {brushSize}px
+              </label>
+              <input
+                className="w-full accent-primary"
+                max={200}
+                min={1}
+                onChange={(e) => setBrushSize(Number(e.target.value))}
+                type="range"
+                value={brushSize}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-muted-foreground text-xs">
+                Opacity: {Math.round(brushOpacity * 100)}%
+              </label>
+              <input
+                className="w-full accent-primary"
+                max={100}
+                min={1}
+                onChange={(e) => setBrushOpacity(Number(e.target.value) / 100)}
+                type="range"
+                value={Math.round(brushOpacity * 100)}
+              />
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
 
       <div className="my-1 h-px w-8 bg-border" />
 
@@ -143,6 +266,7 @@ export function EditorToolbar({
         </TooltipTrigger>
         <TooltipContent side="right">Add Image</TooltipContent>
       </Tooltip>
+
       <Tooltip>
         <TooltipTrigger
           className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
@@ -152,6 +276,17 @@ export function EditorToolbar({
         </TooltipTrigger>
         <TooltipContent side="right">Icon Picker</TooltipContent>
       </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger
+          className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
+          onClick={() => setShowLogoPicker(true)}
+        >
+          <Building2 className="size-4" />
+        </TooltipTrigger>
+        <TooltipContent side="right">Logo Picker</TooltipContent>
+      </Tooltip>
+
       <Tooltip>
         <TooltipTrigger asChild>
           <span>
@@ -183,6 +318,7 @@ export function EditorToolbar({
         </TooltipTrigger>
         <TooltipContent side="right">Generate Carousel</TooltipContent>
       </Tooltip>
+
       <Tooltip>
         <TooltipTrigger asChild>
           <span>
@@ -202,6 +338,7 @@ export function EditorToolbar({
           {(!activeLayer || activeLayer.type !== "image") && "(Select Image)"}
         </TooltipContent>
       </Tooltip>
+
       <Tooltip>
         <TooltipTrigger asChild>
           <span>
@@ -239,6 +376,7 @@ export function EditorToolbar({
         </TooltipTrigger>
         <TooltipContent side="right">Undo (Ctrl+Z)</TooltipContent>
       </Tooltip>
+
       <Tooltip>
         <TooltipTrigger asChild>
           <span>
@@ -254,11 +392,13 @@ export function EditorToolbar({
         </TooltipTrigger>
         <TooltipContent side="right">Redo (Ctrl+Y)</TooltipContent>
       </Tooltip>
+
       <IconPicker
         onOpenChange={setShowIconPicker}
         onSelect={onAddIcon}
         open={showIconPicker}
       />
+      <LogoPicker onOpenChange={setShowLogoPicker} open={showLogoPicker} />
     </div>
   );
 }

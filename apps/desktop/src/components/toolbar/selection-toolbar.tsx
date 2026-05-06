@@ -1,4 +1,4 @@
-import { Copy, Loader2, Trash2, Wand2, X } from "lucide-react";
+import { Copy, Loader2, Sparkles, Trash2, Wand2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -13,6 +13,8 @@ interface SelectionToolbarProps {
   onDuplicate: () => void;
   onDelete: () => void;
   onRemoveBackground: () => void;
+  onAutoRename: () => void;
+  onExport?: () => void;
 }
 
 export function SelectionToolbar({
@@ -22,6 +24,8 @@ export function SelectionToolbar({
   onDuplicate,
   onDelete,
   onRemoveBackground,
+  onAutoRename,
+  onExport,
 }: SelectionToolbarProps) {
   return (
     <div className="flex flex-1 items-center justify-center gap-4">
@@ -59,6 +63,17 @@ export function SelectionToolbar({
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
+          <Button onClick={onAutoRename} size="sm" variant="ghost">
+            <Sparkles className="mr-2 size-4" />
+            Auto Rename
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <span>AI rename selected thumbnails</span>
+        </TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
           <Button
             className="text-destructive hover:text-destructive"
             onClick={onDelete}
@@ -84,6 +99,19 @@ export function SelectionToolbar({
           <span>Ctrl+B</span>
         </TooltipContent>
       </Tooltip>
+      {onExport && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button onClick={onExport} size="sm" variant="ghost">
+              <Download className="mr-2 size-4" />
+              Export
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <span>Export selected thumbnails</span>
+          </TooltipContent>
+        </Tooltip>
+      )}
     </div>
   );
 }

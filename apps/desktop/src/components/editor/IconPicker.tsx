@@ -5,6 +5,7 @@ import {
   forwardRef,
   type HTMLAttributes,
   useCallback,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -23,10 +24,17 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { parseAPNGFromUrl } from "@/lib/apng-parser";
 import {
   getAllFluentEmojis,
   getFluentEmojiUrl,
 } from "@/lib/fluent-emoji-manifest";
+import {
+  addRecentIcon,
+  getRecentIcons,
+  type RecentIcon,
+} from "@/lib/recently-used";
+import { useEditorStore } from "@/stores/use-editor-store";
 
 interface IconPickerProps {
   open: boolean;
@@ -67,6 +75,13 @@ export function IconPicker({ open, onOpenChange, onSelect }: IconPickerProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("lucide");
   const [loadingEmoji, setLoadingEmoji] = useState<string | null>(null);
+  const [recentIcons, setRecentIcons] = useState<RecentIcon[]>([]);
+
+  useEffect(() => {
+    if (open) {
+      setRecentIcons(getRecentIcons());
+    }
+  }, [open]);
 
   const lucideList = useMemo(() => {
     try {
@@ -177,6 +192,8 @@ export function IconPicker({ open, onOpenChange, onSelect }: IconPickerProps) {
       const dataUrl = `data:image/svg+xml;base64,${btoa(
         unescape(encodeURIComponent(finalSvg))
       )}`;
+      addRecentIcon({ name, library });
+      setRecentIcons(getRecentIcons());
       onSelect(dataUrl);
       onOpenChange(false);
     } catch (e) {
@@ -184,33 +201,72 @@ export function IconPicker({ open, onOpenChange, onSelect }: IconPickerProps) {
     }
   };
 
-  // Handle Fluent Emoji selection - load image and convert to data URL
+  // Handle Fluent Emoji selection - parse APNG and add animated layer
   const handleFluentSelect = useCallback(
     async (folder: string, name: string) => {
       setLoadingEmoji(name);
       try {
         const url = getFluentEmojiUrl(folder, name);
-        const response = await fetch(url);
-        const blob = await response.blob();
 
-        // Convert blob to data URL
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const dataUrl = reader.result as string;
+        // Parse the APNG to extract frames
+        const parsed = await parseAPNGFromUrl(url);
+
+        if (parsed.isAnimated && parsed.frames.length > 1) {
+          // Add as animated image layer
+          useEditorStore
+            .getState()
+            .addAnimatedImageLayer(
+              parsed.frames,
+              parsed.delays,
+              parsed.width,
+              parsed.height
+            );
+          // Update layer name
+          const id = useEditorStore.getState().activeLayerIds[0];
+          if (id) {
+            useEditorStore.getState().updateLayer(id, { name });
+          }
+        } else {
+          // Static image - use the first frame
+          const dataUrl = parsed.frames[0] || url;
           onSelect(dataUrl);
-          onOpenChange(false);
-          setLoadingEmoji(null);
-        };
-        reader.readAsDataURL(blob);
+        }
+
+        addRecentIcon({ name, library: "fluent", folder });
+        setRecentIcons(getRecentIcons());
+        onOpenChange(false);
+        setLoadingEmoji(null);
       } catch (e) {
         console.error("Error loading emoji", e);
-        setLoadingEmoji(null);
+        // Fallback: try loading as regular image
+        try {
+          const url = getFluentEmojiUrl(folder, name);
+          const response = await fetch(url);
+          const blob = await response.blob();
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const dataUrl = reader.result as string;
+            addRecentIcon({ name, library: "fluent", folder });
+            setRecentIcons(getRecentIcons());
+            onSelect(dataUrl);
+            onOpenChange(false);
+            setLoadingEmoji(null);
+          };
+          reader.readAsDataURL(blob);
+        } catch (fallbackError) {
+          console.error("Fallback also failed", fallbackError);
+          setLoadingEmoji(null);
+        }
       }
     },
     [onSelect, onOpenChange]
   );
 
-  const renderIconButton = (name: string, library: "lucide" | "huge") => {
+  const renderIconButton = (
+    name: string,
+    library: "lucide" | "huge",
+    key?: string
+  ) => {
     const Icon =
       library === "lucide"
         ? (
@@ -228,11 +284,12 @@ export function IconPicker({ open, onOpenChange, onSelect }: IconPickerProps) {
     if (!Icon) return null;
 
     return (
-      <Tooltip>
+      <Tooltip key={key ?? name}>
         <TooltipTrigger asChild>
           <button
             className="flex items-center justify-center rounded border border-transparent p-2 transition-colors hover:border-border hover:bg-muted"
             onClick={() => handleSelect(name, library)}
+            type="button"
           >
             <Icon className="size-7" />
           </button>
@@ -258,6 +315,7 @@ export function IconPicker({ open, onOpenChange, onSelect }: IconPickerProps) {
             className="flex items-center justify-center rounded border border-transparent p-2 transition-colors hover:border-border hover:bg-muted disabled:opacity-50"
             disabled={isLoading}
             onClick={() => handleFluentSelect(emoji.folder, emoji.name)}
+            type="button"
           >
             {isLoading ? (
               <Loader2 className="size-7 animate-spin" />
@@ -278,14 +336,39 @@ export function IconPicker({ open, onOpenChange, onSelect }: IconPickerProps) {
     );
   };
 
+  const recentForTab = recentIcons.filter((r) => {
+    if (activeTab === "fluent") return r.library === "fluent";
+    return r.library === "lucide" || r.library === "huge";
+  });
+
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="flex h-[80vh] max-w-3xl flex-col">
+      <DialogContent className="flex h-[80vh] max-w-3xl flex-col gap-3">
         <DialogHeader>
           <DialogTitle>Icon Picker</DialogTitle>
         </DialogHeader>
 
-        <div className="my-2 flex items-center space-x-2">
+        {recentForTab.length > 0 && (
+          <div>
+            <p className="mb-1 text-muted-foreground text-xs">Recently Used</p>
+            <div className="flex flex-wrap gap-1">
+              {recentForTab.map((r) =>
+                r.library === "fluent" && r.folder
+                  ? renderFluentEmojiButton(
+                      { name: r.name, category: "", folder: r.folder },
+                      -1
+                    )
+                  : renderIconButton(
+                      r.name,
+                      r.library as "lucide" | "huge",
+                      `recent-${r.library}-${r.name}`
+                    )
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center space-x-2">
           <Search className="size-4 text-muted-foreground" />
           <Input
             className="flex-1"
