@@ -207,6 +207,9 @@ function hsvToRgb(hsv: HSVColorValue): ColorValue {
 function colorToString(color: ColorValue, format: ColorFormat = "hex"): string {
   switch (format) {
     case "hex":
+      if (color.a < 1) {
+        return `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`;
+      }
       return rgbToHex(color);
     case "rgb":
       return color.a < 1
@@ -650,7 +653,8 @@ function ColorPickerImpl(props: ColorPickerImplProps) {
   useIsomorphicLayoutEffect(() => {
     if (valueProp !== undefined) {
       const currentState = store.getState();
-      const color = hexToRgb(valueProp, currentState.color.a);
+      const parsed = parseColorString(valueProp);
+      const color = parsed ?? hexToRgb(valueProp, currentState.color.a);
       const hsv = rgbToHsv(color);
       store.setColor(color);
       store.setHsv(hsv);

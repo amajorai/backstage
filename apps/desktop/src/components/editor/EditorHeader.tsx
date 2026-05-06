@@ -1,4 +1,11 @@
-import { ArrowLeft, ChevronDown, Download, Upload } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronDown,
+  Download,
+  Grid2X2,
+  Ruler,
+  Upload,
+} from "lucide-react";
 import { useRef, useState } from "react";
 import { TitleBar } from "@/components/TitleBar";
 import { buttonVariants } from "@/components/ui/button";
@@ -6,6 +13,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -14,6 +22,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useEditorStore } from "@/stores/use-editor-store";
 
 interface EditorHeaderProps {
   projectName: string;
@@ -36,6 +45,7 @@ export function EditorHeader({
 }: EditorHeaderProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const { showRulers, showGrid, toggleRulers, toggleGrid } = useEditorStore();
 
   const handleBack = () => {
     if (hasUnsavedChanges) {
@@ -109,6 +119,40 @@ export function EditorHeader({
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onExportTemplate}>
                 <Download className="mr-2 size-4" /> Export Template
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "sm" }),
+                "h-8 gap-1 px-2 text-muted-foreground hover:text-foreground"
+              )}
+            >
+              View <ChevronDown className="size-3 opacity-50" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={toggleRulers}>
+                <Ruler className="mr-2 size-4" />
+                Rulers
+                {showRulers && (
+                  <span className="ml-auto text-xs opacity-60">✓</span>
+                )}
+                <span className="ml-auto pl-4 text-[10px] opacity-40">
+                  Shift+R
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={toggleGrid}>
+                <Grid2X2 className="mr-2 size-4" />
+                Grid
+                {showGrid && (
+                  <span className="ml-auto text-xs opacity-60">✓</span>
+                )}
+                <span className="ml-auto pl-4 text-[10px] opacity-40">
+                  Shift+G
+                </span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

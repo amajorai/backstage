@@ -43,16 +43,13 @@ interface KonvaCanvasProps {
   startPendingGuideRef?: React.MutableRefObject<
     ((type: "h" | "v") => void) | null
   >;
-  selectionOverflow?: number;
+  workspaceWidth: number;
+  workspaceHeight: number;
+  showGrid?: boolean;
 }
 
 const SNAP_THRESHOLD = 16;
 const UI_COLOR = "#7dd3fc";
-const MIN_SELECTION_OVERFLOW = 300;
-const toCanvasPos = (p: { x: number; y: number }, so: number) => ({
-  x: p.x - so,
-  y: p.y - so,
-});
 
 interface SnapGuides {
   vertical: number[];
@@ -83,10 +80,17 @@ export function KonvaCanvas({
   scale = 1,
   onExportRef,
   startPendingGuideRef,
-  selectionOverflow,
+  workspaceWidth,
+  workspaceHeight,
+  showGrid = false,
 }: KonvaCanvasProps) {
   const inv = 1 / scale;
-  const SO = selectionOverflow ?? MIN_SELECTION_OVERFLOW;
+  const offsetX = (workspaceWidth - width * scale) / 2;
+  const offsetY = (workspaceHeight - height * scale) / 2;
+  const toCanvasPos = (p: { x: number; y: number }) => ({
+    x: (p.x - offsetX) / scale,
+    y: (p.y - offsetY) / scale,
+  });
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
@@ -111,6 +115,13 @@ export function KonvaCanvas({
   const selectedNodesInitialPos = useRef<
     { id: string; x: number; y: number }[]
   >([]);
+  const isCustomDragging = useRef(false);
+  const customDragHasMoved = useRef(false);
+  const customDragStartPointer = useRef<{ x: number; y: number } | null>(null);
+  const customDragStartPositions = useRef<
+    { id: string; x: number; y: number }[]
+  >([]);
+  const justFinishedCustomDragRef = useRef(false);
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
 
   // Brush painting refs and state
@@ -143,6 +154,8 @@ export function KonvaCanvas({
     brushSize,
     brushColor,
     brushOpacity,
+    toggleRulers,
+    toggleGrid,
   } = useEditorStore();
 
   const handleRemoveBackground = useCallback(
@@ -206,6 +219,23 @@ export function KonvaCanvas({
     },
     [addImageLayer, updateLayer, width, height]
   );
+
+  useEffect(() => {
+    const handleViewShortcuts = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.shiftKey && (e.key === "r" || e.key === "R")) {
+        e.preventDefault();
+        toggleRulers();
+      }
+      if (e.shiftKey && (e.key === "g" || e.key === "G")) {
+        e.preventDefault();
+        toggleGrid();
+      }
+    };
+    window.addEventListener("keydown", handleViewShortcuts);
+    return () => window.removeEventListener("keydown", handleViewShortcuts);
+  }, [toggleRulers, toggleGrid]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -308,14 +338,16 @@ export function KonvaCanvas({
         const div = pendingGuideHRef.current;
         if (div) {
           div.style.top = `${pos}px`;
-          div.style.display = pos >= 0 && pos <= height ? "block" : "none";
+          div.style.display =
+            pos >= 0 && pos <= workspaceHeight ? "block" : "none";
         }
       } else {
         const pos = e.clientX - rect.left;
         const div = pendingGuideVRef.current;
         if (div) {
           div.style.left = `${pos}px`;
-          div.style.display = pos >= 0 && pos <= width ? "block" : "none";
+          div.style.display =
+            pos >= 0 && pos <= workspaceWidth ? "block" : "none";
         }
       }
     };
@@ -325,14 +357,26 @@ export function KonvaCanvas({
         const rect = container.getBoundingClientRect();
         if (pendingGuideType === "h") {
           const pos = e.clientY - rect.top;
-          if (pos >= 0 && pos <= height)
-            setUserGuides((prev) => ({ ...prev, h: [...prev.h, pos] }));
+          if (pos >= 0 && pos <= workspaceHeight) {
+            const guideCanvasY = (pos - offsetY) / scale;
+            if (guideCanvasY >= -height && guideCanvasY <= height * 2)
+              setUserGuides((prev) => ({
+                ...prev,
+                h: [...prev.h, guideCanvasY],
+              }));
+          }
           if (pendingGuideHRef.current)
             pendingGuideHRef.current.style.display = "none";
         } else {
           const pos = e.clientX - rect.left;
-          if (pos >= 0 && pos <= width)
-            setUserGuides((prev) => ({ ...prev, v: [...prev.v, pos] }));
+          if (pos >= 0 && pos <= workspaceWidth) {
+            const guideCanvasX = (pos - offsetX) / scale;
+            if (guideCanvasX >= -width && guideCanvasX <= width * 2)
+              setUserGuides((prev) => ({
+                ...prev,
+                v: [...prev.v, guideCanvasX],
+              }));
+          }
           if (pendingGuideVRef.current)
             pendingGuideVRef.current.style.display = "none";
         }
@@ -345,7 +389,16 @@ export function KonvaCanvas({
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [pendingGuideType, width, height]);
+  }, [
+    pendingGuideType,
+    width,
+    height,
+    workspaceWidth,
+    workspaceHeight,
+    offsetX,
+    offsetY,
+    scale,
+  ]);
 
   const editingLayer = layers.find((l) => l.id === editingId) as
     | TextLayerType
@@ -359,17 +412,17 @@ export function KonvaCanvas({
         }
         transformerRef.current?.hide();
         const dataUrl = stageRef.current.toDataURL({
-          pixelRatio: 1,
-          x: SO,
-          y: SO,
-          width,
-          height,
+          pixelRatio: 1 / scale,
+          x: offsetX,
+          y: offsetY,
+          width: width * scale,
+          height: height * scale,
         });
         transformerRef.current?.show();
         return dataUrl;
       };
     }
-  }, [onExportRef, SO, width, height]);
+  }, [onExportRef, scale, offsetX, offsetY, width, height]);
 
   useEffect(() => {
     if (!(transformerRef.current && stageRef.current)) {
@@ -701,7 +754,7 @@ export function KonvaCanvas({
 
       paintCanvas.current = canvas;
 
-      const cp0 = toCanvasPos(pos, SO);
+      const cp0 = toCanvasPos(pos);
       const localPos = worldToLocal(cp0.x, cp0.y, {
         x: layerX,
         y: layerY,
@@ -751,7 +804,7 @@ export function KonvaCanvas({
       const ctx = paintCanvas.current.getContext("2d");
       if (!ctx) return;
 
-      const cp1 = toCanvasPos(pos, SO);
+      const cp1 = toCanvasPos(pos);
       const localPos = worldToLocal(cp1.x, cp1.y, paintPreviewProps);
       const avgScale = Math.sqrt(
         Math.abs(paintPreviewProps.scaleX * paintPreviewProps.scaleY)
@@ -811,8 +864,39 @@ export function KonvaCanvas({
     const pos = stage?.getPointerPosition();
     if (!pos) return;
 
+    // If the hit node is NOT an active layer, check if an active layer is at this
+    // position so we can drag it even when something else is visually on top.
+    const hitId = e.target === stage ? null : e.target.id();
+    const hitIsActive = hitId ? activeLayerIds.includes(hitId) : false;
+
+    if (!hitIsActive && activeLayerIds.length > 0) {
+      const activeAtPos = activeLayerIds.find((id) => {
+        const node = stageRef.current?.findOne(`#${id}`);
+        if (!node) return false;
+        const rect = node.getClientRect({ relativeTo: stageRef.current! });
+        return (
+          pos.x >= rect.x &&
+          pos.x <= rect.x + rect.width &&
+          pos.y >= rect.y &&
+          pos.y <= rect.y + rect.height
+        );
+      });
+
+      if (activeAtPos) {
+        pushHistory();
+        isCustomDragging.current = true;
+        customDragHasMoved.current = false;
+        customDragStartPointer.current = pos;
+        customDragStartPositions.current = activeLayerIds.map((id) => {
+          const layer = layers.find((l) => l.id === id);
+          return { id, x: layer?.x ?? 0, y: layer?.y ?? 0 };
+        });
+        return;
+      }
+    }
+
     if (e.target === stage) {
-      const cp2 = toCanvasPos(pos, SO);
+      const cp2 = toCanvasPos(pos);
       setSelectionBox({
         startX: cp2.x,
         startY: cp2.y,
@@ -832,13 +916,52 @@ export function KonvaCanvas({
       handleBrushMouseMove(e);
       return;
     }
+
+    if (isCustomDragging.current && customDragStartPointer.current) {
+      const stage = e.target.getStage();
+      const pos = stage?.getPointerPosition();
+      if (!pos) return;
+      customDragHasMoved.current = true;
+      const dx = pos.x - customDragStartPointer.current.x;
+      const dy = pos.y - customDragStartPointer.current.y;
+
+      customDragStartPositions.current.forEach(({ id, x, y }) => {
+        const node = stageRef.current?.findOne(`#${id}`);
+        if (node) {
+          node.x(x + dx);
+          node.y(y + dy);
+        }
+      });
+
+      const firstId = customDragStartPositions.current[0]?.id;
+      const firstNode = firstId
+        ? stageRef.current?.findOne(`#${firstId}`)
+        : null;
+      if (firstNode) {
+        const { snapDeltaX, snapDeltaY, guides } = calculateSnap(firstNode);
+        if (snapDeltaX !== 0 || snapDeltaY !== 0) {
+          customDragStartPositions.current.forEach(({ id }) => {
+            const node = stageRef.current?.findOne(`#${id}`);
+            if (node) {
+              node.x(node.x() + snapDeltaX);
+              node.y(node.y() + snapDeltaY);
+            }
+          });
+        }
+        setSnapGuides(guides);
+      }
+
+      stageRef.current?.batchDraw();
+      return;
+    }
+
     if (!selectionBox) return;
 
     const stage = e.target.getStage();
     const pos = stage?.getPointerPosition();
     if (!pos) return;
 
-    const cp3 = toCanvasPos(pos, SO);
+    const cp3 = toCanvasPos(pos);
     setSelectionBox((prev) => {
       if (!prev) return null;
       return {
@@ -856,6 +979,23 @@ export function KonvaCanvas({
       handleBrushMouseUp();
       return;
     }
+
+    if (isCustomDragging.current) {
+      isCustomDragging.current = false;
+      setSnapGuides({ vertical: [], horizontal: [] });
+      if (customDragHasMoved.current) {
+        customDragStartPositions.current.forEach(({ id }) => {
+          const node = stageRef.current?.findOne(`#${id}`);
+          if (node) updateLayer(id, { x: node.x(), y: node.y() });
+        });
+      }
+      customDragHasMoved.current = false;
+      customDragStartPointer.current = null;
+      customDragStartPositions.current = [];
+      justFinishedCustomDragRef.current = true;
+      return;
+    }
+
     if (!selectionBox) return;
 
     const sb = selectionBox;
@@ -910,7 +1050,7 @@ export function KonvaCanvas({
             addTextLayer("Your Text");
             const newLayerId = useEditorStore.getState().activeLayerIds[0];
             if (newLayerId) {
-              const cp4 = toCanvasPos(pos, SO);
+              const cp4 = toCanvasPos(pos);
               updateLayer(newLayerId, { x: cp4.x, y: cp4.y });
             }
           }
@@ -920,7 +1060,7 @@ export function KonvaCanvas({
             addShapeLayer(activeTool);
             const newLayerId = useEditorStore.getState().activeLayerIds[0];
             if (newLayerId) {
-              const cp5 = toCanvasPos(pos, SO);
+              const cp5 = toCanvasPos(pos);
               updateLayer(newLayerId, { x: cp5.x, y: cp5.y });
             }
           }
@@ -934,15 +1074,38 @@ export function KonvaCanvas({
       if (clickedId) {
         if (e.evt.metaKey || e.evt.ctrlKey || e.evt.shiftKey) {
           toggleLayerSelection(clickedId);
-        } else {
-          setActiveLayers([clickedId]);
+        } else if (justFinishedCustomDragRef.current) {
+          // Click was on top of an active layer — keep current selection
+          justFinishedCustomDragRef.current = false;
+        } else if (!activeLayerIds.includes(clickedId)) {
+          // Clicking a non-active node: only change selection if no active
+          // layer is also at this click position (allows click-through)
+          const pos = stageRef.current?.getPointerPosition();
+          const activeAtPos =
+            pos &&
+            activeLayerIds.some((id) => {
+              const node = stageRef.current?.findOne(`#${id}`);
+              if (!node) return false;
+              const rect = node.getClientRect({
+                relativeTo: stageRef.current!,
+              });
+              return (
+                pos.x >= rect.x &&
+                pos.x <= rect.x + rect.width &&
+                pos.y >= rect.y &&
+                pos.y <= rect.y + rect.height
+              );
+            });
+          if (!activeAtPos) setActiveLayers([clickedId]);
         }
       } else {
+        justFinishedCustomDragRef.current = false;
         setActiveLayers([]);
       }
     },
     [
       activeTool,
+      activeLayerIds,
       setActiveLayers,
       toggleLayerSelection,
       addTextLayer,
@@ -1158,16 +1321,21 @@ export function KonvaCanvas({
         if (!rect) return;
         const div = brushCursorRef.current;
         if (div) {
-          div.style.left = `${(e.clientX - rect.left) / scale}px`;
-          div.style.top = `${(e.clientY - rect.top) / scale}px`;
+          div.style.left = `${e.clientX - rect.left}px`;
+          div.style.top = `${e.clientY - rect.top}px`;
           div.style.display = "block";
         }
       }}
       ref={stageContainerRef}
-      style={{ position: "relative", width, height, overflow: "visible" }}
+      style={{
+        position: "relative",
+        width: workspaceWidth,
+        height: workspaceHeight,
+        overflow: "visible",
+      }}
     >
       <Stage
-        height={height + 2 * SO}
+        height={workspaceHeight}
         onClick={handleStageClick}
         onContextMenu={(e) => {
           e.evt.preventDefault();
@@ -1181,10 +1349,10 @@ export function KonvaCanvas({
           if (clickedId && !activeLayerIds.includes(clickedId)) {
             setActiveLayers([clickedId]);
           }
-          const cp6 = toCanvasPos(pos, SO);
+          const cp6 = toCanvasPos(pos);
           setContextMenu({
-            x: (e.evt.clientX - rect.left) / scale,
-            y: (e.evt.clientY - rect.top) / scale,
+            x: e.evt.clientX - rect.left,
+            y: e.evt.clientY - rect.top,
             canvasX: cp6.x,
             canvasY: cp6.y,
             layerId: clickedId,
@@ -1200,21 +1368,21 @@ export function KonvaCanvas({
         ref={stageRef}
         style={{
           position: "absolute",
-          top: -SO,
-          left: -SO,
+          top: 0,
+          left: 0,
           background: "transparent",
         }}
-        width={width + 2 * SO}
+        width={workspaceWidth}
       >
-        <Layer x={SO} y={SO}>
-          {/* Covers overflow area so Konva canvas doesn't show white outside canvas bounds */}
+        <Layer scaleX={scale} scaleY={scale} x={offsetX} y={offsetY}>
+          {/* Covers full workspace area with dark background */}
           <Rect
             fill="#171717"
-            height={height + 2 * SO}
+            height={workspaceHeight / scale}
             listening={false}
-            width={width + 2 * SO}
-            x={-SO}
-            y={-SO}
+            width={workspaceWidth / scale}
+            x={-offsetX / scale}
+            y={-offsetY / scale}
           />
           <Rect
             fill="#262626"
@@ -1224,6 +1392,35 @@ export function KonvaCanvas({
             x={0}
             y={0}
           />
+
+          {showGrid &&
+            (() => {
+              const step = 50;
+              const lines = [];
+              for (let x = step; x < width; x += step) {
+                lines.push(
+                  <Line
+                    key={`grid-v-${x}`}
+                    listening={false}
+                    points={[x, 0, x, height]}
+                    stroke="rgba(255,255,255,0.08)"
+                    strokeWidth={inv}
+                  />
+                );
+              }
+              for (let y = step; y < height; y += step) {
+                lines.push(
+                  <Line
+                    key={`grid-h-${y}`}
+                    listening={false}
+                    points={[0, y, width, y]}
+                    stroke="rgba(255,255,255,0.08)"
+                    strokeWidth={inv}
+                  />
+                );
+              }
+              return lines;
+            })()}
 
           <Group clipHeight={height} clipWidth={width} clipX={0} clipY={0}>
             {layers.map(renderLayer)}
@@ -1371,18 +1568,18 @@ export function KonvaCanvas({
           ))}
 
           <Transformer
-            anchorCornerRadius={2 * inv}
+            anchorCornerRadius={2}
             anchorFill="#fff"
-            anchorSize={10 * inv}
+            anchorSize={10}
             anchorStroke={UI_COLOR}
-            anchorStrokeWidth={1.5 * inv}
+            anchorStrokeWidth={1.5}
             borderStroke={UI_COLOR}
-            borderStrokeWidth={1.5 * inv}
+            borderStrokeWidth={1.5}
             boundBoxFunc={snapBoundBoxFunc}
             onTransform={handleTransformerTransform}
             onTransformEnd={onTransformerEnd}
             ref={transformerRef}
-            rotateAnchorOffset={28 * inv}
+            rotateAnchorOffset={28}
             rotateEnabled={true}
           />
         </Layer>
@@ -1410,14 +1607,14 @@ export function KonvaCanvas({
           }}
           ref={textAreaRef}
           style={{
-            left: editingLayer.x,
-            top: editingLayer.y,
+            left: offsetX + editingLayer.x * scale,
+            top: offsetY + editingLayer.y * scale,
             width: Math.max(
               100,
               (editingLayer.text.length + 1) * editingLayer.fontSize * 0.6
             ),
             height: "auto",
-            fontSize: editingLayer.fontSize,
+            fontSize: editingLayer.fontSize * scale,
             fontFamily: editingLayer.fontFamily,
             fontWeight: editingLayer.fontStyle.includes("bold")
               ? "bold"
@@ -1443,7 +1640,7 @@ export function KonvaCanvas({
           left: 0,
           top: 0,
           width: "100%",
-          height: `${inv}px`,
+          height: "1px",
           background: UI_COLOR,
           opacity: 0.85,
           pointerEvents: "none",
@@ -1457,7 +1654,7 @@ export function KonvaCanvas({
           position: "absolute",
           left: 0,
           top: 0,
-          width: `${inv}px`,
+          width: "1px",
           height: "100%",
           background: UI_COLOR,
           opacity: 0.85,
@@ -1472,8 +1669,8 @@ export function KonvaCanvas({
         style={{
           display: "none",
           position: "absolute",
-          width: brushSize,
-          height: brushSize,
+          width: brushSize * scale,
+          height: brushSize * scale,
           border: "1.5px solid rgba(255,255,255,0.9)",
           boxShadow: "0 0 0 1px rgba(0,0,0,0.6)",
           borderRadius: "50%",
@@ -1524,7 +1721,6 @@ export function KonvaCanvas({
               style={{
                 left: cm.x,
                 top: cm.y,
-                transform: `scale(${inv})`,
                 transformOrigin: "top left",
               }}
             >

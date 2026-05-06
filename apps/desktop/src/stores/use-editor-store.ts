@@ -94,6 +94,11 @@ interface EditorState {
   history: Page[][]; // History now tracks pages snapshot
   historyIndex: number;
   clipboard: Layer[];
+  // View toggles
+  showRulers: boolean;
+  showGrid: boolean;
+  toggleRulers: () => void;
+  toggleGrid: () => void;
   // Layer CRUD
   addImageLayer: (dataUrl: string, width: number, height: number) => void;
   addAnimatedImageLayer: (
@@ -159,6 +164,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   brushOpacity: 1,
   history: [],
   historyIndex: -1,
+  showRulers: true,
+  showGrid: false,
+
+  toggleRulers: () => set((s) => ({ showRulers: !s.showRulers })),
+  toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
 
   _syncLayers: (pages, activeIndex) => {
     set({

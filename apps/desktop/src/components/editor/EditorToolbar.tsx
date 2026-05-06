@@ -15,7 +15,6 @@ import {
   Undo2,
   Wand2,
 } from "lucide-react";
-import { useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Popover,
@@ -39,6 +38,10 @@ interface EditorToolbarProps {
   onSaveLayerAsImage: () => void;
   onGenerateCarousel: () => void;
   onAddIcon: (dataUrl: string) => void;
+  showIconPicker: boolean;
+  onShowIconPickerChange: (open: boolean) => void;
+  showLogoPicker: boolean;
+  onShowLogoPickerChange: (open: boolean) => void;
 }
 
 export function EditorToolbar({
@@ -49,9 +52,11 @@ export function EditorToolbar({
   onSaveLayerAsImage,
   onGenerateCarousel,
   onAddIcon,
+  showIconPicker,
+  onShowIconPickerChange,
+  showLogoPicker,
+  onShowLogoPickerChange,
 }: EditorToolbarProps) {
-  const [showIconPicker, setShowIconPicker] = useState(false);
-  const [showLogoPicker, setShowLogoPicker] = useState(false);
   const {
     activeTool,
     canUndo,
@@ -294,21 +299,21 @@ export function EditorToolbar({
       <Tooltip>
         <TooltipTrigger
           className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
-          onClick={() => setShowIconPicker(true)}
+          onClick={() => onShowIconPickerChange(true)}
         >
           <Smile className="size-4" />
         </TooltipTrigger>
-        <TooltipContent side="right">Icon Picker</TooltipContent>
+        <TooltipContent side="right">Icon Picker (K)</TooltipContent>
       </Tooltip>
 
       <Tooltip>
         <TooltipTrigger
           className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
-          onClick={() => setShowLogoPicker(true)}
+          onClick={() => onShowLogoPickerChange(true)}
         >
           <Building2 className="size-4" />
         </TooltipTrigger>
-        <TooltipContent side="right">Logo Picker</TooltipContent>
+        <TooltipContent side="right">Logo Picker (L)</TooltipContent>
       </Tooltip>
 
       <Tooltip>
@@ -326,8 +331,8 @@ export function EditorToolbar({
           </span>
         </TooltipTrigger>
         <TooltipContent side="right">
-          Save Layer as Image{" "}
-          {(!activeLayer || activeLayer.type !== "image") && "(Select Image)"}
+          Save Layer as Image (Ctrl+Shift+S){" "}
+          {(!activeLayer || activeLayer.type !== "image") && "— Select Image"}
         </TooltipContent>
       </Tooltip>
 
@@ -340,7 +345,7 @@ export function EditorToolbar({
         >
           <Bot className="size-4" />
         </TooltipTrigger>
-        <TooltipContent side="right">Generate Carousel</TooltipContent>
+        <TooltipContent side="right">Generate Carousel (G)</TooltipContent>
       </Tooltip>
 
       <Tooltip>
@@ -358,8 +363,8 @@ export function EditorToolbar({
           </span>
         </TooltipTrigger>
         <TooltipContent side="right">
-          Remove Background{" "}
-          {(!activeLayer || activeLayer.type !== "image") && "(Select Image)"}
+          Remove Background (X){" "}
+          {(!activeLayer || activeLayer.type !== "image") && "— Select Image"}
         </TooltipContent>
       </Tooltip>
 
@@ -378,8 +383,8 @@ export function EditorToolbar({
           </span>
         </TooltipTrigger>
         <TooltipContent side="right">
-          Generate Image{" "}
-          {(!activeLayer || activeLayer.type !== "image") && "(Select Image)"}
+          Generate Image (A){" "}
+          {(!activeLayer || activeLayer.type !== "image") && "— Select Image"}
         </TooltipContent>
       </Tooltip>
 
@@ -418,11 +423,11 @@ export function EditorToolbar({
       </Tooltip>
 
       <IconPicker
-        onOpenChange={setShowIconPicker}
+        onOpenChange={onShowIconPickerChange}
         onSelect={onAddIcon}
         open={showIconPicker}
       />
-      <LogoPicker onOpenChange={setShowLogoPicker} open={showLogoPicker} />
+      <LogoPicker onOpenChange={onShowLogoPickerChange} open={showLogoPicker} />
     </div>
   );
 }

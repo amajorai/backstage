@@ -58,25 +58,26 @@ export function ResizablePanel({
     [width, minWidth, maxWidth, side]
   );
 
+  const handle = (
+    <div
+      aria-label="Resize Panel"
+      aria-valuemax={maxWidth}
+      aria-valuemin={minWidth}
+      aria-valuenow={width}
+      className="flex w-2 shrink-0 cursor-col-resize items-center justify-center hover:bg-accent/20"
+      onMouseDown={handleMouseDown}
+      role="separator"
+      tabIndex={0}
+    >
+      <div className="h-8 w-0.5 rounded-full bg-border" />
+    </div>
+  );
+
   return (
-    <div className={cn("relative flex shrink-0", className)} style={{ width }}>
-      {/* Resize handle - on left side for right panels, right side for left panels */}
-      <div
-        aria-label="Resize Panel"
-        aria-valuemax={maxWidth}
-        aria-valuemin={minWidth}
-        aria-valuenow={width}
-        className={cn(
-          "absolute top-0 bottom-0 z-10 flex w-2 cursor-col-resize items-center justify-center hover:bg-accent/20",
-          side === "right" ? "left-0" : "right-0"
-        )}
-        onMouseDown={handleMouseDown}
-        role="separator"
-        tabIndex={0}
-      >
-        <div className="h-8 w-0.5 rounded-full bg-border" />
-      </div>
-      {children}
+    <div className={cn("flex shrink-0", className)} style={{ width }}>
+      {side === "right" && handle}
+      <div className="min-w-0 flex-1 overflow-hidden">{children}</div>
+      {side === "left" && handle}
     </div>
   );
 }

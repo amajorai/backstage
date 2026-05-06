@@ -96,11 +96,9 @@ export function renderImageLayer(
         id={layer.id}
         image={image}
         key={layer.id}
-        onClick={() => onSelect(layer.id)}
         onDragEnd={(e) => onDragEnd(e, layer.id)}
         onDragMove={onDragMove}
         onDragStart={onDragStart}
-        onTap={() => onSelect(layer.id)}
         onTransformEnd={(e) => onTransformEnd(e, layer)}
         onTransformStart={onTransformStart}
         opacity={layer.opacity}
@@ -123,11 +121,9 @@ export function renderImageLayer(
       draggable={!layer.locked && activeTool === "select" && isActive}
       id={layer.id}
       key={layer.id}
-      onClick={() => onSelect(layer.id)}
       onDragEnd={(e) => onDragEnd(e, layer.id)}
       onDragMove={onDragMove}
       onDragStart={onDragStart}
-      onTap={() => onSelect(layer.id)}
       onTransformEnd={(e) => onTransformEnd(e, layer)}
       onTransformStart={onTransformStart}
       opacity={layer.opacity}
@@ -166,12 +162,10 @@ export function renderTextLayer(
       fontStyle={layer.fontStyle}
       id={layer.id}
       key={layer.id}
-      onClick={() => onSelect(layer.id)}
       onDblClick={() => props.onDblClick?.(layer.id)}
       onDragEnd={(e) => onDragEnd(e, layer.id)}
       onDragMove={onDragMove}
       onDragStart={onDragStart}
-      onTap={() => onSelect(layer.id)}
       onTransformEnd={(e) => onTransformEnd(e, layer)}
       onTransformStart={onTransformStart}
       opacity={layer.opacity}
@@ -217,8 +211,6 @@ export function renderShapeLayer(
     onTransformStart,
     onTransformEnd: (e: Konva.KonvaEventObject<Event>) =>
       onTransformEnd(e, layer),
-    onClick: () => onSelect(layer.id),
-    onTap: () => onSelect(layer.id),
   };
 
   if (layer.shapeType === "ellipse") {
@@ -338,11 +330,9 @@ function AnimatedImageLayerComponent({
         id={layer.id}
         image={image}
         key={layer.id}
-        onClick={() => onSelect(layer.id)}
         onDragEnd={(e) => onDragEnd(e, layer.id)}
         onDragMove={onDragMove}
         onDragStart={onDragStart}
-        onTap={() => onSelect(layer.id)}
         onTransformEnd={(e) => onTransformEnd(e, layer)}
         onTransformStart={onTransformStart}
         opacity={layer.opacity}
@@ -364,11 +354,9 @@ function AnimatedImageLayerComponent({
       draggable={!layer.locked && activeTool === "select" && isActive}
       id={layer.id}
       key={layer.id}
-      onClick={() => onSelect(layer.id)}
       onDragEnd={(e) => onDragEnd(e, layer.id)}
       onDragMove={onDragMove}
       onDragStart={onDragStart}
-      onTap={() => onSelect(layer.id)}
       onTransformEnd={(e) => onTransformEnd(e, layer)}
       onTransformStart={onTransformStart}
       opacity={layer.opacity}
@@ -420,11 +408,9 @@ export function renderDrawLayer(
       id={layer.id}
       image={image}
       key={layer.id}
-      onClick={() => onSelect(layer.id)}
       onDragEnd={(e) => onDragEnd(e, layer.id)}
       onDragMove={onDragMove}
       onDragStart={onDragStart}
-      onTap={() => onSelect(layer.id)}
       onTransformEnd={(e) => onTransformEnd(e, layer)}
       onTransformStart={onTransformStart}
       opacity={layer.opacity}

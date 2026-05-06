@@ -65,6 +65,8 @@ export function ImageEditor({
   const [projectId, setProjectId] = useState<string | null>(thumbnail.id);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showGalleryPicker, setShowGalleryPicker] = useState(false);
+  const [showIconPicker, setShowIconPicker] = useState(false);
+  const [showLogoPicker, setShowLogoPicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
   const [savedHistoryIndex, setSavedHistoryIndex] = useState(-1);
@@ -91,6 +93,8 @@ export function ImageEditor({
     undo,
     redo,
     historyIndex,
+    showRulers,
+    showGrid,
   } = useEditorStore();
   const activeLayerId = activeLayerIds[0] ?? null;
 
@@ -204,13 +208,20 @@ export function ImageEditor({
     return () => resizeObserver.disconnect();
   }, [canvasSize]);
 
-  const handleWheel = useCallback((e: React.WheelEvent) => {
+  const handleWheel = useCallback((e: WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       const delta = e.deltaY > 0 ? -0.1 : 0.1;
       setZoom((prev) => Math.max(0.1, Math.min(5, prev + delta)));
     }
   }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, [handleWheel]);
 
   const handleZoomIn = () => setZoom((prev) => Math.min(5, prev + 0.25));
   const handleZoomOut = () => setZoom((prev) => Math.max(0.1, prev - 0.25));
@@ -443,7 +454,16 @@ export function ImageEditor({
       const isCtrlOrMeta = e.ctrlKey || e.metaKey;
 
       if (isCtrlOrMeta) {
-        if (e.key === "s") {
+        if (e.key === "s" && e.shiftKey) {
+          e.preventDefault();
+          const { activeLayerIds, layers: ls } = useEditorStore.getState();
+          const al = ls.find((l) => l.id === activeLayerIds[0]);
+          if (al?.type === "image") {
+            const imgLayer = al as ImageLayer;
+            addThumbnail(imgLayer.dataUrl, `${imgLayer.name} (Saved)`);
+            toast.success("Layer saved as new thumbnail");
+          }
+        } else if (e.key === "s") {
           e.preventDefault();
           handleSave();
         } else if (e.key === "z" && !e.shiftKey) {
@@ -529,12 +549,47 @@ export function ImageEditor({
           e.preventDefault();
           setShowGalleryPicker(true);
           toast.info("Add Image (I)");
+        } else if (e.key.toLowerCase() === "k") {
+          e.preventDefault();
+          setShowIconPicker(true);
+          toast.info("Icon Picker (K)");
+        } else if (e.key.toLowerCase() === "l") {
+          e.preventDefault();
+          setShowLogoPicker(true);
+          toast.info("Logo Picker (L)");
+        } else if (e.key.toLowerCase() === "g") {
+          e.preventDefault();
+          setShowCarouselGenerator(true);
+          toast.info("Generate Carousel (G)");
+        } else if (e.key.toLowerCase() === "x") {
+          e.preventDefault();
+          const { activeLayerIds: ids, layers: ls } = useEditorStore.getState();
+          const al = ls.find((l) => l.id === ids[0]);
+          if (al?.type === "image") handleRemoveBackground();
+          else toast.info("Select an image layer first");
+        } else if (e.key.toLowerCase() === "a") {
+          e.preventDefault();
+          const { activeLayerIds: ids, layers: ls } = useEditorStore.getState();
+          const al = ls.find((l) => l.id === ids[0]);
+          if (al?.type === "image") {
+            const imgLayer = al as ImageLayer;
+            onAiGenerate(imgLayer.dataUrl);
+          } else {
+            toast.info("Select an image layer first");
+          }
         }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleSave, undo, redo]);
+  }, [
+    handleSave,
+    undo,
+    redo,
+    handleRemoveBackground,
+    onAiGenerate,
+    addThumbnail,
+  ]);
 
   const handleNameChange = useCallback(
     (name: string) => {
@@ -852,6 +907,10 @@ export function ImageEditor({
               toast.success("Layer saved as new thumbnail");
             }
           }}
+          onShowIconPickerChange={setShowIconPicker}
+          onShowLogoPickerChange={setShowLogoPicker}
+          showIconPicker={showIconPicker}
+          showLogoPicker={showLogoPicker}
         />
 
         <div className="flex flex-1 flex-col overflow-hidden">
@@ -862,64 +921,49 @@ export function ImageEditor({
                 useEditorStore.getState().setActiveLayers([]);
               }
             }}
-            onWheel={handleWheel}
             ref={containerRef}
           >
             {/* Corner piece */}
-            <div
-              className="absolute top-0 left-0 z-[11]"
-              style={{
-                width: RULER_SIZE,
-                height: RULER_SIZE,
-                background: "#111",
-              }}
-            />
-            {/* Top ruler — fixed to workspace top edge */}
-            <canvas
-              className="absolute top-0 z-10 cursor-s-resize"
-              height={RULER_SIZE}
-              onMouseDown={handleTopRulerMouseDown}
-              ref={topRulerRef}
-              style={{ left: RULER_SIZE }}
-            />
-            {/* Left ruler — fixed to workspace left edge */}
-            <canvas
-              className="absolute left-0 z-10 cursor-e-resize"
-              onMouseDown={handleLeftRulerMouseDown}
-              ref={leftRulerRef}
-              style={{ top: RULER_SIZE }}
-              width={RULER_SIZE}
-            />
-            <div
-              style={{
-                transform: `scale(${effectiveScale})`,
-                transformOrigin: "center",
-              }}
-            >
-              <KonvaCanvas
-                height={canvasSize.height}
-                onExportRef={exportRef}
-                scale={effectiveScale}
-                selectionOverflow={Math.max(
-                  300,
-                  Math.min(
-                    1000,
-                    Math.ceil(
-                      Math.max(
-                        (workspaceSize.width -
-                          canvasSize.width * effectiveScale) /
-                          (2 * effectiveScale),
-                        (workspaceSize.height -
-                          canvasSize.height * effectiveScale) /
-                          (2 * effectiveScale)
-                      )
-                    ) + 100
-                  )
-                )}
-                startPendingGuideRef={startPendingGuideRef}
-                width={canvasSize.width}
+            {showRulers && (
+              <div
+                className="absolute top-0 left-0 z-[11]"
+                style={{
+                  width: RULER_SIZE,
+                  height: RULER_SIZE,
+                  background: "#111",
+                }}
               />
-            </div>
+            )}
+            {/* Top ruler — fixed to workspace top edge */}
+            {showRulers && (
+              <canvas
+                className="absolute top-0 z-10 cursor-s-resize"
+                height={RULER_SIZE}
+                onMouseDown={handleTopRulerMouseDown}
+                ref={topRulerRef}
+                style={{ left: RULER_SIZE }}
+              />
+            )}
+            {/* Left ruler — fixed to workspace left edge */}
+            {showRulers && (
+              <canvas
+                className="absolute left-0 z-10 cursor-e-resize"
+                onMouseDown={handleLeftRulerMouseDown}
+                ref={leftRulerRef}
+                style={{ top: RULER_SIZE }}
+                width={RULER_SIZE}
+              />
+            )}
+            <KonvaCanvas
+              height={canvasSize.height}
+              onExportRef={exportRef}
+              scale={effectiveScale}
+              showGrid={showGrid}
+              startPendingGuideRef={startPendingGuideRef}
+              width={canvasSize.width}
+              workspaceHeight={workspaceSize.height}
+              workspaceWidth={workspaceSize.width}
+            />
             <div className="absolute bottom-4 left-1/2 z-50 -translate-x-1/2">
               <PageCarousel />
             </div>
