@@ -1,6 +1,6 @@
 import { Image, LayoutTemplate, Plus, Video } from "lucide-react";
 import { useCallback, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,19 +8,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { openAndLoadImages } from "@/lib/image-file-utils";
+import { cn } from "@/lib/utils";
 import { useGalleryStore } from "@/stores/use-gallery-store";
 
 interface AddMenuProps {
   onAddVideoClick: () => void;
   onNewProjectClick: () => void;
-  trigger?: React.ReactNode;
+  /** Content rendered inside the trigger button (replaces default Plus icon). */
+  triggerContent?: React.ReactNode;
+  triggerClassName?: string;
   className?: string;
 }
 
 export function AddMenu({
   onAddVideoClick,
   onNewProjectClick,
-  trigger,
+  triggerContent,
+  triggerClassName,
   className,
 }: AddMenuProps) {
   const [open, setOpen] = useState(false);
@@ -47,12 +51,16 @@ export function AddMenu({
   return (
     <div className={className}>
       <DropdownMenu onOpenChange={setOpen} open={open}>
-        <DropdownMenuTrigger asChild>
-          {trigger || (
-            <Button aria-label="Add" size="icon-sm">
-              <Plus className="size-4" />
-            </Button>
+        <DropdownMenuTrigger
+          aria-label={triggerContent ? undefined : "Add"}
+          className={cn(
+            triggerContent
+              ? buttonVariants({ variant: "ghost", size: "default" })
+              : buttonVariants({ variant: "ghost", size: "icon-sm" }),
+            triggerClassName
           )}
+        >
+          {triggerContent ?? <Plus className="size-4" />}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-max" side="top">
           <DropdownMenuItem onClick={handleNewProject}>

@@ -10,7 +10,7 @@ import {
 import { logger } from "@/lib/logger";
 
 const THUMBNAILS_DIR = "thumbnails";
-const PREVIEW_SIZE = 300; // Preview thumbnail max dimension in pixels
+const PREVIEW_SIZE = 1920; // Preview thumbnail max dimension in pixels
 
 /**
  * Get the base thumbnails directory path
@@ -104,6 +104,31 @@ async function generatePreview(dataUrl: string): Promise<string> {
     img.onerror = () => reject(new Error("Failed to load image for preview"));
     img.src = dataUrl;
   });
+}
+
+/**
+ * Regenerate preview.webp for an existing thumbnail from its full.webp.
+ * Returns the new preview data URL, or null if full image not found.
+ */
+export async function regeneratePreviewFromFull(
+  id: string
+): Promise<string | null> {
+  try {
+    const fullDataUrl = await loadFullImage(id);
+    if (!fullDataUrl) return null;
+
+    const previewDataUrl = await generatePreview(fullDataUrl);
+    const thumbDir = await getThumbDir(id);
+    const previewPath = await join(thumbDir, "preview.webp");
+    await writeFile(previewPath, dataUrlToBytes(previewDataUrl));
+    return previewDataUrl;
+  } catch (error) {
+    logger.error(
+      { err: error, thumbnailId: id },
+      "[ThumbnailStorage] Failed to regenerate preview"
+    );
+    return null;
+  }
 }
 
 /**

@@ -1,13 +1,13 @@
 import {
   BookOpen,
+  Briefcase,
+  Camera,
   Crop,
-  Facebook,
-  Instagram,
-  Linkedin,
+  Globe,
+  MessageSquare,
   Monitor,
+  PlayCircle,
   Smartphone,
-  Twitter,
-  Youtube,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,7 @@ const PRESETS = [
     label: "YouTube Thumbnail",
     width: 1280,
     height: 720,
-    icon: Youtube,
+    icon: PlayCircle,
     description: "16:9 • 1280×720",
   },
   {
@@ -41,7 +41,7 @@ const PRESETS = [
     label: "YouTube Channel Art",
     width: 2560,
     height: 1440,
-    icon: Youtube,
+    icon: PlayCircle,
     description: "16:9 • 2560×1440",
   },
   {
@@ -49,7 +49,7 @@ const PRESETS = [
     label: "Instagram Feed",
     width: 1080,
     height: 1080,
-    icon: Instagram,
+    icon: Camera,
     description: "1:1 • 1080×1080",
   },
   {
@@ -65,7 +65,7 @@ const PRESETS = [
     label: "Twitter / X Post",
     width: 1200,
     height: 675,
-    icon: Twitter,
+    icon: MessageSquare,
     description: "16:9 • 1200×675",
   },
   {
@@ -73,7 +73,7 @@ const PRESETS = [
     label: "LinkedIn Post",
     width: 1200,
     height: 627,
-    icon: Linkedin,
+    icon: Briefcase,
     description: "~16:9 • 1200×627",
   },
   {
@@ -81,7 +81,7 @@ const PRESETS = [
     label: "Facebook Post",
     width: 1200,
     height: 630,
-    icon: Facebook,
+    icon: Globe,
     description: "~16:9 • 1200×630",
   },
   {
@@ -113,7 +113,7 @@ const PRESETS = [
     label: "Instagram Portrait",
     width: 1080,
     height: 1350,
-    icon: Instagram,
+    icon: Camera,
     description: "4:5 • 1080×1350",
   },
 ];

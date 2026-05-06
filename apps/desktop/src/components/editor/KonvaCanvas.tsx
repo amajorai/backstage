@@ -1,6 +1,7 @@
 import Konva from "konva";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Group,
   Image as KonvaImage,
   Layer,
   Line,
@@ -39,11 +40,19 @@ interface KonvaCanvasProps {
   height: number;
   scale?: number;
   onExportRef?: React.MutableRefObject<(() => string) | null>;
+  startPendingGuideRef?: React.MutableRefObject<
+    ((type: "h" | "v") => void) | null
+  >;
+  selectionOverflow?: number;
 }
 
 const SNAP_THRESHOLD = 16;
-const RULER_SIZE = 24;
 const UI_COLOR = "#7dd3fc";
+const MIN_SELECTION_OVERFLOW = 300;
+const toCanvasPos = (p: { x: number; y: number }, so: number) => ({
+  x: p.x - so,
+  y: p.y - so,
+});
 
 interface SnapGuides {
   vertical: number[];
@@ -73,14 +82,15 @@ export function KonvaCanvas({
   height,
   scale = 1,
   onExportRef,
+  startPendingGuideRef,
+  selectionOverflow,
 }: KonvaCanvasProps) {
   const inv = 1 / scale;
+  const SO = selectionOverflow ?? MIN_SELECTION_OVERFLOW;
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
   const stageContainerRef = useRef<HTMLDivElement>(null);
-  const topRulerRef = useRef<HTMLCanvasElement>(null);
-  const leftRulerRef = useRef<HTMLCanvasElement>(null);
   const [snapGuides, setSnapGuides] = useState<SnapGuides>({
     vertical: [],
     horizontal: [],
@@ -280,61 +290,12 @@ export function KonvaCanvas({
     pushHistory();
   }, [pushHistory]);
 
-  // Draw top ruler
+  // Wire up startPendingGuideRef so ImageEditor rulers can trigger guide creation
   useEffect(() => {
-    const canvas = topRulerRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, width, RULER_SIZE);
-    ctx.fillStyle = "#111";
-    ctx.fillRect(0, 0, width, RULER_SIZE);
-    ctx.strokeStyle = "#555";
-    ctx.fillStyle = "#777";
-    ctx.font = "8px sans-serif";
-    ctx.textAlign = "center";
-    for (let x = 0; x <= width; x += 5) {
-      const isMajor = x % 100 === 0;
-      const isMid = x % 50 === 0;
-      const tickH = isMajor ? 10 : isMid ? 7 : 4;
-      ctx.beginPath();
-      ctx.moveTo(x + 0.5, RULER_SIZE);
-      ctx.lineTo(x + 0.5, RULER_SIZE - tickH);
-      ctx.stroke();
-      if (isMajor && x > 0) ctx.fillText(String(x), x, RULER_SIZE - tickH - 2);
+    if (startPendingGuideRef) {
+      startPendingGuideRef.current = setPendingGuideType;
     }
-  }, [width]);
-
-  // Draw left ruler
-  useEffect(() => {
-    const canvas = leftRulerRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, RULER_SIZE, height);
-    ctx.fillStyle = "#111";
-    ctx.fillRect(0, 0, RULER_SIZE, height);
-    ctx.strokeStyle = "#555";
-    ctx.fillStyle = "#777";
-    ctx.font = "8px sans-serif";
-    for (let y = 0; y <= height; y += 5) {
-      const isMajor = y % 100 === 0;
-      const isMid = y % 50 === 0;
-      const tickW = isMajor ? 10 : isMid ? 7 : 4;
-      ctx.beginPath();
-      ctx.moveTo(RULER_SIZE, y + 0.5);
-      ctx.lineTo(RULER_SIZE - tickW, y + 0.5);
-      ctx.stroke();
-      if (isMajor && y > 0) {
-        ctx.save();
-        ctx.translate(RULER_SIZE - tickW - 2, y);
-        ctx.rotate(-Math.PI / 2);
-        ctx.textAlign = "center";
-        ctx.fillText(String(y), 0, 0);
-        ctx.restore();
-      }
-    }
-  }, [height]);
+  });
 
   useEffect(() => {
     if (!pendingGuideType) return;
@@ -386,38 +347,6 @@ export function KonvaCanvas({
     };
   }, [pendingGuideType, width, height]);
 
-  const handleTopRulerMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const container = stageContainerRef.current;
-      if (!container) return;
-      const rect = container.getBoundingClientRect();
-      const pos = e.clientY - rect.top;
-      const div = pendingGuideHRef.current;
-      if (div) {
-        div.style.top = `${pos}px`;
-        div.style.display = "none";
-      }
-      setPendingGuideType("h");
-    },
-    []
-  );
-
-  const handleLeftRulerMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const container = stageContainerRef.current;
-      if (!container) return;
-      const rect = container.getBoundingClientRect();
-      const pos = e.clientX - rect.left;
-      const div = pendingGuideVRef.current;
-      if (div) {
-        div.style.left = `${pos}px`;
-        div.style.display = "none";
-      }
-      setPendingGuideType("v");
-    },
-    []
-  );
-
   const editingLayer = layers.find((l) => l.id === editingId) as
     | TextLayerType
     | undefined;
@@ -429,12 +358,18 @@ export function KonvaCanvas({
           throw new Error("Canvas not ready");
         }
         transformerRef.current?.hide();
-        const dataUrl = stageRef.current.toDataURL({ pixelRatio: 1 });
+        const dataUrl = stageRef.current.toDataURL({
+          pixelRatio: 1,
+          x: SO,
+          y: SO,
+          width,
+          height,
+        });
         transformerRef.current?.show();
         return dataUrl;
       };
     }
-  }, [onExportRef]);
+  }, [onExportRef, SO, width, height]);
 
   useEffect(() => {
     if (!(transformerRef.current && stageRef.current)) {
@@ -758,6 +693,7 @@ export function KonvaCanvas({
           ctx.drawImage(cached, 0, 0);
         } else {
           const tmpImg = new window.Image();
+          tmpImg.crossOrigin = "anonymous";
           tmpImg.src = existingDataUrl;
           if (tmpImg.complete) ctx.drawImage(tmpImg, 0, 0);
         }
@@ -765,7 +701,8 @@ export function KonvaCanvas({
 
       paintCanvas.current = canvas;
 
-      const localPos = worldToLocal(pos.x, pos.y, {
+      const cp0 = toCanvasPos(pos, SO);
+      const localPos = worldToLocal(cp0.x, cp0.y, {
         x: layerX,
         y: layerY,
         rotation: layerRotation,
@@ -814,7 +751,8 @@ export function KonvaCanvas({
       const ctx = paintCanvas.current.getContext("2d");
       if (!ctx) return;
 
-      const localPos = worldToLocal(pos.x, pos.y, paintPreviewProps);
+      const cp1 = toCanvasPos(pos, SO);
+      const localPos = worldToLocal(cp1.x, cp1.y, paintPreviewProps);
       const avgScale = Math.sqrt(
         Math.abs(paintPreviewProps.scaleX * paintPreviewProps.scaleY)
       );
@@ -874,9 +812,10 @@ export function KonvaCanvas({
     if (!pos) return;
 
     if (e.target === stage) {
+      const cp2 = toCanvasPos(pos, SO);
       setSelectionBox({
-        startX: pos.x,
-        startY: pos.y,
+        startX: cp2.x,
+        startY: cp2.y,
         width: 0,
         height: 0,
       });
@@ -899,12 +838,13 @@ export function KonvaCanvas({
     const pos = stage?.getPointerPosition();
     if (!pos) return;
 
+    const cp3 = toCanvasPos(pos, SO);
     setSelectionBox((prev) => {
       if (!prev) return null;
       return {
         ...prev,
-        width: pos.x - prev.startX,
-        height: pos.y - prev.startY,
+        width: cp3.x - prev.startX,
+        height: cp3.y - prev.startY,
       };
     });
   };
@@ -970,7 +910,8 @@ export function KonvaCanvas({
             addTextLayer("Your Text");
             const newLayerId = useEditorStore.getState().activeLayerIds[0];
             if (newLayerId) {
-              updateLayer(newLayerId, { x: pos.x, y: pos.y });
+              const cp4 = toCanvasPos(pos, SO);
+              updateLayer(newLayerId, { x: cp4.x, y: cp4.y });
             }
           }
         } else if (activeTool === "rect" || activeTool === "ellipse") {
@@ -979,7 +920,8 @@ export function KonvaCanvas({
             addShapeLayer(activeTool);
             const newLayerId = useEditorStore.getState().activeLayerIds[0];
             if (newLayerId) {
-              updateLayer(newLayerId, { x: pos.x, y: pos.y });
+              const cp5 = toCanvasPos(pos, SO);
+              updateLayer(newLayerId, { x: cp5.x, y: cp5.y });
             }
           }
         } else {
@@ -1157,6 +1099,7 @@ export function KonvaCanvas({
     const commonProps = {
       layer,
       activeTool,
+      isActive: activeLayerIds.includes(layer.id),
       imageCache,
       onDragStart: handleDragStart,
       onDragMove: handleDragMove,
@@ -1221,55 +1164,10 @@ export function KonvaCanvas({
         }
       }}
       ref={stageContainerRef}
-      style={{ position: "relative", width, height }}
+      style={{ position: "relative", width, height, overflow: "visible" }}
     >
-      {/* Corner piece */}
-      <div
-        style={{
-          position: "absolute",
-          top: -RULER_SIZE * inv,
-          left: -RULER_SIZE * inv,
-          width: RULER_SIZE * inv,
-          height: RULER_SIZE * inv,
-          background: "#111",
-          zIndex: 11,
-        }}
-      />
-      {/* Top ruler */}
-      <canvas
-        height={RULER_SIZE}
-        onMouseDown={handleTopRulerMouseDown}
-        ref={topRulerRef}
-        style={{
-          position: "absolute",
-          top: -RULER_SIZE * inv,
-          left: 0,
-          height: RULER_SIZE * inv,
-          width,
-          cursor: "s-resize",
-          zIndex: 10,
-        }}
-        width={width}
-      />
-      {/* Left ruler */}
-      <canvas
-        height={height}
-        onMouseDown={handleLeftRulerMouseDown}
-        ref={leftRulerRef}
-        style={{
-          position: "absolute",
-          top: 0,
-          left: -RULER_SIZE * inv,
-          width: RULER_SIZE * inv,
-          height,
-          cursor: "e-resize",
-          zIndex: 10,
-        }}
-        width={RULER_SIZE}
-      />
-
       <Stage
-        height={height}
+        height={height + 2 * SO}
         onClick={handleStageClick}
         onContextMenu={(e) => {
           e.evt.preventDefault();
@@ -1283,11 +1181,12 @@ export function KonvaCanvas({
           if (clickedId && !activeLayerIds.includes(clickedId)) {
             setActiveLayers([clickedId]);
           }
+          const cp6 = toCanvasPos(pos, SO);
           setContextMenu({
             x: (e.evt.clientX - rect.left) / scale,
             y: (e.evt.clientY - rect.top) / scale,
-            canvasX: pos.x,
-            canvasY: pos.y,
+            canvasX: cp6.x,
+            canvasY: cp6.y,
             layerId: clickedId,
           });
         }}
@@ -1299,10 +1198,24 @@ export function KonvaCanvas({
         onTouchMove={handleStageMouseMove}
         onTouchStart={handleStageMouseDown}
         ref={stageRef}
-        style={{ background: "#1a1a1a" }}
-        width={width}
+        style={{
+          position: "absolute",
+          top: -SO,
+          left: -SO,
+          background: "transparent",
+        }}
+        width={width + 2 * SO}
       >
-        <Layer>
+        <Layer x={SO} y={SO}>
+          {/* Covers overflow area so Konva canvas doesn't show white outside canvas bounds */}
+          <Rect
+            fill="#171717"
+            height={height + 2 * SO}
+            listening={false}
+            width={width + 2 * SO}
+            x={-SO}
+            y={-SO}
+          />
           <Rect
             fill="#262626"
             height={height}
@@ -1312,23 +1225,25 @@ export function KonvaCanvas({
             y={0}
           />
 
-          {layers.map(renderLayer)}
+          <Group clipHeight={height} clipWidth={width} clipX={0} clipY={0}>
+            {layers.map(renderLayer)}
 
-          {/* Live paint preview during brush/eraser strokes */}
-          {paintPreviewProps && paintCanvas.current && (
-            <KonvaImage
-              height={paintPreviewProps.height}
-              image={paintCanvas.current as unknown as HTMLImageElement}
-              listening={false}
-              ref={paintPreviewNodeRef}
-              rotation={paintPreviewProps.rotation}
-              scaleX={paintPreviewProps.scaleX}
-              scaleY={paintPreviewProps.scaleY}
-              width={paintPreviewProps.width}
-              x={paintPreviewProps.x}
-              y={paintPreviewProps.y}
-            />
-          )}
+            {/* Live paint preview during brush/eraser strokes */}
+            {paintPreviewProps && paintCanvas.current && (
+              <KonvaImage
+                height={paintPreviewProps.height}
+                image={paintCanvas.current as unknown as HTMLImageElement}
+                listening={false}
+                ref={paintPreviewNodeRef}
+                rotation={paintPreviewProps.rotation}
+                scaleX={paintPreviewProps.scaleX}
+                scaleY={paintPreviewProps.scaleY}
+                width={paintPreviewProps.width}
+                x={paintPreviewProps.x}
+                y={paintPreviewProps.y}
+              />
+            )}
+          </Group>
 
           {/* User-created guide lines */}
           {userGuides.h.map((y, i) => (
@@ -1636,6 +1551,51 @@ export function KonvaCanvas({
                       handleRemoveBackground(cm.layerId!)
                     )}
                   {isImage && divider("d3")}
+                  {menuItem("Reset Transform", () => {
+                    pushHistory();
+                    updateLayer(cm.layerId!, {
+                      x: 0,
+                      y: 0,
+                      rotation: 0,
+                      scaleX: 1,
+                      scaleY: 1,
+                    });
+                  })}
+                  {menuItem("Center on Canvas", () => {
+                    const l = layers.find((lay) => lay.id === cm.layerId!);
+                    if (!l) return;
+                    pushHistory();
+                    updateLayer(cm.layerId!, {
+                      x: (width - l.width * l.scaleX) / 2,
+                      y: (height - l.height * l.scaleY) / 2,
+                    });
+                  })}
+                  {menuItem("Fit to Canvas", () => {
+                    const l = layers.find((lay) => lay.id === cm.layerId!);
+                    if (!l) return;
+                    pushHistory();
+                    const s = Math.min(width / l.width, height / l.height);
+                    updateLayer(cm.layerId!, {
+                      scaleX: s,
+                      scaleY: s,
+                      rotation: 0,
+                      x: (width - l.width * s) / 2,
+                      y: (height - l.height * s) / 2,
+                    });
+                  })}
+                  {menuItem("Stretch to Canvas", () => {
+                    const l = layers.find((lay) => lay.id === cm.layerId!);
+                    if (!l) return;
+                    pushHistory();
+                    updateLayer(cm.layerId!, {
+                      scaleX: width / l.width,
+                      scaleY: height / l.height,
+                      rotation: 0,
+                      x: 0,
+                      y: 0,
+                    });
+                  })}
+                  {divider("d-transform")}
                   {menuItem(isLocked ? "Unlock Layer" : "Lock Layer", () =>
                     updateLayer(cm.layerId!, { locked: !isLocked })
                   )}

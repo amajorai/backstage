@@ -155,111 +155,129 @@ export function EditorToolbar({
       </Tooltip>
 
       {/* Brush tool */}
-      <Popover>
-        <PopoverTrigger
-          aria-label="Brush Tool"
-          className={buttonVariants({
-            size: "icon-sm",
-            variant: isBrushActive ? "secondary" : "ghost",
-          })}
-          onClick={() => setActiveTool("brush")}
-        >
-          <Paintbrush className="size-4" />
-        </PopoverTrigger>
-        <PopoverContent className="w-52 p-3" side="right">
-          <p className="mb-2 font-medium text-sm">Brush</p>
-          <p className="mb-2 text-muted-foreground text-xs">
-            [ ] size · {"{ }"} opacity
-          </p>
-          <div className="space-y-3">
-            <div>
-              <label className="mb-1 block text-muted-foreground text-xs">
-                Color
-              </label>
-              <input
-                className="h-8 w-full cursor-pointer rounded border border-border bg-transparent"
-                onChange={(e) => setBrushColor(e.target.value)}
-                type="color"
-                value={brushColor}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-muted-foreground text-xs">
-                Size: {brushSize}px
-              </label>
-              <input
-                className="w-full accent-primary"
-                max={200}
-                min={1}
-                onChange={(e) => setBrushSize(Number(e.target.value))}
-                type="range"
-                value={brushSize}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-muted-foreground text-xs">
-                Opacity: {Math.round(brushOpacity * 100)}%
-              </label>
-              <input
-                className="w-full accent-primary"
-                max={100}
-                min={1}
-                onChange={(e) => setBrushOpacity(Number(e.target.value) / 100)}
-                type="range"
-                value={Math.round(brushOpacity * 100)}
-              />
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span>
+            <Popover>
+              <PopoverTrigger
+                aria-label="Brush Tool"
+                className={buttonVariants({
+                  size: "icon-sm",
+                  variant: isBrushActive ? "secondary" : "ghost",
+                })}
+                onClick={() => setActiveTool("brush")}
+              >
+                <Paintbrush className="size-4" />
+              </PopoverTrigger>
+              <PopoverContent className="w-52 p-3" side="right">
+                <p className="mb-2 font-medium text-sm">Brush</p>
+                <p className="mb-2 text-muted-foreground text-xs">
+                  [ ] size · {"{ }"} opacity
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-muted-foreground text-xs">
+                      Color
+                    </label>
+                    <input
+                      className="h-8 w-full cursor-pointer rounded border border-border bg-transparent"
+                      onChange={(e) => setBrushColor(e.target.value)}
+                      type="color"
+                      value={brushColor}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-muted-foreground text-xs">
+                      Size: {brushSize}px
+                    </label>
+                    <input
+                      className="w-full accent-primary"
+                      max={200}
+                      min={1}
+                      onChange={(e) => setBrushSize(Number(e.target.value))}
+                      type="range"
+                      value={brushSize}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-muted-foreground text-xs">
+                      Opacity: {Math.round(brushOpacity * 100)}%
+                    </label>
+                    <input
+                      className="w-full accent-primary"
+                      max={100}
+                      min={1}
+                      onChange={(e) =>
+                        setBrushOpacity(Number(e.target.value) / 100)
+                      }
+                      type="range"
+                      value={Math.round(brushOpacity * 100)}
+                    />
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="right">Brush (B)</TooltipContent>
+      </Tooltip>
 
       {/* Eraser tool */}
-      <Popover>
-        <PopoverTrigger
-          aria-label="Eraser Tool"
-          className={buttonVariants({
-            size: "icon-sm",
-            variant: isEraserActive ? "secondary" : "ghost",
-          })}
-          onClick={() => setActiveTool("eraser")}
-        >
-          <Eraser className="size-4" />
-        </PopoverTrigger>
-        <PopoverContent className="w-52 p-3" side="right">
-          <p className="mb-2 font-medium text-sm">Eraser</p>
-          <p className="mb-2 text-muted-foreground text-xs">
-            [ ] size · {"{ }"} opacity
-          </p>
-          <div className="space-y-3">
-            <div>
-              <label className="mb-1 block text-muted-foreground text-xs">
-                Size: {brushSize}px
-              </label>
-              <input
-                className="w-full accent-primary"
-                max={200}
-                min={1}
-                onChange={(e) => setBrushSize(Number(e.target.value))}
-                type="range"
-                value={brushSize}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-muted-foreground text-xs">
-                Opacity: {Math.round(brushOpacity * 100)}%
-              </label>
-              <input
-                className="w-full accent-primary"
-                max={100}
-                min={1}
-                onChange={(e) => setBrushOpacity(Number(e.target.value) / 100)}
-                type="range"
-                value={Math.round(brushOpacity * 100)}
-              />
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span>
+            <Popover>
+              <PopoverTrigger
+                aria-label="Eraser Tool"
+                className={buttonVariants({
+                  size: "icon-sm",
+                  variant: isEraserActive ? "secondary" : "ghost",
+                })}
+                onClick={() => setActiveTool("eraser")}
+              >
+                <Eraser className="size-4" />
+              </PopoverTrigger>
+              <PopoverContent className="w-52 p-3" side="right">
+                <p className="mb-2 font-medium text-sm">Eraser</p>
+                <p className="mb-2 text-muted-foreground text-xs">
+                  [ ] size · {"{ }"} opacity
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-muted-foreground text-xs">
+                      Size: {brushSize}px
+                    </label>
+                    <input
+                      className="w-full accent-primary"
+                      max={200}
+                      min={1}
+                      onChange={(e) => setBrushSize(Number(e.target.value))}
+                      type="range"
+                      value={brushSize}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-muted-foreground text-xs">
+                      Opacity: {Math.round(brushOpacity * 100)}%
+                    </label>
+                    <input
+                      className="w-full accent-primary"
+                      max={100}
+                      min={1}
+                      onChange={(e) =>
+                        setBrushOpacity(Number(e.target.value) / 100)
+                      }
+                      type="range"
+                      value={Math.round(brushOpacity * 100)}
+                    />
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="right">Eraser (E)</TooltipContent>
+      </Tooltip>
 
       <div className="my-1 h-px w-8 bg-border" />
 
@@ -270,7 +288,7 @@ export function EditorToolbar({
         >
           <ImagePlus className="size-4" />
         </TooltipTrigger>
-        <TooltipContent side="right">Add Image</TooltipContent>
+        <TooltipContent side="right">Add Image (I)</TooltipContent>
       </Tooltip>
 
       <Tooltip>

@@ -104,6 +104,7 @@ interface EditorState {
   ) => void;
   addTextLayer: (text: string) => void;
   addShapeLayer: (shapeType: "rect" | "ellipse") => void;
+  addEmptyLayer: () => void;
   addDrawLayer: (dataUrl: string, width: number, height: number) => void;
   removeLayer: (id: string) => void;
   removeLayers: (ids: string[]) => void;
@@ -335,6 +336,43 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     };
 
     const { pages, activePageIndex } = get();
+    const newPages = [...pages];
+    newPages[activePageIndex] = {
+      ...newPages[activePageIndex],
+      layers: [...newPages[activePageIndex].layers, newLayer],
+    };
+
+    set(() => ({
+      pages: newPages,
+      layers: newPages[activePageIndex].layers,
+      activeLayerIds: [newLayer.id],
+    }));
+  },
+
+  addEmptyLayer: () => {
+    get().pushHistory();
+    const { pages, activePageIndex, canvasWidth, canvasHeight } = get();
+    const newLayer: ShapeLayer = {
+      id: crypto.randomUUID(),
+      type: "shape",
+      name: "Layer",
+      visible: true,
+      locked: false,
+      x: 0,
+      y: 0,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1,
+      opacity: 1,
+      shapeType: "rect",
+      width: canvasWidth,
+      height: canvasHeight,
+      fill: "rgba(0,0,0,0)",
+      stroke: "rgba(0,0,0,0)",
+      strokeWidth: 0,
+      cornerRadius: 0,
+    };
+
     const newPages = [...pages];
     newPages[activePageIndex] = {
       ...newPages[activePageIndex],

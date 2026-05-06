@@ -178,6 +178,10 @@ export function ExportDialog({
   );
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [customRange, setCustomRange] = useState("");
+  const [layerScope, setLayerScope] = useState<"composite" | "single">(
+    "composite"
+  );
+  const [selectedLayerIndex, setSelectedLayerIndex] = useState(0);
 
   const [isLoadingImage, setIsLoadingImage] = useState(!isBatchMode);
   const [originalDimensions, setOriginalDimensions] = useState({
@@ -234,14 +238,17 @@ export function ExportDialog({
         if (items.length > 0) {
           srcWidth = state.canvasWidth;
           srcHeight = state.canvasHeight;
-          toast.info("Using live editor state");
         }
       } else {
         const data = await loadLayerDataForId(primaryThumbnail.id);
         if (cancelled) return;
 
         if (data && data.length > 0) {
-          items = data;
+          // Normalize old Layer[] format to Page[]
+          const isPageFormat = data.length > 0 && "layers" in data[0];
+          items = isPageFormat
+            ? data
+            : [{ id: crypto.randomUUID(), layers: data }];
           srcWidth = primaryThumbnail.canvasWidth || 0;
           srcHeight = primaryThumbnail.canvasHeight || 0;
         }
@@ -408,7 +415,11 @@ export function ExportDialog({
           ctx.scale(scaleX, scaleY);
         }
 
-        await renderLayersToCanvas(page.layers, sourceW, sourceH, canvas);
+        const layersToRender =
+          layerScope === "single"
+            ? [page.layers[selectedLayerIndex]].filter(Boolean)
+            : page.layers;
+        await renderLayersToCanvas(layersToRender, sourceW, sourceH, canvas);
 
         if (needsScaling) {
           ctx.restore();
@@ -458,6 +469,8 @@ export function ExportDialog({
     selectedIndices,
     primaryThumbnail?.name,
     originalDimensions,
+    layerScope,
+    selectedLayerIndex,
   ]);
 
   // Animated export handler for GIF/MP4
@@ -957,6 +970,65 @@ export function ExportDialog({
               )}
             </div>
           )}
+
+          {/* Layer scope (single mode, image formats only) */}
+          {!isBatchMode &&
+            pages &&
+            pages.length > 0 &&
+            format !== "gif" &&
+            format !== "mp4" &&
+            (() => {
+              const activePage =
+                pages[exportScope === "current" ? 0 : 0] ?? pages[0];
+              const layerList = activePage?.layers ?? [];
+              if (layerList.length <= 1) return null;
+              return (
+                <div className="space-y-3 rounded-lg bg-muted/40 p-4">
+                  <h3 className="font-medium text-sm">Layer Export</h3>
+                  <RadioGroup
+                    className="grid grid-cols-2 gap-2"
+                    onValueChange={(v) =>
+                      setLayerScope(v as "composite" | "single")
+                    }
+                    value={layerScope}
+                  >
+                    <div className="flex items-center space-x-2 rounded-md border border-input bg-background/50 p-2 hover:bg-muted">
+                      <RadioGroupItem id="layer-composite" value="composite" />
+                      <Label
+                        className="cursor-pointer font-normal text-xs"
+                        htmlFor="layer-composite"
+                      >
+                        All layers (composite)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2 rounded-md border border-input bg-background/50 p-2 hover:bg-muted">
+                      <RadioGroupItem id="layer-single" value="single" />
+                      <Label
+                        className="cursor-pointer font-normal text-xs"
+                        htmlFor="layer-single"
+                      >
+                        Single layer
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                  {layerScope === "single" && (
+                    <select
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      onChange={(e) =>
+                        setSelectedLayerIndex(Number(e.target.value))
+                      }
+                      value={selectedLayerIndex}
+                    >
+                      {layerList.map((layer: any, i: number) => (
+                        <option key={layer.id ?? i} value={i}>
+                          {layer.name || `Layer ${i + 1}`}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              );
+            })()}
 
           {/* Format */}
           <div>

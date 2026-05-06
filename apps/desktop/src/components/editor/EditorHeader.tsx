@@ -1,7 +1,7 @@
 import { ArrowLeft, ChevronDown, Download, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { TitleBar } from "@/components/TitleBar";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +13,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 interface EditorHeaderProps {
   projectName: string;
@@ -94,14 +95,13 @@ export function EditorHeader({
           )}
 
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                className="ml-2 h-8 gap-1 px-2 text-muted-foreground hover:text-foreground"
-                size="sm"
-                variant="ghost"
-              >
-                File <ChevronDown className="size-3 opacity-50" />
-              </Button>
+            <DropdownMenuTrigger
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "sm" }),
+                "ml-2 h-8 gap-1 px-2 text-muted-foreground hover:text-foreground"
+              )}
+            >
+              File <ChevronDown className="size-3 opacity-50" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuItem onClick={onImportTemplate}>

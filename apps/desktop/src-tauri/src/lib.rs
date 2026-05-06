@@ -5,6 +5,21 @@ use tauri_plugin_decorum::WebviewWindowExt;
 pub mod secure_storage;
 pub mod security;
 
+#[tauri::command]
+async fn fetch_as_base64(url: String) -> Result<String, String> {
+    let client = reqwest::Client::new();
+    let bytes = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .bytes()
+        .await
+        .map_err(|e| e.to_string())?;
+    use base64::Engine;
+    Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -42,7 +57,8 @@ pub fn run() {
             secure_storage::secure_storage_store_batch,
             secure_storage::secure_storage_retrieve_batch,
             secure_storage::secure_storage_list_keys,
-            secure_storage::secure_storage_clear_all
+            secure_storage::secure_storage_clear_all,
+            fetch_as_base64
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

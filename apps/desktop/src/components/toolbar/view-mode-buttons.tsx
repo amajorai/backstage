@@ -1,9 +1,9 @@
-import { Grid2X2, Grid3X3, List } from "lucide-react";
+import { Grid2X2, Grid3X3, LayoutGrid, List } from "lucide-react";
 import type { ViewMode } from "@/App";
 import { Button } from "@/components/ui/button";
 
 const viewModeIcons: Record<ViewMode, React.ReactNode> = {
-  "3": <Grid2X2 className="size-4" />,
+  "3": <LayoutGrid className="size-4" />,
   "4": <Grid2X2 className="size-3.5" />,
   "5": <Grid3X3 className="size-4" />,
   row: <List className="size-4" />,

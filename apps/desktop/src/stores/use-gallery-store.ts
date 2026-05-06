@@ -5,6 +5,7 @@ import {
   loadFullImage,
   loadLayerData,
   loadPreview,
+  regeneratePreviewFromFull,
   saveLayerData,
   saveThumbnail,
 } from "@/lib/thumbnail-storage";
@@ -633,5 +634,24 @@ export const useGalleryStore = create<GalleryState>()((set, get) => ({
   },
 }));
 
+async function migratePreviewsToV2() {
+  if (localStorage.getItem("previewMigrationV3") === "1") return;
+  const { thumbnails } = useGalleryStore.getState();
+  for (const thumb of thumbnails) {
+    const newUrl = await regeneratePreviewFromFull(thumb.id);
+    if (newUrl) {
+      useGalleryStore.setState((s) => ({
+        previewCache: new Map(s.previewCache).set(thumb.id, newUrl),
+      }));
+    }
+  }
+  localStorage.setItem("previewMigrationV3", "1");
+}
+
 // Initialize on module load
-useGalleryStore.getState().loadFromDb();
+useGalleryStore
+  .getState()
+  .loadFromDb()
+  .then(() => {
+    migratePreviewsToV2();
+  });

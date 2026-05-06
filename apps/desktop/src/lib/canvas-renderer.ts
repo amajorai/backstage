@@ -57,7 +57,11 @@ export async function renderLayersToCanvas(
           ctx.stroke();
         }
       }
-    } else if (layer.type === "image" || layer.type === "animated-image") {
+    } else if (
+      layer.type === "image" ||
+      layer.type === "draw" ||
+      layer.type === "animated-image"
+    ) {
       const img = new Image();
       // For animated images, use the current frame or the first frame
       if (layer.type === "animated-image") {

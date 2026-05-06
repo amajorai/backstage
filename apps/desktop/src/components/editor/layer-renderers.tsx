@@ -13,6 +13,7 @@ import type {
 interface LayerRenderProps {
   layer: EditorLayer;
   activeTool: string;
+  isActive: boolean;
   imageCache: React.MutableRefObject<Map<string, HTMLImageElement>>;
   onDragStart: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onDragMove: (e: Konva.KonvaEventObject<DragEvent>) => void;
@@ -63,6 +64,7 @@ export function renderImageLayer(
   const {
     layer,
     activeTool,
+    isActive,
     imageCache,
     onDragStart,
     onDragMove,
@@ -73,8 +75,9 @@ export function renderImageLayer(
   } = props;
 
   let image = imageCache.current.get(layer.dataUrl);
-  if (!image) {
+  if (!(image && image.crossOrigin)) {
     image = new window.Image();
+    image.crossOrigin = "anonymous";
     image.src = layer.dataUrl;
     imageCache.current.set(layer.dataUrl, image);
   }
@@ -88,7 +91,7 @@ export function renderImageLayer(
   if (!hasCornerRadius) {
     return (
       <Image
-        draggable={!layer.locked && activeTool === "select"}
+        draggable={!layer.locked && activeTool === "select" && isActive}
         height={layer.height}
         id={layer.id}
         image={image}
@@ -117,7 +120,7 @@ export function renderImageLayer(
       clipFunc={(ctx) => {
         drawRoundedRectPath(ctx, layer.width, layer.height, layer.cornerRadius);
       }}
-      draggable={!layer.locked && activeTool === "select"}
+      draggable={!layer.locked && activeTool === "select" && isActive}
       id={layer.id}
       key={layer.id}
       onClick={() => onSelect(layer.id)}
@@ -145,6 +148,7 @@ export function renderTextLayer(
   const {
     layer,
     activeTool,
+    isActive,
     onDragStart,
     onDragMove,
     onDragEnd,
@@ -155,7 +159,7 @@ export function renderTextLayer(
 
   return (
     <Text
-      draggable={!layer.locked && activeTool === "select"}
+      draggable={!layer.locked && activeTool === "select" && isActive}
       fill={layer.fill}
       fontFamily={layer.fontFamily}
       fontSize={layer.fontSize}
@@ -191,6 +195,7 @@ export function renderShapeLayer(
   const {
     layer,
     activeTool,
+    isActive,
     onDragStart,
     onDragMove,
     onDragEnd,
@@ -252,6 +257,7 @@ export function renderShapeLayer(
 function AnimatedImageLayerComponent({
   layer,
   activeTool,
+  isActive,
   imageCache,
   onDragStart,
   onDragMove,
@@ -267,8 +273,10 @@ function AnimatedImageLayerComponent({
   // Preload all frames into cache
   useEffect(() => {
     for (const frameUrl of layer.frames) {
-      if (!imageCache.current.has(frameUrl)) {
+      const cached = imageCache.current.get(frameUrl);
+      if (!(cached && cached.crossOrigin)) {
         const img = new window.Image();
+        img.crossOrigin = "anonymous";
         img.src = frameUrl;
         imageCache.current.set(frameUrl, img);
       }
@@ -310,8 +318,9 @@ function AnimatedImageLayerComponent({
   const image = imageCache.current.get(currentFrameUrl);
 
   // If image not loaded yet, try to get it
-  if (!image) {
+  if (!(image && image.crossOrigin)) {
     const img = new window.Image();
+    img.crossOrigin = "anonymous";
     img.src = currentFrameUrl;
     imageCache.current.set(currentFrameUrl, img);
   }
@@ -324,7 +333,7 @@ function AnimatedImageLayerComponent({
   if (!hasCornerRadius) {
     return (
       <Image
-        draggable={!layer.locked && activeTool === "select"}
+        draggable={!layer.locked && activeTool === "select" && isActive}
         height={layer.height}
         id={layer.id}
         image={image}
@@ -352,7 +361,7 @@ function AnimatedImageLayerComponent({
       clipFunc={(ctx) => {
         drawRoundedRectPath(ctx, layer.width, layer.height, layer.cornerRadius);
       }}
-      draggable={!layer.locked && activeTool === "select"}
+      draggable={!layer.locked && activeTool === "select" && isActive}
       id={layer.id}
       key={layer.id}
       onClick={() => onSelect(layer.id)}
@@ -386,6 +395,7 @@ export function renderDrawLayer(
   const {
     layer,
     activeTool,
+    isActive,
     imageCache,
     onDragStart,
     onDragMove,
@@ -396,15 +406,16 @@ export function renderDrawLayer(
   } = props;
 
   let image = imageCache.current.get(layer.dataUrl);
-  if (!image) {
+  if (!(image && image.crossOrigin)) {
     image = new window.Image();
+    image.crossOrigin = "anonymous";
     image.src = layer.dataUrl;
     imageCache.current.set(layer.dataUrl, image);
   }
 
   return (
     <Image
-      draggable={!layer.locked && activeTool === "select"}
+      draggable={!layer.locked && activeTool === "select" && isActive}
       height={layer.height}
       id={layer.id}
       image={image}

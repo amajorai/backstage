@@ -197,6 +197,14 @@ export function BottomToolbar({
 
       {/* Right side buttons */}
       <div className="flex items-center gap-2">
+        <Button
+          onClick={toggleSelectionMode}
+          size="sm"
+          variant={isSelectionMode ? "secondary" : "ghost"}
+        >
+          {isSelectionMode ? "Cancel" : "Select"}
+        </Button>
+
         {showDefaultToolbar && (
           <Button
             aria-label="Trash"
@@ -214,14 +222,6 @@ export function BottomToolbar({
             )}
           </Button>
         )}
-
-        <Button
-          onClick={toggleSelectionMode}
-          size="sm"
-          variant={isSelectionMode ? "secondary" : "ghost"}
-        >
-          {isSelectionMode ? "Cancel" : "Select"}
-        </Button>
 
         {showDefaultToolbar && (
           <>

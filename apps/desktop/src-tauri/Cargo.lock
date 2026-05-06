@@ -6614,6 +6614,7 @@ dependencies = [
  "base64 0.22.1",
  "once_cell",
  "rand 0.8.5",
+ "reqwest",
  "serde",
  "serde_json",
  "sha2",

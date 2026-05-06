@@ -58,6 +58,9 @@ export function ImageEditor({
 }: ImageEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<(() => string) | null>(null);
+  const startPendingGuideRef = useRef<((type: "h" | "v") => void) | null>(null);
+  const topRulerRef = useRef<HTMLCanvasElement>(null);
+  const leftRulerRef = useRef<HTMLCanvasElement>(null);
   const initializedRef = useRef(false);
   const [projectId, setProjectId] = useState<string | null>(thumbnail.id);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -71,6 +74,10 @@ export function ImageEditor({
   });
   const [zoom, setZoom] = useState(1);
   const [fitScale, setFitScale] = useState(1);
+  const [workspaceSize, setWorkspaceSize] = useState({
+    width: 800,
+    height: 600,
+  });
   const saveProject = useGalleryStore((s) => s.saveProject);
   const updateThumbnailName = useGalleryStore((s) => s.updateThumbnailName);
   const addThumbnail = useGalleryStore((s) => s.addThumbnail);
@@ -190,6 +197,7 @@ export function ImageEditor({
           1
         );
         setFitScale(newFitScale);
+        setWorkspaceSize({ width, height });
       }
     });
     resizeObserver.observe(container);
@@ -207,6 +215,111 @@ export function ImageEditor({
   const handleZoomIn = () => setZoom((prev) => Math.min(5, prev + 0.25));
   const handleZoomOut = () => setZoom((prev) => Math.max(0.1, prev - 0.25));
   const handleZoomFit = () => setZoom(1);
+
+  const RULER_SIZE = 24;
+
+  // Draw workspace-fixed rulers whenever canvas position or zoom changes
+  useEffect(() => {
+    const topCanvas = topRulerRef.current;
+    const leftCanvas = leftRulerRef.current;
+    if (!(topCanvas && leftCanvas)) return;
+
+    const rulerW = Math.max(1, workspaceSize.width - RULER_SIZE);
+    const rulerH = Math.max(1, workspaceSize.height - RULER_SIZE);
+    topCanvas.width = rulerW;
+    topCanvas.height = RULER_SIZE;
+    leftCanvas.width = RULER_SIZE;
+    leftCanvas.height = rulerH;
+
+    const effectiveScale = fitScale * zoom;
+    const canvasLeft =
+      (workspaceSize.width - canvasSize.width * effectiveScale) / 2 -
+      RULER_SIZE;
+    const canvasTop =
+      (workspaceSize.height - canvasSize.height * effectiveScale) / 2 -
+      RULER_SIZE;
+
+    // Adaptive label interval so ticks don't collide at low zoom
+    const minLabelPx = 50;
+    const rawInterval = minLabelPx / effectiveScale;
+    const magnitude = 10 ** Math.floor(Math.log10(rawInterval));
+    const majorInterval = Math.ceil(rawInterval / magnitude) * magnitude;
+    const minorStep = Math.max(1, Math.floor(majorInterval / 20));
+
+    const topCtx = topCanvas.getContext("2d");
+    if (topCtx) {
+      topCtx.clearRect(0, 0, rulerW, RULER_SIZE);
+      topCtx.fillStyle = "#111";
+      topCtx.fillRect(0, 0, rulerW, RULER_SIZE);
+      topCtx.strokeStyle = "#555";
+      topCtx.fillStyle = "#777";
+      topCtx.font = "8px sans-serif";
+      topCtx.textAlign = "center";
+      const startX =
+        Math.ceil(-canvasLeft / effectiveScale / minorStep) * minorStep;
+      const endX = Math.floor((rulerW - canvasLeft) / effectiveScale);
+      for (let x = startX; x <= endX; x += minorStep) {
+        const px = canvasLeft + x * effectiveScale;
+        if (px < 0 || px > rulerW) continue;
+        const isMajor = x % majorInterval === 0;
+        const isMid = x % (majorInterval / 2) === 0;
+        const tickH = isMajor ? 10 : isMid ? 7 : 4;
+        topCtx.beginPath();
+        topCtx.moveTo(px + 0.5, RULER_SIZE);
+        topCtx.lineTo(px + 0.5, RULER_SIZE - tickH);
+        topCtx.stroke();
+        if (isMajor)
+          topCtx.fillText(String(Math.round(x)), px, RULER_SIZE - tickH - 2);
+      }
+    }
+
+    const leftCtx = leftCanvas.getContext("2d");
+    if (leftCtx) {
+      leftCtx.clearRect(0, 0, RULER_SIZE, rulerH);
+      leftCtx.fillStyle = "#111";
+      leftCtx.fillRect(0, 0, RULER_SIZE, rulerH);
+      leftCtx.strokeStyle = "#555";
+      leftCtx.fillStyle = "#777";
+      leftCtx.font = "8px sans-serif";
+      const startY =
+        Math.ceil(-canvasTop / effectiveScale / minorStep) * minorStep;
+      const endY = Math.floor((rulerH - canvasTop) / effectiveScale);
+      for (let y = startY; y <= endY; y += minorStep) {
+        const py = canvasTop + y * effectiveScale;
+        if (py < 0 || py > rulerH) continue;
+        const isMajor = y % majorInterval === 0;
+        const isMid = y % (majorInterval / 2) === 0;
+        const tickW = isMajor ? 10 : isMid ? 7 : 4;
+        leftCtx.beginPath();
+        leftCtx.moveTo(RULER_SIZE, py + 0.5);
+        leftCtx.lineTo(RULER_SIZE - tickW, py + 0.5);
+        leftCtx.stroke();
+        if (isMajor) {
+          leftCtx.save();
+          leftCtx.translate(RULER_SIZE - tickW - 2, py);
+          leftCtx.rotate(-Math.PI / 2);
+          leftCtx.textAlign = "center";
+          leftCtx.fillText(String(Math.round(y)), 0, 0);
+          leftCtx.restore();
+        }
+      }
+    }
+  }, [
+    canvasSize.width,
+    canvasSize.height,
+    fitScale,
+    zoom,
+    workspaceSize.width,
+    workspaceSize.height,
+  ]);
+
+  const handleTopRulerMouseDown = useCallback(() => {
+    startPendingGuideRef.current?.("h");
+  }, []);
+
+  const handleLeftRulerMouseDown = useCallback(() => {
+    startPendingGuideRef.current?.("v");
+  }, []);
 
   const handleAddFromGallery = useCallback(
     (dataUrl: string) => {
@@ -404,6 +517,18 @@ export function ImageEditor({
           }
           store.setActiveTool("select");
           toast.info("Added Ellipse (O)");
+        } else if (e.key.toLowerCase() === "b") {
+          e.preventDefault();
+          store.setActiveTool("brush");
+          toast.info("Brush Tool (B)");
+        } else if (e.key.toLowerCase() === "e") {
+          e.preventDefault();
+          store.setActiveTool("eraser");
+          toast.info("Eraser Tool (E)");
+        } else if (e.key.toLowerCase() === "i") {
+          e.preventDefault();
+          setShowGalleryPicker(true);
+          toast.info("Add Image (I)");
         }
       }
     };
@@ -731,7 +856,7 @@ export function ImageEditor({
 
         <div className="flex flex-1 flex-col overflow-hidden">
           <div
-            className="relative flex flex-1 items-center justify-center overflow-auto bg-neutral-900"
+            className="relative flex flex-1 items-center justify-center overflow-hidden bg-neutral-900"
             onMouseDown={(e) => {
               if (e.target === e.currentTarget) {
                 useEditorStore.getState().setActiveLayers([]);
@@ -740,6 +865,31 @@ export function ImageEditor({
             onWheel={handleWheel}
             ref={containerRef}
           >
+            {/* Corner piece */}
+            <div
+              className="absolute top-0 left-0 z-[11]"
+              style={{
+                width: RULER_SIZE,
+                height: RULER_SIZE,
+                background: "#111",
+              }}
+            />
+            {/* Top ruler — fixed to workspace top edge */}
+            <canvas
+              className="absolute top-0 z-10 cursor-s-resize"
+              height={RULER_SIZE}
+              onMouseDown={handleTopRulerMouseDown}
+              ref={topRulerRef}
+              style={{ left: RULER_SIZE }}
+            />
+            {/* Left ruler — fixed to workspace left edge */}
+            <canvas
+              className="absolute left-0 z-10 cursor-e-resize"
+              onMouseDown={handleLeftRulerMouseDown}
+              ref={leftRulerRef}
+              style={{ top: RULER_SIZE }}
+              width={RULER_SIZE}
+            />
             <div
               style={{
                 transform: `scale(${effectiveScale})`,
@@ -750,6 +900,23 @@ export function ImageEditor({
                 height={canvasSize.height}
                 onExportRef={exportRef}
                 scale={effectiveScale}
+                selectionOverflow={Math.max(
+                  300,
+                  Math.min(
+                    1000,
+                    Math.ceil(
+                      Math.max(
+                        (workspaceSize.width -
+                          canvasSize.width * effectiveScale) /
+                          (2 * effectiveScale),
+                        (workspaceSize.height -
+                          canvasSize.height * effectiveScale) /
+                          (2 * effectiveScale)
+                      )
+                    ) + 100
+                  )
+                )}
+                startPendingGuideRef={startPendingGuideRef}
                 width={canvasSize.width}
               />
             </div>

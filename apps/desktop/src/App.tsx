@@ -238,6 +238,7 @@ export default function App() {
           <ExportDialog
             onClose={() => setExportingThumbnail(null)}
             thumbnail={exportingThumbnail}
+            useCurrentEditorState
           />
         )}
         <Toaster />

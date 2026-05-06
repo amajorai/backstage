@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { Loader2, Search } from "lucide-react";
 import {
   forwardRef,
@@ -123,9 +124,16 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
       setLoadingLogoId(logo.id);
       try {
         const url = getLogoRoute(logo as SvglLogo);
-        const { width, height } = await loadImageDimensions(url);
 
-        useEditorStore.getState().addImageLayer(url, width, height);
+        // Fetch via Tauri native HTTP to bypass CORS, convert to data URL
+        const b64 = await invoke<string>("fetch_as_base64", { url });
+        const mimeType = url.toLowerCase().endsWith(".svg")
+          ? "image/svg+xml"
+          : "image/png";
+        const dataUrl = `data:${mimeType};base64,${b64}`;
+
+        const { width, height } = await loadImageDimensions(dataUrl);
+        useEditorStore.getState().addImageLayer(dataUrl, width, height);
         const id = useEditorStore.getState().activeLayerIds[0];
         if (id) {
           useEditorStore.getState().updateLayer(id, { name: logo.title });

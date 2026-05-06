@@ -5,6 +5,7 @@ import {
   EyeOff,
   GripVertical,
   Lock,
+  Plus,
   Trash2,
   Unlock,
 } from "lucide-react";
@@ -30,27 +31,37 @@ export function LayersPanel() {
     toggleLayerSelection,
     moveLayer,
     reorderLayers,
+    addEmptyLayer,
   } = useEditorStore();
 
   const [dragLayerIdx, setDragLayerIdx] = useState<number | null>(null);
+  const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
   const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleLayerDragStart = (idx: number) => {
     setDragLayerIdx(idx);
+    setDropTargetIdx(idx);
   };
 
   const handleLayerDragOver = (e: React.DragEvent, idx: number) => {
     e.preventDefault();
-    if (dragLayerIdx !== null && dragLayerIdx !== idx) {
-      reorderLayers(dragLayerIdx, idx);
-      setDragLayerIdx(idx);
+    if (dragLayerIdx !== null) {
+      setDropTargetIdx(idx);
     }
   };
 
   const handleLayerDragEnd = () => {
+    if (
+      dragLayerIdx !== null &&
+      dropTargetIdx !== null &&
+      dragLayerIdx !== dropTargetIdx
+    ) {
+      reorderLayers(dragLayerIdx, dropTargetIdx);
+    }
     setDragLayerIdx(null);
+    setDropTargetIdx(null);
   };
 
   const startEditing = useCallback((layerId: string, currentName: string) => {
@@ -78,6 +89,15 @@ export function LayersPanel() {
         <span className="font-semibold text-muted-foreground text-xs uppercase">
           Layers
         </span>
+        <Button
+          className="size-5"
+          onClick={addEmptyLayer}
+          size="icon-sm"
+          title="Add empty layer"
+          variant="ghost"
+        >
+          <Plus className="size-3" />
+        </Button>
       </div>
       <div className="flex-1 overflow-y-auto">
         {[...layers].reverse().map((layer, displayIdx) => {
@@ -89,7 +109,13 @@ export function LayersPanel() {
             <div
               className={cn(
                 "flex cursor-pointer items-center gap-1 border-border border-b px-2 py-1.5 text-xs transition-colors",
-                isSelected ? "bg-accent/20" : "hover:bg-muted/50"
+                isSelected ? "bg-accent/20" : "hover:bg-muted/50",
+                dragLayerIdx !== null &&
+                  dropTargetIdx === realIdx &&
+                  dragLayerIdx !== realIdx
+                  ? "border-primary border-t-2"
+                  : "",
+                dragLayerIdx === realIdx ? "opacity-50" : ""
               )}
               draggable={!isEditing}
               key={layer.id}

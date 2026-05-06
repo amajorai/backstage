@@ -372,11 +372,12 @@ export function Gallery({
                         <AddMenu
                           onAddVideoClick={() => setShowVideoExtractor(true)}
                           onNewProjectClick={onNewProjectClick}
-                          trigger={
-                            <Button className="gap-2" variant="ghost">
+                          triggerClassName="gap-2"
+                          triggerContent={
+                            <>
                               <Plus className="size-4" />
                               Create
-                            </Button>
+                            </>
                           }
                         />
                       }
