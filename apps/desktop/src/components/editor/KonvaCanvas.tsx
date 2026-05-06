@@ -211,6 +211,54 @@ export function KonvaCanvas({
   }, [pasteImageFromClipboard]);
 
   useEffect(() => {
+    const handleBrushShortcuts = (e: KeyboardEvent) => {
+      const {
+        activeTool,
+        brushSize,
+        brushOpacity,
+        setBrushSize,
+        setBrushOpacity,
+      } = useEditorStore.getState();
+      if (activeTool !== "brush" && activeTool !== "eraser") return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+      if (e.key === "[" && !e.shiftKey) {
+        e.preventDefault();
+        const next = Math.max(1, brushSize - 5);
+        setBrushSize(next);
+        toast(`Brush size: ${next}px`, { duration: 1000, id: "brush-size" });
+      } else if (e.key === "]" && !e.shiftKey) {
+        e.preventDefault();
+        const next = Math.min(200, brushSize + 5);
+        setBrushSize(next);
+        toast(`Brush size: ${next}px`, { duration: 1000, id: "brush-size" });
+      } else if (e.key === "{") {
+        e.preventDefault();
+        const next = Math.max(
+          0.01,
+          Math.round((brushOpacity - 0.1) * 100) / 100
+        );
+        setBrushOpacity(next);
+        toast(`Opacity: ${Math.round(next * 100)}%`, {
+          duration: 1000,
+          id: "brush-opacity",
+        });
+      } else if (e.key === "}") {
+        e.preventDefault();
+        const next = Math.min(1, Math.round((brushOpacity + 0.1) * 100) / 100);
+        setBrushOpacity(next);
+        toast(`Opacity: ${Math.round(next * 100)}%`, {
+          duration: 1000,
+          id: "brush-opacity",
+        });
+      }
+    };
+    window.addEventListener("keydown", handleBrushShortcuts);
+    return () => window.removeEventListener("keydown", handleBrushShortcuts);
+  }, []);
+
+  useEffect(() => {
     if (!contextMenu) return;
     const close = () => setContextMenu(null);
     window.addEventListener("click", close);
@@ -1167,8 +1215,8 @@ export function KonvaCanvas({
         if (!rect) return;
         const div = brushCursorRef.current;
         if (div) {
-          div.style.left = `${e.clientX - rect.left}px`;
-          div.style.top = `${e.clientY - rect.top}px`;
+          div.style.left = `${(e.clientX - rect.left) / scale}px`;
+          div.style.top = `${(e.clientY - rect.top) / scale}px`;
           div.style.display = "block";
         }
       }}

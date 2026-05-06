@@ -168,6 +168,9 @@ export function EditorToolbar({
         </PopoverTrigger>
         <PopoverContent className="w-52 p-3" side="right">
           <p className="mb-2 font-medium text-sm">Brush</p>
+          <p className="mb-2 text-muted-foreground text-xs">
+            [ ] size · {"{ }"} opacity
+          </p>
           <div className="space-y-3">
             <div>
               <label className="mb-1 block text-muted-foreground text-xs">
@@ -224,6 +227,9 @@ export function EditorToolbar({
         </PopoverTrigger>
         <PopoverContent className="w-52 p-3" side="right">
           <p className="mb-2 font-medium text-sm">Eraser</p>
+          <p className="mb-2 text-muted-foreground text-xs">
+            [ ] size · {"{ }"} opacity
+          </p>
           <div className="space-y-3">
             <div>
               <label className="mb-1 block text-muted-foreground text-xs">
