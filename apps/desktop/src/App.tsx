@@ -13,6 +13,7 @@ import { TrashPage } from "@/components/TrashPage";
 import { Toaster } from "@/components/ui/sonner";
 import { VideoExtractor } from "@/components/VideoExtractor";
 import { useAppUpdater } from "@/hooks/use-app-updater";
+import { runMigrations } from "@/lib/migration";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import { useEditorStore } from "@/stores/use-editor-store";
 import {
