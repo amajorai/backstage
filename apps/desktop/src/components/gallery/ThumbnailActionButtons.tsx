@@ -43,7 +43,7 @@ export function ThumbnailActionButtons({
 
   return (
     <div
-      className="absolute right-2 bottom-2 z-10 flex gap-1"
+      className="z-10 flex shrink-0 gap-1"
       onClick={(e) => e.stopPropagation()}
     >
       <Tooltip>
@@ -114,7 +114,22 @@ export function ThumbnailActionButtons({
               }}
               onKeyDown={() => {}}
             />
-            <div className="absolute right-0 bottom-full z-50 mb-2 w-36 rounded-lg border border-border bg-card p-1 shadow-lg">
+            <div className="absolute right-0 bottom-full z-50 mb-2 w-48 rounded-lg border border-border bg-card p-1 shadow-lg">
+              <div className="px-2 py-1.5">
+                <p className="truncate font-medium text-sm">{thumbnail.name}</p>
+                {thumbnail.canvasWidth && thumbnail.canvasHeight && (
+                  <p className="text-muted-foreground text-xs">
+                    {thumbnail.canvasWidth} × {thumbnail.canvasHeight}
+                  </p>
+                )}
+                <p className="text-muted-foreground text-xs">
+                  Updated {new Date(thumbnail.updatedAt).toLocaleDateString()}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  Created {new Date(thumbnail.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+              <div className="my-1 h-px bg-border" />
               <Button
                 className="w-full justify-start"
                 onClick={async (e) => {

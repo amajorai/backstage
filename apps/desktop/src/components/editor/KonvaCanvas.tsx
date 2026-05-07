@@ -46,9 +46,10 @@ interface KonvaCanvasProps {
   workspaceWidth: number;
   workspaceHeight: number;
   showGrid?: boolean;
+  panOffset?: { x: number; y: number };
 }
 
-const SNAP_THRESHOLD = 16;
+const SNAP_THRESHOLD = 20;
 const UI_COLOR = "#7dd3fc";
 
 interface SnapGuides {
@@ -83,10 +84,11 @@ export function KonvaCanvas({
   workspaceWidth,
   workspaceHeight,
   showGrid = false,
+  panOffset,
 }: KonvaCanvasProps) {
   const inv = 1 / scale;
-  const offsetX = (workspaceWidth - width * scale) / 2;
-  const offsetY = (workspaceHeight - height * scale) / 2;
+  const offsetX = (workspaceWidth - width * scale) / 2 + (panOffset?.x ?? 0);
+  const offsetY = (workspaceHeight - height * scale) / 2 + (panOffset?.y ?? 0);
   const toCanvasPos = (p: { x: number; y: number }) => ({
     x: (p.x - offsetX) / scale,
     y: (p.y - offsetY) / scale,
@@ -486,9 +488,10 @@ export function KonvaCanvas({
       let w = newBox.width;
       let h = newBox.height;
 
+      const threshold = SNAP_THRESHOLD * inv;
       const vPoints = [0, width, width / 2, ...userGuides.v];
       if (leftMoving) {
-        let best = SNAP_THRESHOLD;
+        let best = threshold;
         for (const p of vPoints) {
           const d = Math.abs(newLeft - p);
           if (d < best) {
@@ -498,7 +501,7 @@ export function KonvaCanvas({
           }
         }
       } else if (rightMoving) {
-        let best = SNAP_THRESHOLD;
+        let best = threshold;
         for (const p of vPoints) {
           const d = Math.abs(newRight - p);
           if (d < best) {
@@ -510,7 +513,7 @@ export function KonvaCanvas({
 
       const hPoints = [0, height, height / 2, ...userGuides.h];
       if (topMoving) {
-        let best = SNAP_THRESHOLD;
+        let best = threshold;
         for (const p of hPoints) {
           const d = Math.abs(newTop - p);
           if (d < best) {
@@ -520,7 +523,7 @@ export function KonvaCanvas({
           }
         }
       } else if (bottomMoving) {
-        let best = SNAP_THRESHOLD;
+        let best = threshold;
         for (const p of hPoints) {
           const d = Math.abs(newBottom - p);
           if (d < best) {
@@ -533,13 +536,16 @@ export function KonvaCanvas({
       if (w < 10 || h < 10) return oldBox;
       return { x, y, width: w, height: h, rotation };
     },
-    [width, height, userGuides]
+    [width, height, userGuides, inv]
   );
 
   const handleTransformerTransform = useCallback(() => {
     const tr = transformerRef.current;
     if (!tr) return;
-    const box = tr.getClientRect();
+    const layer = tr.getLayer();
+    const box = layer
+      ? tr.getClientRect({ relativeTo: layer })
+      : tr.getClientRect();
     const left = box.x;
     const right = box.x + box.width;
     const top = box.y;
@@ -547,9 +553,10 @@ export function KonvaCanvas({
     const cx = box.x + box.width / 2;
     const cy = box.y + box.height / 2;
 
+    const threshold = SNAP_THRESHOLD * inv;
     const guides: SnapGuides = { vertical: [], horizontal: [] };
     const vPoints = [0, width, width / 2, ...userGuides.v];
-    let bestX = SNAP_THRESHOLD;
+    let bestX = threshold;
     for (const p of vPoints) {
       for (const edge of [left, right, cx]) {
         const d = Math.abs(edge - p);
@@ -560,7 +567,7 @@ export function KonvaCanvas({
       }
     }
     const hPoints = [0, height, height / 2, ...userGuides.h];
-    let bestY = SNAP_THRESHOLD;
+    let bestY = threshold;
     for (const p of hPoints) {
       for (const edge of [top, bottom, cy]) {
         const d = Math.abs(edge - p);
@@ -571,11 +578,14 @@ export function KonvaCanvas({
       }
     }
     setSnapGuides(guides);
-  }, [width, height, userGuides]);
+  }, [width, height, userGuides, inv]);
 
   const calculateSnap = useCallback(
     (node: Konva.Node) => {
-      const box = node.getClientRect();
+      const layer = node.getLayer();
+      const box = layer
+        ? node.getClientRect({ relativeTo: layer })
+        : node.getClientRect();
       const left = box.x;
       const right = box.x + box.width;
       const top = box.y;
@@ -587,8 +597,9 @@ export function KonvaCanvas({
       let snapDeltaX = 0;
       let snapDeltaY = 0;
 
+      const threshold = SNAP_THRESHOLD * inv;
       const vPoints = [0, width, width / 2, ...userGuides.v];
-      let bestX = SNAP_THRESHOLD;
+      let bestX = threshold;
       for (const p of vPoints) {
         for (const [edge, delta] of [
           [left, p - left],
@@ -605,7 +616,7 @@ export function KonvaCanvas({
       }
 
       const hPoints = [0, height, height / 2, ...userGuides.h];
-      let bestY = SNAP_THRESHOLD;
+      let bestY = threshold;
       for (const p of hPoints) {
         for (const [edge, delta] of [
           [top, p - top],
@@ -623,7 +634,7 @@ export function KonvaCanvas({
 
       return { snapDeltaX, snapDeltaY, guides };
     },
-    [width, height, userGuides]
+    [width, height, userGuides, inv]
   );
 
   // ── Brush helpers ──────────────────────────────────────────────────────────
@@ -1552,18 +1563,30 @@ export function KonvaCanvas({
             <Line
               key={`snap-v-${x}`}
               listening={false}
-              points={[x, 0, x, height]}
+              opacity={0.9}
+              points={[
+                x,
+                -offsetY / scale,
+                x,
+                (workspaceHeight - offsetY) / scale,
+              ]}
               stroke={UI_COLOR}
-              strokeWidth={2 * inv}
+              strokeWidth={1.5 * inv}
             />
           ))}
           {snapGuides.horizontal.map((y) => (
             <Line
               key={`snap-h-${y}`}
               listening={false}
-              points={[0, y, width, y]}
+              opacity={0.9}
+              points={[
+                -offsetX / scale,
+                y,
+                (workspaceWidth - offsetX) / scale,
+                y,
+              ]}
               stroke={UI_COLOR}
-              strokeWidth={2 * inv}
+              strokeWidth={1.5 * inv}
             />
           ))}
 

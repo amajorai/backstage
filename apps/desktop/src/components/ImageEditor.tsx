@@ -76,6 +76,15 @@ export function ImageEditor({
   });
   const [zoom, setZoom] = useState(1);
   const [fitScale, setFitScale] = useState(1);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanMode, setIsPanMode] = useState(false);
+  const [isCurrentlyPanning, setIsCurrentlyPanning] = useState(false);
+  const panStartRef = useRef<{
+    mouseX: number;
+    mouseY: number;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
   const [workspaceSize, setWorkspaceSize] = useState({
     width: 800,
     height: 600,
@@ -208,6 +217,29 @@ export function ImageEditor({
     return () => resizeObserver.disconnect();
   }, [canvasSize]);
 
+  // Space = pan mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== "Space") return;
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      e.preventDefault();
+      setIsPanMode(true);
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code !== "Space") return;
+      setIsPanMode(false);
+      setIsCurrentlyPanning(false);
+      panStartRef.current = null;
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
+
   const handleWheel = useCallback((e: WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
@@ -245,10 +277,12 @@ export function ImageEditor({
     const effectiveScale = fitScale * zoom;
     const canvasLeft =
       (workspaceSize.width - canvasSize.width * effectiveScale) / 2 -
-      RULER_SIZE;
+      RULER_SIZE +
+      panOffset.x;
     const canvasTop =
       (workspaceSize.height - canvasSize.height * effectiveScale) / 2 -
-      RULER_SIZE;
+      RULER_SIZE +
+      panOffset.y;
 
     // Adaptive label interval so ticks don't collide at low zoom
     const minLabelPx = 50;
@@ -322,6 +356,8 @@ export function ImageEditor({
     zoom,
     workspaceSize.width,
     workspaceSize.height,
+    panOffset.x,
+    panOffset.y,
   ]);
 
   const handleTopRulerMouseDown = useCallback(() => {
@@ -957,6 +993,7 @@ export function ImageEditor({
             <KonvaCanvas
               height={canvasSize.height}
               onExportRef={exportRef}
+              panOffset={panOffset}
               scale={effectiveScale}
               showGrid={showGrid}
               startPendingGuideRef={startPendingGuideRef}
@@ -964,6 +1001,42 @@ export function ImageEditor({
               workspaceHeight={workspaceSize.height}
               workspaceWidth={workspaceSize.width}
             />
+            {isPanMode && (
+              <div
+                onMouseDown={(e) => {
+                  setIsCurrentlyPanning(true);
+                  panStartRef.current = {
+                    mouseX: e.clientX,
+                    mouseY: e.clientY,
+                    offsetX: panOffset.x,
+                    offsetY: panOffset.y,
+                  };
+                }}
+                onMouseLeave={() => {
+                  setIsCurrentlyPanning(false);
+                  panStartRef.current = null;
+                }}
+                onMouseMove={(e) => {
+                  if (!(isCurrentlyPanning && panStartRef.current)) return;
+                  const dx = e.clientX - panStartRef.current.mouseX;
+                  const dy = e.clientY - panStartRef.current.mouseY;
+                  setPanOffset({
+                    x: panStartRef.current.offsetX + dx,
+                    y: panStartRef.current.offsetY + dy,
+                  });
+                }}
+                onMouseUp={() => {
+                  setIsCurrentlyPanning(false);
+                  panStartRef.current = null;
+                }}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  zIndex: 100,
+                  cursor: isCurrentlyPanning ? "grabbing" : "grab",
+                }}
+              />
+            )}
             <div className="absolute bottom-4 left-1/2 z-50 -translate-x-1/2">
               <PageCarousel />
             </div>

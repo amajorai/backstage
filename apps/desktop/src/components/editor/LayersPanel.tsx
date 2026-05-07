@@ -1,6 +1,5 @@
 import { Eye, EyeOff, Lock, Plus, Unlock } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-
 import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
@@ -25,12 +24,17 @@ export function LayersPanel() {
     addEmptyLayer,
     duplicateLayer,
     copyLayers,
+    pasteLayers,
   } = useEditorStore();
 
   const [draggingRealIdx, setDraggingRealIdx] = useState<number | null>(null);
   const [dropRealIdx, setDropRealIdx] = useState<number | null>(null);
   const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+  const [pasteMenuPos, setPasteMenuPos] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -149,7 +153,17 @@ export function LayersPanel() {
           <Plus className="size-3" />
         </Button>
       </div>
-      <div className="flex-1 overflow-y-auto" ref={listRef}>
+      <div
+        className="flex-1 overflow-y-auto"
+        onContextMenu={(e) => {
+          const target = e.target as HTMLElement;
+          if (!target.closest("[data-layer-item]")) {
+            e.preventDefault();
+            setPasteMenuPos({ x: e.clientX, y: e.clientY });
+          }
+        }}
+        ref={listRef}
+      >
         {[...layers].reverse().map((layer, displayIdx) => {
           const realIdx = layers.length - 1 - displayIdx;
           const isEditing = editingLayerId === layer.id;
@@ -162,7 +176,7 @@ export function LayersPanel() {
 
           return (
             <ContextMenu key={layer.id}>
-              <ContextMenuTrigger asChild>
+              <ContextMenuTrigger asChild data-layer-item="true">
                 <div
                   className={cn(
                     "flex cursor-grab items-center gap-0.5 border-border border-b px-2 py-1.5 text-xs transition-colors",
@@ -252,7 +266,7 @@ export function LayersPanel() {
 
               <ContextMenuContent className="w-44">
                 <ContextMenuItem
-                  onSelect={() => {
+                  onClick={() => {
                     setActiveLayers([layer.id]);
                     duplicateLayer(layer.id);
                   }}
@@ -260,18 +274,21 @@ export function LayersPanel() {
                   Duplicate
                 </ContextMenuItem>
                 <ContextMenuItem
-                  onSelect={() => {
+                  onClick={() => {
                     setActiveLayers([layer.id]);
                     copyLayers();
                   }}
                 >
                   Copy
                 </ContextMenuItem>
+                <ContextMenuItem onClick={() => pasteLayers()}>
+                  Paste
+                </ContextMenuItem>
                 <ContextMenuSeparator />
                 <ContextMenuItem
-                  className="text-destructive focus:text-destructive"
                   disabled={layers.length <= 1}
-                  onSelect={() => removeLayer(layer.id)}
+                  onClick={() => removeLayer(layer.id)}
+                  variant="destructive"
                 >
                   Delete
                 </ContextMenuItem>
@@ -280,6 +297,37 @@ export function LayersPanel() {
           );
         })}
       </div>
+
+      {/* Panel-level paste menu for right-clicking empty space */}
+      {pasteMenuPos && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setPasteMenuPos(null)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setPasteMenuPos(null);
+            }}
+            onKeyDown={() => {}}
+          />
+          <div
+            className="fixed z-50 min-w-36 rounded-lg border border-border bg-popover p-1 shadow-md ring-1 ring-foreground/10"
+            style={{ left: pasteMenuPos.x, top: pasteMenuPos.y }}
+          >
+            <button
+              className="flex w-full items-center rounded-md px-1.5 py-1 text-sm hover:bg-accent hover:text-accent-foreground"
+              onClick={() => {
+                pasteLayers();
+                setPasteMenuPos(null);
+              }}
+              type="button"
+            >
+              Paste
+              <span className="ml-auto text-muted-foreground text-xs">⌘V</span>
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

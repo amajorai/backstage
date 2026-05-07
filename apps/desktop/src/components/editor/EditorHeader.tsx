@@ -132,27 +132,27 @@ export function EditorHeader({
             >
               View <ChevronDown className="size-3 opacity-50" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
+            <DropdownMenuContent align="start" className="w-44">
               <DropdownMenuItem onClick={toggleRulers}>
                 <Ruler className="mr-2 size-4" />
                 Rulers
-                {showRulers && (
-                  <span className="ml-auto text-xs opacity-60">✓</span>
-                )}
-                <span className="ml-auto pl-4 text-[10px] opacity-40">
-                  Shift+R
-                </span>
+                <div className="ml-auto flex items-center gap-2">
+                  {showRulers && <span className="text-xs opacity-60">✓</span>}
+                  <span className="ml-auto text-muted-foreground text-xs tracking-widest opacity-60">
+                    ⇧R
+                  </span>
+                </div>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={toggleGrid}>
                 <Grid2X2 className="mr-2 size-4" />
                 Grid
-                {showGrid && (
-                  <span className="ml-auto text-xs opacity-60">✓</span>
-                )}
-                <span className="ml-auto pl-4 text-[10px] opacity-40">
-                  Shift+G
-                </span>
+                <div className="ml-auto flex items-center gap-2">
+                  {showGrid && <span className="text-xs opacity-60">✓</span>}
+                  <span className="ml-auto text-muted-foreground text-xs tracking-widest opacity-60">
+                    ⇧G
+                  </span>
+                </div>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -164,8 +164,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   brushOpacity: 1,
   history: [],
   historyIndex: -1,
+  clipboard: (() => {
+    try {
+      const stored = localStorage.getItem("youtube.pub:clipboard:v1");
+      return stored ? (JSON.parse(stored) as Layer[]) : [];
+    } catch {
+      return [];
+    }
+  })(),
   showRulers: true,
-  showGrid: false,
+  showGrid: true,
 
   toggleRulers: () => set((s) => ({ showRulers: !s.showRulers })),
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
@@ -450,16 +458,31 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     );
 
     if (layersToCopy.length > 0) {
-      set({ clipboard: JSON.parse(JSON.stringify(layersToCopy)) });
+      const clipped: Layer[] = JSON.parse(JSON.stringify(layersToCopy));
+      set({ clipboard: clipped });
+      try {
+        localStorage.setItem(
+          "youtube.pub:clipboard:v1",
+          JSON.stringify(clipped)
+        );
+      } catch {}
     }
   },
 
   pasteLayers: () => {
-    const { clipboard, pages, activePageIndex } = get();
+    let { clipboard } = get();
+
     if (!clipboard || clipboard.length === 0) {
-      return;
+      try {
+        const stored = localStorage.getItem("youtube.pub:clipboard:v1");
+        if (stored) clipboard = JSON.parse(stored) as Layer[];
+      } catch {}
     }
 
+    if (!clipboard || clipboard.length === 0) return;
+
+    get().pushHistory();
+    const { pages, activePageIndex } = get();
     const newPages = [...pages];
     const currentCallback = newPages[activePageIndex];
 

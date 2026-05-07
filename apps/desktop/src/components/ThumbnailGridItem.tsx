@@ -148,39 +148,28 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
               <span className="absolute inset-0 flex items-center justify-center text-sm text-white">
                 Processing...
               </span>
-            ) : isSelectionMode ? null : (
-              <ThumbnailActionButtons
-                onAutoRename={onAutoRename}
-                onDelete={onDelete}
-                onExportClick={onExportClick}
-                onRemoveBackground={onRemoveBackground}
-                onRename={onRename}
-                thumbnail={thumbnail}
-              />
+            ) : (
+              <div className="absolute right-0 bottom-0 left-0 flex items-end gap-1 px-2 py-2">
+                <div className="min-w-0 flex-1 pl-1">
+                  <Tooltip>
+                    <TooltipTrigger className="block w-full truncate text-left text-sm text-white">
+                      {thumbnail.name}
+                    </TooltipTrigger>
+                    <TooltipContent>{thumbnail.name}</TooltipContent>
+                  </Tooltip>
+                </div>
+                {!isSelectionMode && (
+                  <ThumbnailActionButtons
+                    onAutoRename={onAutoRename}
+                    onDelete={onDelete}
+                    onExportClick={onExportClick}
+                    onRemoveBackground={onRemoveBackground}
+                    onRename={onRename}
+                    thumbnail={thumbnail}
+                  />
+                )}
+              </div>
             )}
-            <div className="absolute bottom-0 left-0 max-w-[60%] px-3 py-2">
-              <Tooltip>
-                <TooltipTrigger className="block truncate text-sm text-white">
-                  {thumbnail.name}
-                </TooltipTrigger>
-                <TooltipContent>
-                  <div className="space-y-0.5">
-                    <p className="font-medium">{thumbnail.name}</p>
-                    {thumbnail.canvasWidth && thumbnail.canvasHeight && (
-                      <p className="text-muted-foreground text-xs">
-                        {thumbnail.canvasWidth} x {thumbnail.canvasHeight}
-                      </p>
-                    )}
-                    <p className="text-muted-foreground text-xs">
-                      Updated: {new Date(thumbnail.updatedAt).toLocaleString()}
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      Created: {new Date(thumbnail.createdAt).toLocaleString()}
-                    </p>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </div>
           </div>
         </div>
       </ContextMenuTrigger>

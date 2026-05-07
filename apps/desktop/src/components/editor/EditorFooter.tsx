@@ -121,9 +121,9 @@ export function EditorFooter({
             )}
           </Button>
           {hasUnsavedChanges && !isSaving && (
-            <span className="pointer-events-none absolute top-0.5 left-0 flex size-2">
+            <span className="pointer-events-none absolute -top-1 -left-1 flex size-3">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75" />
-              <span className="relative inline-flex size-2 rounded-full bg-orange-500" />
+              <span className="relative inline-flex size-3 rounded-full bg-orange-500" />
             </span>
           )}
           {showSaveMenu && (
