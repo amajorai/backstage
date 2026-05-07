@@ -5,17 +5,18 @@
     </td>
     <td align="right">
       <h1>Backstage</h1>
-      <h3 style="margin-top: -10px;">Everything you need to make great YouTube thumbnails</h3>
+      <h3 style="margin-top: -10px;">The open-source YouTube thumbnail studio</h3>
     </td>
   </tr>
 </table>
 
-A desktop app for extracting video frames, editing with layers, removing backgrounds with AI, and generating images with Gemini. Built with Tauri and React.
+**Backstage** is a free, open-source desktop app for making YouTube thumbnails that actually get clicks. Extract frames from your videos, edit with a layer-based canvas, remove backgrounds with AI, and generate images with Gemini — all without leaving your machine.
+
+Built with Tauri and React. Runs on Windows, macOS, and Linux.
 
 [![Windows](https://img.shields.io/badge/Windows-Download-blue?logo=windows)](https://github.com/jiaweing/Backstage/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-Download-white?logo=apple)](https://github.com/jiaweing/Backstage/releases/latest)
 [![Linux](https://img.shields.io/badge/Linux-Download-orange?logo=linux)](https://github.com/jiaweing/Backstage/releases/latest)
-
 
 ## Features
 
@@ -42,10 +43,21 @@ A desktop app for extracting video frames, editing with layers, removing backgro
 - Add images from the gallery as overlay layers
 - Empty layer creation for drawing and painting
 - Brush tool with adjustable size and opacity via keyboard shortcuts
+- Eyedropper tool for sampling colors from the canvas
+- Crop tool for trimming image layers
+- Add solid color background layers
 - Logo picker with display variants and recent logo history
+- Shadow and effect properties per layer
 - Adjustable canvas size
 - Undo/redo
 - Auto-save with unsaved changes detection
+- Project revisions — save named snapshots and restore previous states
+
+### Carousel Generator
+
+- Generate multi-page carousel layouts from a set of slides
+- Each page is independently editable as a layer stack
+- Export individual pages or all pages at once
 
 ### Background Removal
 
@@ -74,13 +86,13 @@ This engine uses the [BRIA RMBG-1.4](https://huggingface.co/briaai/RMBG-1.4) mod
 - Gemini-powered image generation (bring your own API key)
 - Generate multiple variations in one request
 - Save generated images as new layers or directly to the gallery
+- AI-assisted auto-rename for thumbnails
 
 ### Export
 
-- PNG, JPEG, and WebP formats
+- PNG, JPEG, WebP, APNG, and GIF formats
 - Custom resolution and quality settings
 - Preview before export
-
 
 ## Builds and Distribution
 
@@ -123,7 +135,6 @@ bunx tauri build -- --features bria
 
 On macOS and Linux, ONNX Runtime is linked statically into the binary. No additional libraries need to be bundled.
 
-
 ## Getting Started
 
 ### Prerequisites
@@ -162,7 +173,6 @@ bun run desktop:build
 
 Installers are output to `apps/desktop/src-tauri/target/release/bundle/`.
 
-
 ## Tech Stack
 
 | Layer | Technology |
@@ -170,13 +180,14 @@ Installers are output to `apps/desktop/src-tauri/target/release/bundle/`.
 | Desktop shell | [Tauri v2](https://v2.tauri.app) |
 | Frontend | [React 19](https://react.dev) + [Vite](https://vitejs.dev) |
 | Styling | [TailwindCSS v4](https://tailwindcss.com) + [shadcn/ui](https://ui.shadcn.com) |
+| Canvas | [Konva](https://konvajs.org) via react-konva |
 | State | [Zustand](https://zustand-demo.pmnd.rs) |
 | Database | [SQLite](https://www.sqlite.org) via Tauri SQL plugin |
 | Background removal (browser) | [@imgly/background-removal](https://github.com/imgly/background-removal-js) |
 | Background removal (native) | [ONNX Runtime](https://onnxruntime.ai) via [ort](https://github.com/pykeio/ort) |
 | AI generation | [Google Gemini API](https://ai.google.dev) |
+| Payments | [Polar](https://polar.sh) |
 | Secure storage | AES-256-GCM encrypted key/value store |
-
 
 ## Project Structure
 
@@ -184,13 +195,16 @@ Installers are output to `apps/desktop/src-tauri/target/release/bundle/`.
 apps/desktop/
 ├── src/
 │   ├── components/
-│   │   ├── editor/              # Editor sub-components (canvas, toolbar, layers)
+│   │   ├── editor/              # Editor sub-components (canvas, toolbar, layers, properties)
 │   │   ├── gallery/             # Gallery grid, list, and selection components
 │   │   ├── gemini/              # AI image generation UI
+│   │   ├── toolbar/             # Toolbar components
 │   │   ├── trash/               # Trash page components
+│   │   ├── ui/                  # shadcn/ui primitives
 │   │   ├── Gallery.tsx          # Main gallery view
 │   │   ├── ImageEditor.tsx      # Layer-based editor
 │   │   ├── GeminiImagePage.tsx  # Gemini generation page
+│   │   ├── LicenseActivation.tsx # License activation flow
 │   │   ├── SettingsPage.tsx     # App settings
 │   │   └── TrashPage.tsx        # Trash management
 │   ├── stores/                  # Zustand state stores
@@ -201,12 +215,12 @@ apps/desktop/
 │   ├── src/
 │   │   ├── lib.rs               # Tauri setup and command registration
 │   │   ├── background_removal.rs # BRIA RMBG-1.4 inference (bria feature only)
-│   │   └── secure_storage.rs    # Encrypted key/value storage
+│   │   ├── secure_storage.rs    # Encrypted key/value storage
+│   │   └── security.rs          # Security utilities
 │   ├── tauri.conf.json          # Base app configuration
 │   └── tauri.bria.windows.conf.json # Resource overrides for Windows OSS build
 └── package.json
 ```
-
 
 ## Data Storage
 
@@ -219,7 +233,6 @@ All app data is stored in the OS-specific app data directory. This includes the 
 | Linux | `~/.local/share/com.backstage.desktop` |
 
 The BRIA model, when downloaded, is stored at `<app data>/models/rmbg/model.onnx`.
-
 
 ## License
 
