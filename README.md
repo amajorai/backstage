@@ -18,6 +18,10 @@ Built with Tauri and React. Runs on Windows, macOS, and Linux.
 [![macOS](https://img.shields.io/badge/macOS-Download-white?logo=apple)](https://github.com/jiaweing/Backstage/releases/latest)
 [![Linux](https://img.shields.io/badge/Linux-Download-orange?logo=linux)](https://github.com/jiaweing/Backstage/releases/latest)
 
+![Home](.github/home.png)
+
+![Editor](.github/editor.png)
+
 ## Features
 
 ### Gallery
