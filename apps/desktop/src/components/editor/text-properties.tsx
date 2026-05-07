@@ -444,62 +444,100 @@ export function TextProperties({
 
       {/* Background */}
       <div>
-        <label className="mb-2 block text-muted-foreground text-xs">
-          Background
-        </label>
-        <div className="flex gap-2">
-          <div className="flex-1">
-            <ColorPicker
-              onValueChange={(backgroundColor) => onUpdate({ backgroundColor })}
-              value={layer.backgroundColor || "#00000000"}
+        <div className="mb-2 flex items-center justify-between">
+          <label className="text-muted-foreground text-xs">Background</label>
+          {layer.backgroundColor ? (
+            <button
+              className="text-muted-foreground text-xs hover:text-foreground"
+              onClick={() => onUpdate({ backgroundColor: "" })}
+              type="button"
             >
-              <ColorPickerTrigger
-                className="w-full justify-start gap-2 px-2 text-left font-normal"
-                variant="outline"
-              >
-                <div
-                  className="size-4 rounded border border-border"
-                  style={{
-                    backgroundColor: layer.backgroundColor || "transparent",
-                  }}
+              Remove
+            </button>
+          ) : (
+            <button
+              className="text-muted-foreground text-xs hover:text-foreground"
+              onClick={() => onUpdate({ backgroundColor: "#ffffff" })}
+              type="button"
+            >
+              + Add
+            </button>
+          )}
+        </div>
+        {layer.backgroundColor && (
+          <>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <ColorPicker
+                  onValueChange={(backgroundColor) =>
+                    onUpdate({ backgroundColor })
+                  }
+                  value={layer.backgroundColor}
+                >
+                  <ColorPickerTrigger
+                    className="w-full justify-start gap-2 px-2 text-left font-normal"
+                    variant="outline"
+                  >
+                    <div
+                      className="size-4 rounded border border-border"
+                      style={{ backgroundColor: layer.backgroundColor }}
+                    />
+                    <span className="truncate">{layer.backgroundColor}</span>
+                  </ColorPickerTrigger>
+                  <ColorPickerContent>
+                    <ColorPickerArea className="h-40 w-full rounded-md border" />
+                    <div className="mt-4 flex flex-col gap-2">
+                      <ColorPickerHueSlider />
+                      <ColorPickerAlphaSlider />
+                    </div>
+                    <div className="mt-4 flex items-center gap-2">
+                      <ColorPickerInput />
+                      <ColorPickerEyeDropper />
+                    </div>
+                  </ColorPickerContent>
+                </ColorPicker>
+              </div>
+              <div className="flex-1">
+                <div className="mb-1 flex items-center justify-between">
+                  <label className="text-muted-foreground text-xs">
+                    Padding
+                  </label>
+                  <span className="text-muted-foreground text-xs">
+                    {layer.backgroundPadding ?? 4}px
+                  </span>
+                </div>
+                <Slider
+                  max={40}
+                  min={0}
+                  onValueChange={(value) =>
+                    onUpdate({ backgroundPadding: value[0] })
+                  }
+                  step={1}
+                  value={[layer.backgroundPadding ?? 4]}
                 />
-                <span className="truncate">
-                  {layer.backgroundColor || "None"}
-                </span>
-              </ColorPickerTrigger>
-              <ColorPickerContent>
-                <ColorPickerArea className="h-40 w-full rounded-md border" />
-                <div className="mt-4 flex flex-col gap-2">
-                  <ColorPickerHueSlider />
-                  <ColorPickerAlphaSlider />
-                </div>
-                <div className="mt-4 flex items-center gap-2">
-                  <ColorPickerInput />
-                  <ColorPickerEyeDropper />
-                </div>
-              </ColorPickerContent>
-            </ColorPicker>
-          </div>
-          {layer.backgroundColor && (
-            <div className="flex-1">
+              </div>
+            </div>
+            <div className="mt-2">
               <div className="mb-1 flex items-center justify-between">
-                <label className="text-muted-foreground text-xs">Padding</label>
+                <label className="text-muted-foreground text-xs">
+                  Corner Radius
+                </label>
                 <span className="text-muted-foreground text-xs">
-                  {layer.backgroundPadding ?? 4}px
+                  {layer.backgroundCornerRadius ?? 0}px
                 </span>
               </div>
               <Slider
                 max={40}
                 min={0}
                 onValueChange={(value) =>
-                  onUpdate({ backgroundPadding: value[0] })
+                  onUpdate({ backgroundCornerRadius: value[0] })
                 }
                 step={1}
-                value={[layer.backgroundPadding ?? 4]}
+                value={[layer.backgroundCornerRadius ?? 0]}
               />
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </>
   );

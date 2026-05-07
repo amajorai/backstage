@@ -1,5 +1,6 @@
 import { GalleryThumbnails } from "lucide-react";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import { SnowfallBackground } from "./snow-flakes";
@@ -28,9 +29,27 @@ export function TitleBar({
 }: TitleBarProps) {
   const { showDecemberSnow } = useAppSettingsStore();
   const isDecember = new Date().getMonth() === 11;
+  const [bounceKey, setBounceKey] = useState(0);
+
+  const handleLogoClick = () => {
+    setBounceKey((k) => k + 1);
+  };
 
   return (
     <TooltipProvider>
+      <style>{`
+        @keyframes logo-bounce {
+          0%   { transform: scale(1); }
+          25%  { transform: scale(1.2); }
+          50%  { transform: scale(0.9); }
+          75%  { transform: scale(1.1); }
+          90%  { transform: scale(0.97); }
+          100% { transform: scale(1); }
+        }
+        .logo-bounce {
+          animation: logo-bounce 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+        }
+      `}</style>
       <div
         className={cn(
           "relative flex h-11 select-none items-center justify-between pr-2 pl-4",
@@ -62,9 +81,16 @@ export function TitleBar({
           {showIcon && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <button className="flex items-center justify-center outline-none ring-offset-background transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                <button
+                  className="flex items-center justify-center outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  onClick={handleLogoClick}
+                >
                   <GalleryThumbnails
-                    className="fill-foreground"
+                    className={cn(
+                      "fill-foreground transition-opacity hover:opacity-80 active:opacity-60",
+                      bounceKey > 0 && "logo-bounce"
+                    )}
+                    key={bounceKey}
                     size={16}
                     strokeWidth={3}
                   />

@@ -71,6 +71,16 @@ function getLayerDimensions(l: EditorLayer): { w: number; h: number } {
   return { w: l.width, h: l.height };
 }
 
+function resolveClickedLayerId(target: Konva.Node): string {
+  let node: Konva.Node | null = target;
+  while (node && node.nodeType !== "Stage" && node.nodeType !== "Layer") {
+    const id = node.id();
+    if (id) return id;
+    node = node.parent as Konva.Node | null;
+  }
+  return "";
+}
+
 interface SnapGuides {
   vertical: number[];
   horizontal: number[];
@@ -175,6 +185,17 @@ export function KonvaCanvas({
   );
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Lasso drag state
+  const [isLassoing, setIsLassoing] = useState(false);
+  const isLassoingRef = useRef(false);
+  const lassoPointsRef = useRef<{ x: number; y: number }[]>([]);
+  const lassoTargetLayerRef = useRef<ImageLayerType | null>(null);
+  const lassoModifiersRef = useRef<{ add: boolean; sub: boolean }>({
+    add: false,
+    sub: false,
+  });
+  const lassoHandledRef = useRef(false);
+
   const {
     layers,
     activeLayerIds,
@@ -197,7 +218,6 @@ export function KonvaCanvas({
     brushSize,
     brushColor,
     brushOpacity,
-    magicSelectTolerance,
     toggleRulers,
     toggleGrid,
   } = useEditorStore();
@@ -511,15 +531,19 @@ export function KonvaCanvas({
     return () => window.removeEventListener("click", close);
   }, [contextMenu]);
 
-  const handleTextDblClick = useCallback((id: string) => {
-    setEditingId(id);
-    setTimeout(() => {
-      if (textAreaRef.current) {
-        textAreaRef.current.focus();
-        textAreaRef.current.select();
-      }
-    }, 10);
-  }, []);
+  const handleTextDblClick = useCallback(
+    (id: string) => {
+      setActiveLayers([id]);
+      setEditingId(id);
+      setTimeout(() => {
+        if (textAreaRef.current) {
+          textAreaRef.current.focus();
+          textAreaRef.current.select();
+        }
+      }, 10);
+    },
+    [setActiveLayers]
+  );
 
   const handleTextBlur = useCallback(() => {
     setEditingId(null);
@@ -535,12 +559,54 @@ export function KonvaCanvas({
 
   useEffect(() => {
     if (!pendingGuideType) return;
+
+    const buildHSnapPoints = (): number[] => {
+      const pts = [0, height, height / 2, ...userGuides.h];
+      const activeSet = new Set(activeLayerIds);
+      for (const l of layers) {
+        if (activeSet.has(l.id) || !l.visible) continue;
+        const { h: lh } = getLayerDimensions(l);
+        const scaledLh = lh * l.scaleY;
+        pts.push(l.y, l.y + scaledLh, l.y + scaledLh / 2);
+      }
+      return pts;
+    };
+
+    const buildVSnapPoints = (): number[] => {
+      const pts = [0, width, width / 2, ...userGuides.v];
+      const activeSet = new Set(activeLayerIds);
+      for (const l of layers) {
+        if (activeSet.has(l.id) || !l.visible) continue;
+        const { w: lw } = getLayerDimensions(l);
+        const scaledLw = lw * l.scaleX;
+        pts.push(l.x, l.x + scaledLw, l.x + scaledLw / 2);
+      }
+      return pts;
+    };
+
+    const snapToNearest = (canvasPos: number, points: number[]): number => {
+      const threshold = SNAP_THRESHOLD * inv;
+      let best = threshold;
+      let snapped = canvasPos;
+      for (const p of points) {
+        const d = Math.abs(canvasPos - p);
+        if (d < best) {
+          best = d;
+          snapped = p;
+        }
+      }
+      return snapped;
+    };
+
     const handleMouseMove = (e: MouseEvent) => {
       const container = stageContainerRef.current;
       if (!container) return;
       const rect = container.getBoundingClientRect();
       if (pendingGuideType === "h") {
-        const pos = e.clientY - rect.top;
+        const rawPos = e.clientY - rect.top;
+        const canvasY = (rawPos - offsetY) / scale;
+        const snappedY = snapToNearest(canvasY, buildHSnapPoints());
+        const pos = snappedY * scale + offsetY;
         const div = pendingGuideHRef.current;
         if (div) {
           div.style.top = `${pos}px`;
@@ -548,7 +614,10 @@ export function KonvaCanvas({
             pos >= 0 && pos <= workspaceHeight ? "block" : "none";
         }
       } else {
-        const pos = e.clientX - rect.left;
+        const rawPos = e.clientX - rect.left;
+        const canvasX = (rawPos - offsetX) / scale;
+        const snappedX = snapToNearest(canvasX, buildVSnapPoints());
+        const pos = snappedX * scale + offsetX;
         const div = pendingGuideVRef.current;
         if (div) {
           div.style.left = `${pos}px`;
@@ -562,25 +631,27 @@ export function KonvaCanvas({
       if (container) {
         const rect = container.getBoundingClientRect();
         if (pendingGuideType === "h") {
-          const pos = e.clientY - rect.top;
-          if (pos >= 0 && pos <= workspaceHeight) {
-            const guideCanvasY = (pos - offsetY) / scale;
-            if (guideCanvasY >= -height && guideCanvasY <= height * 2)
+          const rawPos = e.clientY - rect.top;
+          if (rawPos >= 0 && rawPos <= workspaceHeight) {
+            const canvasY = (rawPos - offsetY) / scale;
+            const snappedY = snapToNearest(canvasY, buildHSnapPoints());
+            if (snappedY >= -height && snappedY <= height * 2)
               setUserGuides((prev) => ({
                 ...prev,
-                h: [...prev.h, guideCanvasY],
+                h: [...prev.h, snappedY],
               }));
           }
           if (pendingGuideHRef.current)
             pendingGuideHRef.current.style.display = "none";
         } else {
-          const pos = e.clientX - rect.left;
-          if (pos >= 0 && pos <= workspaceWidth) {
-            const guideCanvasX = (pos - offsetX) / scale;
-            if (guideCanvasX >= -width && guideCanvasX <= width * 2)
+          const rawPos = e.clientX - rect.left;
+          if (rawPos >= 0 && rawPos <= workspaceWidth) {
+            const canvasX = (rawPos - offsetX) / scale;
+            const snappedX = snapToNearest(canvasX, buildVSnapPoints());
+            if (snappedX >= -width && snappedX <= width * 2)
               setUserGuides((prev) => ({
                 ...prev,
-                v: [...prev.v, guideCanvasX],
+                v: [...prev.v, snappedX],
               }));
           }
           if (pendingGuideVRef.current)
@@ -604,6 +675,10 @@ export function KonvaCanvas({
     offsetX,
     offsetY,
     scale,
+    inv,
+    layers,
+    activeLayerIds,
+    userGuides,
   ]);
 
   const editingLayer = layers.find((l) => l.id === editingId) as
@@ -651,18 +726,151 @@ export function KonvaCanvas({
     transformerRef.current.getLayer()?.batchDraw();
   }, [activeLayerIds, activeTool, editingId]);
 
-  // Update canvas cursor for brush/eraser tools
+  // Update canvas cursor for brush/eraser/magic-select tools
   useEffect(() => {
     const container = stageRef.current?.container();
     if (!container) return;
     if (activeTool === "brush" || activeTool === "eraser") {
       container.style.cursor = "none";
-    } else if (activeTool === "eyedropper") {
+    } else if (activeTool === "eyedropper" || activeTool === "magic-select") {
       container.style.cursor = "crosshair";
     } else {
       container.style.cursor = "";
     }
   }, [activeTool]);
+
+  // Clear magic selection and lasso state when switching away from magic-select tool
+  useEffect(() => {
+    if (activeTool !== "magic-select") {
+      setMagicSelection(null);
+      isLassoingRef.current = false;
+      setIsLassoing(false);
+      lassoPointsRef.current = [];
+      lassoTargetLayerRef.current = null;
+    }
+  }, [activeTool]);
+
+  // Marching ants animation + live lasso outline
+  useEffect(() => {
+    const canvas = overlayCanvasRef.current;
+    if (!canvas) return;
+    if (!(magicSelection || isLassoing)) {
+      const ctx = canvas.getContext("2d");
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
+    let rafId = 0;
+    let cancelled = false;
+    let dashOffset = 0;
+    const sel = magicSelection;
+
+    // screen pixels per image pixel — used to scale dash sizes with zoom
+    const pixelSize = sel
+      ? Math.sqrt(Math.abs(sel.layerScaleX * sel.layerScaleY)) * scale
+      : scale;
+    const dashPeriod = 10 * pixelSize;
+    const dashInc = 0.4 * pixelSize;
+
+    const toScreenX = sel
+      ? (x: number) => (sel.layerX + x * sel.layerScaleX) * scale + offsetX
+      : () => 0;
+    const toScreenY = sel
+      ? (y: number) => (sel.layerY + y * sel.layerScaleY) * scale + offsetY
+      : () => 0;
+
+    import("@/lib/magic-select").then(({ drawMarchingAnts }) => {
+      if (cancelled) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      const animate = () => {
+        if (cancelled) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (sel) {
+          drawMarchingAnts(
+            ctx,
+            sel.segments,
+            dashOffset,
+            toScreenX,
+            toScreenY,
+            pixelSize
+          );
+        }
+
+        // Draw live lasso outline
+        const tl = lassoTargetLayerRef.current;
+        const pts = lassoPointsRef.current;
+        if (isLassoing && tl && pts.length > 1) {
+          const lPx = Math.sqrt(Math.abs(tl.scaleX * tl.scaleY)) * scale;
+          const lDash = Math.max(2, 4 * lPx);
+          const lsx = (x: number) => (tl.x + x * tl.scaleX) * scale + offsetX;
+          const lsy = (y: number) => (tl.y + y * tl.scaleY) * scale + offsetY;
+          ctx.save();
+          ctx.lineWidth = Math.max(1, lPx);
+          for (let pass = 0; pass < 2; pass++) {
+            ctx.setLineDash([lDash, lDash]);
+            ctx.lineDashOffset =
+              pass === 0 ? -dashOffset : -(dashOffset + lDash);
+            ctx.strokeStyle = pass === 0 ? "#fff" : "#000";
+            ctx.beginPath();
+            ctx.moveTo(lsx(pts[0].x), lsy(pts[0].y));
+            for (let i = 1; i < pts.length; i++) {
+              ctx.lineTo(lsx(pts[i].x), lsy(pts[i].y));
+            }
+            ctx.lineTo(lsx(pts[0].x), lsy(pts[0].y));
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        dashOffset = (dashOffset + dashInc) % dashPeriod;
+        rafId = requestAnimationFrame(animate);
+      };
+      rafId = requestAnimationFrame(animate);
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+    };
+  }, [magicSelection, isLassoing, scale, offsetX, offsetY]);
+
+  // Magic select keyboard: Delete → erase, Escape/Ctrl+D → deselect
+  useEffect(() => {
+    if (!magicSelection) return;
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+      if (e.key === "Escape" || (isCtrlOrMeta && e.key.toLowerCase() === "d")) {
+        e.preventDefault();
+        setMagicSelection(null);
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        const {
+          layers: ls,
+          pushHistory: ph,
+          updateLayer: ul,
+        } = useEditorStore.getState();
+        const layer = ls.find((l) => l.id === magicSelection.layerId);
+        if (!layer || layer.type !== "image") return;
+        import("@/lib/magic-select").then(({ eraseSelectedPixels }) => {
+          eraseSelectedPixels(
+            layer.dataUrl,
+            magicSelection.mask,
+            magicSelection.imgW,
+            magicSelection.imgH
+          ).then((newDataUrl) => {
+            ph("Magic Erase");
+            ul(magicSelection.layerId, { dataUrl: newDataUrl });
+            setMagicSelection(null);
+          });
+        });
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [magicSelection]);
 
   type BoundBox = {
     x: number;
@@ -1120,6 +1328,35 @@ export function KonvaCanvas({
       handleBrushMouseDown(e);
       return;
     }
+    if (activeTool === "magic-select") {
+      const stage = e.target.getStage();
+      const pos = stage?.getPointerPosition();
+      if (!pos) return;
+      const cp = toCanvasPos(pos);
+      const { layers: ls } = useEditorStore.getState();
+      const tl = [...ls].reverse().find((l) => {
+        if (l.type !== "image" || !l.visible || l.locked) return false;
+        return (
+          cp.x >= l.x &&
+          cp.x <= l.x + l.width * l.scaleX &&
+          cp.y >= l.y &&
+          cp.y <= l.y + l.height * l.scaleY
+        );
+      }) as ImageLayerType | undefined;
+      if (tl) {
+        const imgX = (cp.x - tl.x) / tl.scaleX;
+        const imgY = (cp.y - tl.y) / tl.scaleY;
+        lassoTargetLayerRef.current = tl;
+        lassoPointsRef.current = [{ x: imgX, y: imgY }];
+        lassoModifiersRef.current = {
+          add: e.evt.shiftKey,
+          sub: e.evt.altKey,
+        };
+        isLassoingRef.current = true;
+        setIsLassoing(true);
+      }
+      return;
+    }
     if (editingId || activeTool !== "select") return;
 
     const stage = e.target.getStage();
@@ -1128,7 +1365,7 @@ export function KonvaCanvas({
 
     // If the hit node is NOT an active layer, check if an active layer is at this
     // position so we can drag it even when something else is visually on top.
-    const hitId = e.target === stage ? null : e.target.id();
+    const hitId = e.target === stage ? null : resolveClickedLayerId(e.target);
     const hitIsActive = hitId ? activeLayerIds.includes(hitId) : false;
 
     if (!hitIsActive && activeLayerIds.length > 0) {
@@ -1176,6 +1413,25 @@ export function KonvaCanvas({
   ) => {
     if (activeTool === "brush" || activeTool === "eraser") {
       handleBrushMouseMove(e);
+      return;
+    }
+    if (activeTool === "magic-select" && isLassoingRef.current) {
+      const stage = e.target.getStage();
+      const pos = stage?.getPointerPosition();
+      if (!pos) return;
+      const tl = lassoTargetLayerRef.current;
+      if (!tl) return;
+      const cp = toCanvasPos(pos);
+      const imgX = Math.max(0, Math.min(tl.width, (cp.x - tl.x) / tl.scaleX));
+      const imgY = Math.max(0, Math.min(tl.height, (cp.y - tl.y) / tl.scaleY));
+      const pts = lassoPointsRef.current;
+      const last = pts[pts.length - 1];
+      const dx = imgX - last.x;
+      const dy = imgY - last.y;
+      // thin path: only add if moved ≥2px in image space
+      if (dx * dx + dy * dy >= 4) {
+        lassoPointsRef.current = [...pts, { x: imgX, y: imgY }];
+      }
       return;
     }
 
@@ -1239,6 +1495,51 @@ export function KonvaCanvas({
   ) => {
     if (activeTool === "brush" || activeTool === "eraser") {
       handleBrushMouseUp();
+      return;
+    }
+    if (activeTool === "magic-select" && isLassoingRef.current) {
+      isLassoingRef.current = false;
+      setIsLassoing(false);
+      const tl = lassoTargetLayerRef.current;
+      const pts = lassoPointsRef.current;
+      lassoPointsRef.current = [];
+      lassoTargetLayerRef.current = null;
+
+      // If fewer than 5 points, treat as a plain click → let handleStageClick fire
+      if (!tl || pts.length < 5) return;
+
+      lassoHandledRef.current = true;
+      const { sub } = lassoModifiersRef.current;
+
+      import("@/lib/magic-select").then(
+        ({
+          fillPolygon,
+          buildSelectionSegments,
+          addToMask,
+          subtractFromMask,
+        }) => {
+          const newFill = fillPolygon(pts, tl.width, tl.height);
+          const existing =
+            magicSelection?.layerId === tl.id ? magicSelection.mask : null;
+          let mask = newFill;
+          if (existing) {
+            if (sub) mask = subtractFromMask(existing, newFill);
+            else mask = addToMask(existing, newFill); // drag always extends selection
+          }
+          const segments = buildSelectionSegments(mask, tl.width, tl.height);
+          setMagicSelection({
+            mask,
+            segments,
+            layerId: tl.id,
+            imgW: tl.width,
+            imgH: tl.height,
+            layerX: tl.x,
+            layerY: tl.y,
+            layerScaleX: tl.scaleX,
+            layerScaleY: tl.scaleY,
+          });
+        }
+      );
       return;
     }
 
@@ -1342,6 +1643,111 @@ export function KonvaCanvas({
         img.src = dataUrl;
         return;
       }
+      if (activeTool === "magic-select") {
+        if (lassoHandledRef.current) {
+          lassoHandledRef.current = false;
+          return;
+        }
+        const stage = e.target.getStage();
+        const pos = stage?.getPointerPosition();
+        if (!pos) return;
+        const cp = toCanvasPos(pos);
+        const { layers: ls, magicSelectTolerance: tol } =
+          useEditorStore.getState();
+        const isAdd = e.evt.shiftKey;
+        const isSub = e.evt.altKey;
+
+        const targetLayer = [...ls].reverse().find((l) => {
+          if (l.type !== "image" || !l.visible || l.locked) return false;
+          const lw = l.width * l.scaleX;
+          const lh = l.height * l.scaleY;
+          return (
+            cp.x >= l.x && cp.x <= l.x + lw && cp.y >= l.y && cp.y <= l.y + lh
+          );
+        }) as ImageLayerType | undefined;
+
+        if (!targetLayer) {
+          setMagicSelection(null);
+          return;
+        }
+
+        const imgX = (cp.x - targetLayer.x) / targetLayer.scaleX;
+        const imgY = (cp.y - targetLayer.y) / targetLayer.scaleY;
+
+        const doFill = (img: HTMLImageElement) => {
+          import("@/lib/magic-select").then(
+            ({
+              floodFill,
+              buildSelectionSegments,
+              addToMask,
+              subtractFromMask,
+            }) => {
+              const offscreen = document.createElement("canvas");
+              offscreen.width = targetLayer.width;
+              offscreen.height = targetLayer.height;
+              const ctx = offscreen.getContext("2d");
+              if (!ctx) return;
+              ctx.drawImage(img, 0, 0, targetLayer.width, targetLayer.height);
+              const imageData = ctx.getImageData(
+                0,
+                0,
+                targetLayer.width,
+                targetLayer.height
+              );
+              const newFill = floodFill(
+                imageData.data,
+                targetLayer.width,
+                targetLayer.height,
+                imgX,
+                imgY,
+                tol
+              );
+
+              // Merge with existing selection if same layer + modifier held
+              const existing =
+                magicSelection?.layerId === targetLayer.id
+                  ? magicSelection.mask
+                  : null;
+              let mask = newFill;
+              if (existing) {
+                if (isAdd) mask = addToMask(existing, newFill);
+                else if (isSub) mask = subtractFromMask(existing, newFill);
+              }
+
+              const segments = buildSelectionSegments(
+                mask,
+                targetLayer.width,
+                targetLayer.height
+              );
+              setMagicSelection({
+                mask,
+                segments,
+                layerId: targetLayer.id,
+                imgW: targetLayer.width,
+                imgH: targetLayer.height,
+                layerX: targetLayer.x,
+                layerY: targetLayer.y,
+                layerScaleX: targetLayer.scaleX,
+                layerScaleY: targetLayer.scaleY,
+              });
+            }
+          );
+        };
+
+        const cached = imageCache.current.get(targetLayer.dataUrl);
+        if (cached?.complete) {
+          doFill(cached);
+        } else {
+          const img = new window.Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            imageCache.current.set(targetLayer.dataUrl, img);
+            doFill(img);
+          };
+          img.src = targetLayer.dataUrl;
+        }
+        return;
+      }
       if (
         activeTool === "brush" ||
         activeTool === "eraser" ||
@@ -1381,7 +1787,7 @@ export function KonvaCanvas({
         return;
       }
 
-      const clickedId = e.target.id();
+      const clickedId = resolveClickedLayerId(e.target);
       if (clickedId) {
         if (e.evt.metaKey || e.evt.ctrlKey || e.evt.shiftKey) {
           toggleLayerSelection(clickedId);
@@ -1423,6 +1829,7 @@ export function KonvaCanvas({
       addShapeLayer,
       updateLayer,
       editingId,
+      magicSelection,
     ]
   );
 
@@ -1655,8 +2062,9 @@ export function KonvaCanvas({
           const container = stageContainerRef.current;
           if (!(container && pos)) return;
           const rect = container.getBoundingClientRect();
+          const rawId = resolveClickedLayerId(e.target);
           const clickedId =
-            e.target === e.target.getStage() ? null : e.target.id() || null;
+            e.target === e.target.getStage() ? null : rawId || null;
           if (clickedId && !activeLayerIds.includes(clickedId)) {
             setActiveLayers([clickedId]);
           }
@@ -2011,51 +2419,66 @@ export function KonvaCanvas({
         </Layer>
       </Stage>
 
-      {editingLayer && editingId && (
-        <textarea
-          className="absolute m-0 resize-none overflow-hidden border-none bg-transparent p-0 outline-1 focus:outline-blue-500"
-          onBlur={handleTextBlur}
-          onChange={(e) => {
-            updateLayer(editingId, { text: e.target.value });
-            e.target.style.width = "0px";
-            e.target.style.height = "0px";
-            e.target.style.width = `${e.target.scrollWidth + 10}px`;
-            e.target.style.height = `${e.target.scrollHeight}px`;
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              setEditingId(null);
-            } else if (e.key === "Enter" && e.shiftKey) {
-              e.preventDefault();
-              setEditingId(null);
-              pushHistory("Edit Text");
-            }
-          }}
-          ref={textAreaRef}
-          style={{
-            left: offsetX + editingLayer.x * scale,
-            top: offsetY + editingLayer.y * scale,
-            width: Math.max(
-              100,
-              (editingLayer.text.length + 1) * editingLayer.fontSize * 0.6
-            ),
-            height: "auto",
-            fontSize: editingLayer.fontSize * scale,
-            fontFamily: editingLayer.fontFamily,
-            fontWeight: editingLayer.fontStyle.includes("bold")
-              ? "bold"
-              : "normal",
-            fontStyle: editingLayer.fontStyle.includes("italic")
-              ? "italic"
-              : "normal",
-            color: editingLayer.fill,
-            lineHeight: 1,
-            transform: `rotate(${editingLayer.rotation}deg)`,
-            transformOrigin: "top left",
-          }}
-          value={editingLayer.text}
-        />
-      )}
+      {editingLayer &&
+        editingId &&
+        (() => {
+          const editingNode = stageRef.current?.findOne(`#${editingId}`);
+          const nodeRect = editingNode
+            ? editingNode.getClientRect({ relativeTo: stageRef.current! })
+            : null;
+          return (
+            <textarea
+              className="absolute m-0 resize-none overflow-hidden border-none bg-transparent p-0 outline-1 focus:outline-blue-500"
+              onBlur={handleTextBlur}
+              onChange={(e) => {
+                updateLayer(editingId, { text: e.target.value });
+                e.target.style.width = "0px";
+                e.target.style.height = "0px";
+                e.target.style.width = `${e.target.scrollWidth + 10}px`;
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setEditingId(null);
+                } else if (e.key === "Enter" && e.shiftKey) {
+                  e.preventDefault();
+                  setEditingId(null);
+                  pushHistory("Edit Text");
+                }
+              }}
+              ref={textAreaRef}
+              style={{
+                left: nodeRect ? nodeRect.x : offsetX + editingLayer.x * scale,
+                top: nodeRect ? nodeRect.y : offsetY + editingLayer.y * scale,
+                width: Math.max(
+                  100,
+                  nodeRect
+                    ? nodeRect.width + 20
+                    : (editingLayer.text.length + 1) *
+                        editingLayer.fontSize *
+                        0.6 *
+                        scale
+                ),
+                minHeight: nodeRect ? nodeRect.height : undefined,
+                height: "auto",
+                fontSize: editingLayer.fontSize * scale,
+                fontFamily: editingLayer.fontFamily,
+                fontWeight: editingLayer.fontStyle.includes("bold")
+                  ? "bold"
+                  : "normal",
+                fontStyle: editingLayer.fontStyle.includes("italic")
+                  ? "italic"
+                  : "normal",
+                color: editingLayer.fill,
+                lineHeight: editingLayer.lineHeight ?? 1,
+                letterSpacing: `${editingLayer.letterSpacing ?? 0}px`,
+                transform: `rotate(${editingLayer.rotation}deg)`,
+                transformOrigin: "top left",
+              }}
+              value={editingLayer.text}
+            />
+          );
+        })()}
 
       {/* Pending guide overlays */}
       <div
@@ -2094,7 +2517,7 @@ export function KonvaCanvas({
         <div
           style={{
             position: "absolute",
-            bottom: 12,
+            bottom: 78,
             left: "50%",
             transform: "translateX(-50%)",
             background: "rgba(0,0,0,0.72)",
@@ -2103,7 +2526,7 @@ export function KonvaCanvas({
             padding: "4px 12px",
             borderRadius: 6,
             pointerEvents: "none",
-            zIndex: 30,
+            zIndex: 60,
             whiteSpace: "nowrap",
           }}
         >
@@ -2127,6 +2550,42 @@ export function KonvaCanvas({
           zIndex: 20,
         }}
       />
+
+      {/* Marching ants overlay for magic select */}
+      <canvas
+        height={workspaceHeight}
+        ref={overlayCanvasRef}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          pointerEvents: "none",
+          zIndex: 15,
+        }}
+        width={workspaceWidth}
+      />
+
+      {/* Magic select hint */}
+      {magicSelection && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 78,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(0,0,0,0.72)",
+            color: "white",
+            fontSize: 12,
+            padding: "4px 12px",
+            borderRadius: 6,
+            pointerEvents: "none",
+            zIndex: 60,
+            whiteSpace: "nowrap",
+          }}
+        >
+          Delete to erase · Esc to clear
+        </div>
+      )}
 
       {contextMenu &&
         (() => {

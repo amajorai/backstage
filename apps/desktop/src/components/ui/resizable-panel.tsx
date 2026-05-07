@@ -64,7 +64,7 @@ export function ResizablePanel({
       aria-valuemax={maxWidth}
       aria-valuemin={minWidth}
       aria-valuenow={width}
-      className="flex w-2 shrink-0 cursor-col-resize items-center justify-center hover:bg-accent/20"
+      className="flex w-2 shrink-0 cursor-col-resize items-center justify-center"
       onMouseDown={handleMouseDown}
       role="separator"
       tabIndex={0}

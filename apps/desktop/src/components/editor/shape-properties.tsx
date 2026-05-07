@@ -144,6 +144,61 @@ export function ShapeProperties({ layer, onUpdate }: ShapePropertiesProps) {
           value={[layer.strokeWidth]}
         />
       </div>
+      {layer.shapeType === "polygon" && (
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <label className="text-muted-foreground text-xs">Sides</label>
+            <span className="text-muted-foreground text-xs">
+              {layer.sides ?? 6}
+            </span>
+          </div>
+          <Slider
+            max={12}
+            min={3}
+            onValueChange={(value) => onUpdate({ sides: value[0] })}
+            step={1}
+            value={[layer.sides ?? 6]}
+          />
+        </div>
+      )}
+      {layer.shapeType === "star" && (
+        <>
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <label className="text-muted-foreground text-xs">Points</label>
+              <span className="text-muted-foreground text-xs">
+                {layer.starPoints ?? 5}
+              </span>
+            </div>
+            <Slider
+              max={12}
+              min={3}
+              onValueChange={(value) => onUpdate({ starPoints: value[0] })}
+              step={1}
+              value={[layer.starPoints ?? 5]}
+            />
+          </div>
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <label className="text-muted-foreground text-xs">
+                Inner Radius
+              </label>
+              <span className="text-muted-foreground text-xs">
+                {Math.round((layer.innerRadiusRatio ?? 0.5) * 100)}%
+              </span>
+            </div>
+            <Slider
+              max={90}
+              min={10}
+              onValueChange={(value) =>
+                onUpdate({ innerRadiusRatio: value[0] / 100 })
+              }
+              step={5}
+              value={[Math.round((layer.innerRadiusRatio ?? 0.5) * 100)]}
+            />
+          </div>
+        </>
+      )}
       {layer.shapeType === "rect" && (
         <div>
           <div className="mb-2 flex items-center justify-between">

@@ -70,7 +70,7 @@ export function VerticalResizablePanel({
       </div>
       {/* Resize handle */}
       <div
-        className="z-10 flex h-2 shrink-0 cursor-row-resize items-center justify-center hover:bg-accent/20"
+        className="z-10 flex h-2 shrink-0 cursor-row-resize items-center justify-center"
         onMouseDown={handleMouseDown}
       >
         <div className="h-0.5 w-8 rounded-full bg-border" />

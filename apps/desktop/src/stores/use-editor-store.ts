@@ -19,6 +19,7 @@ export interface LayerAdjustments {
   hue: number; // -180 to 180, default 0
   saturation: number; // -100 to 100, default 0
   blur: number; // 0 to 20, default 0
+  sharpen: number;
   invert: boolean;
   sepia: boolean;
   grayscale: boolean;
@@ -30,6 +31,7 @@ export const DEFAULT_ADJUSTMENTS: LayerAdjustments = {
   hue: 0,
   saturation: 0,
   blur: 0,
+  sharpen: 0,
   invert: false,
   sepia: false,
   grayscale: false,
@@ -67,17 +69,21 @@ export interface TextLayer extends BaseLayer {
   glowSize?: number;
   backgroundColor?: string;
   backgroundPadding?: number;
+  backgroundCornerRadius?: number;
 }
 // Shape layer
 export interface ShapeLayer extends BaseLayer {
   type: "shape";
-  shapeType: "rect" | "ellipse";
+  shapeType: "rect" | "ellipse" | "polygon" | "star";
   width: number;
   height: number;
   fill: string;
   stroke: string;
   strokeWidth: number;
   cornerRadius: number | [number, number, number, number];
+  sides?: number;
+  starPoints?: number;
+  innerRadiusRatio?: number;
 }
 // Animated Image layer (for APNGs like Fluent Emojis)
 export interface AnimatedImageLayer extends BaseLayer {
@@ -154,7 +160,15 @@ interface EditorState {
     height: number
   ) => void;
   addTextLayer: (text: string) => void;
-  addShapeLayer: (shapeType: "rect" | "ellipse") => void;
+  addShapeLayer: (
+    shapeType: "rect" | "ellipse" | "polygon" | "star",
+    options?: {
+      sides?: number;
+      starPoints?: number;
+      innerRadiusRatio?: number;
+      name?: string;
+    }
+  ) => void;
   addEmptyLayer: () => void;
   addDrawLayer: (dataUrl: string, width: number, height: number) => void;
   removeLayer: (id: string) => void;
@@ -389,12 +403,25 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }));
   },
 
-  addShapeLayer: (shapeType) => {
+  addShapeLayer: (shapeType, options) => {
     get().pushHistory("Add Shape");
+    const getDefaultName = () => {
+      if (options?.name) return options.name;
+      if (shapeType === "rect") return "Rectangle";
+      if (shapeType === "ellipse") return "Ellipse";
+      if (shapeType === "star") return "Star";
+      const s = options?.sides ?? 6;
+      if (s === 3) return "Triangle";
+      if (s === 4) return "Diamond";
+      if (s === 5) return "Pentagon";
+      if (s === 6) return "Hexagon";
+      if (s === 8) return "Octagon";
+      return `Polygon ${s}`;
+    };
     const newLayer: ShapeLayer = {
       id: crypto.randomUUID(),
       type: "shape",
-      name: shapeType === "rect" ? "Rectangle" : "Ellipse",
+      name: getDefaultName(),
       visible: true,
       locked: false,
       x: 100,
@@ -410,6 +437,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       stroke: "#1d4ed8",
       strokeWidth: 2,
       cornerRadius: shapeType === "rect" ? 8 : 0,
+      ...(shapeType === "polygon" ? { sides: options?.sides ?? 6 } : {}),
+      ...(shapeType === "star"
+        ? {
+            starPoints: options?.starPoints ?? 5,
+            innerRadiusRatio: options?.innerRadiusRatio ?? 0.5,
+          }
+        : {}),
     };
 
     const { pages, activePageIndex } = get();

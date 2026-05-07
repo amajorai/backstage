@@ -1,17 +1,17 @@
 import {
   Bot,
   Building2,
-  Circle,
   Crop,
   Eraser,
   ImageDown,
   ImagePlus,
+  Lasso,
   MousePointer,
   PaintBucket,
   Paintbrush,
   Pipette,
-  RectangleHorizontal,
   Redo2,
+  Shapes,
   Smile,
   Sparkles,
   Type,
@@ -29,6 +29,12 @@ import {
   ColorPickerInput,
   ColorPickerTrigger,
 } from "@/components/ui/color-picker";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Popover,
   PopoverContent,
@@ -92,6 +98,8 @@ export function EditorToolbar({
     setBrushSize,
     setBrushColor,
     setBrushOpacity,
+    magicSelectTolerance,
+    setMagicSelectTolerance,
   } = useEditorStore();
 
   const activeLayer = layers.find((l) => activeLayerIds.includes(l.id));
@@ -110,8 +118,11 @@ export function EditorToolbar({
     setActiveTool("select");
   };
 
-  const handleAddShape = (shapeType: "rect" | "ellipse") => {
-    addShapeLayer(shapeType);
+  const handleAddShape = (
+    shapeType: "rect" | "ellipse" | "polygon" | "star",
+    options?: { sides?: number; starPoints?: number; innerRadiusRatio?: number }
+  ) => {
+    addShapeLayer(shapeType, options);
     const newLayerId = useEditorStore.getState().activeLayerIds[0];
     if (newLayerId) {
       updateLayer(newLayerId, {
@@ -126,7 +137,12 @@ export function EditorToolbar({
   const isEraserActive = activeTool === "eraser";
   const isCropActive = activeTool === "crop";
   const isEyeDropperActive = activeTool === "eyedropper";
+  const isMagicSelectActive = activeTool === "magic-select";
+  const canPaintOnLayer =
+    (activeLayer?.type === "image" || activeLayer?.type === "draw") &&
+    !isProcessing;
   const canCrop = activeLayer?.type === "image" && !isProcessing;
+  const canMagicSelect = activeLayer?.type === "image" && !isProcessing;
 
   return (
     <div className="flex w-12 shrink-0 flex-col items-center gap-1 border-border border-r bg-background py-2">
@@ -144,6 +160,55 @@ export function EditorToolbar({
         <TooltipContent side="right">Select (V)</TooltipContent>
       </Tooltip>
 
+      {/* Magic Select tool */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={
+              canMagicSelect ? undefined : "pointer-events-none opacity-40"
+            }
+          >
+            <Popover>
+              <PopoverTrigger
+                aria-label="Magic Select Tool"
+                className={buttonVariants({
+                  size: "icon-sm",
+                  variant: isMagicSelectActive ? "secondary" : "ghost",
+                })}
+                disabled={!canMagicSelect}
+                onClick={() => setActiveTool("magic-select")}
+              >
+                <Lasso className="size-4" />
+              </PopoverTrigger>
+              <PopoverContent className="w-52 p-3" side="right">
+                <p className="mb-2 font-medium text-sm">Magic Select</p>
+                <p className="mb-2 text-muted-foreground text-xs">
+                  Click to select · Delete to erase
+                </p>
+                <div>
+                  <label className="mb-1 block text-muted-foreground text-xs">
+                    Tolerance: {magicSelectTolerance}
+                  </label>
+                  <input
+                    className="w-full accent-primary"
+                    max={255}
+                    min={0}
+                    onChange={(e) =>
+                      setMagicSelectTolerance(Number(e.target.value))
+                    }
+                    type="range"
+                    value={magicSelectTolerance}
+                  />
+                </div>
+              </PopoverContent>
+            </Popover>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          {canMagicSelect ? "Magic Select (W)" : "Select an image layer (W)"}
+        </TooltipContent>
+      </Tooltip>
+
       <Tooltip>
         <TooltipTrigger
           aria-label="Add Text"
@@ -156,25 +221,58 @@ export function EditorToolbar({
       </Tooltip>
 
       <Tooltip>
-        <TooltipTrigger
-          aria-label="Add Rectangle"
-          className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
-          onClick={() => handleAddShape("rect")}
-        >
-          <RectangleHorizontal className="size-4" />
+        <TooltipTrigger asChild>
+          <span>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label="Add Shape"
+                className={buttonVariants({
+                  size: "icon-sm",
+                  variant: "ghost",
+                })}
+              >
+                <Shapes className="size-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" side="right">
+                <DropdownMenuItem onClick={() => handleAddShape("rect")}>
+                  Rectangle
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAddShape("ellipse")}>
+                  Ellipse
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleAddShape("polygon", { sides: 3 })}
+                >
+                  Triangle
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleAddShape("polygon", { sides: 4 })}
+                >
+                  Diamond
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleAddShape("polygon", { sides: 5 })}
+                >
+                  Pentagon
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleAddShape("polygon", { sides: 6 })}
+                >
+                  Hexagon
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleAddShape("polygon", { sides: 8 })}
+                >
+                  Octagon
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAddShape("star")}>
+                  Star
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </span>
         </TooltipTrigger>
-        <TooltipContent side="right">Add Rectangle (R)</TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger
-          aria-label="Add Ellipse"
-          className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
-          onClick={() => handleAddShape("ellipse")}
-        >
-          <Circle className="size-4" />
-        </TooltipTrigger>
-        <TooltipContent side="right">Add Ellipse (O)</TooltipContent>
+        <TooltipContent side="right">Add Shape</TooltipContent>
       </Tooltip>
 
       <Tooltip>
@@ -194,7 +292,11 @@ export function EditorToolbar({
       {/* Brush tool */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <span>
+          <span
+            className={
+              canPaintOnLayer ? undefined : "pointer-events-none opacity-40"
+            }
+          >
             <Popover>
               <PopoverTrigger
                 aria-label="Brush Tool"
@@ -202,6 +304,7 @@ export function EditorToolbar({
                   size: "icon-sm",
                   variant: isBrushActive ? "secondary" : "ghost",
                 })}
+                disabled={!canPaintOnLayer}
                 onClick={() => setActiveTool("brush")}
               >
                 <Paintbrush className="size-4" />
@@ -275,13 +378,19 @@ export function EditorToolbar({
             </Popover>
           </span>
         </TooltipTrigger>
-        <TooltipContent side="right">Brush (B)</TooltipContent>
+        <TooltipContent side="right">
+          {canPaintOnLayer ? "Brush (B)" : "Select an image layer (B)"}
+        </TooltipContent>
       </Tooltip>
 
       {/* Eraser tool */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <span>
+          <span
+            className={
+              canPaintOnLayer ? undefined : "pointer-events-none opacity-40"
+            }
+          >
             <Popover>
               <PopoverTrigger
                 aria-label="Eraser Tool"
@@ -289,6 +398,7 @@ export function EditorToolbar({
                   size: "icon-sm",
                   variant: isEraserActive ? "secondary" : "ghost",
                 })}
+                disabled={!canPaintOnLayer}
                 onClick={() => setActiveTool("eraser")}
               >
                 <Eraser className="size-4" />
@@ -332,14 +442,17 @@ export function EditorToolbar({
             </Popover>
           </span>
         </TooltipTrigger>
-        <TooltipContent side="right">Eraser (E)</TooltipContent>
+        <TooltipContent side="right">
+          {canPaintOnLayer ? "Eraser (E)" : "Select an image layer (E)"}
+        </TooltipContent>
       </Tooltip>
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <span>
+          <span
+            className={canCrop ? undefined : "pointer-events-none opacity-40"}
+          >
             <Button
-              className="disabled:opacity-100"
               disabled={!canCrop}
               onClick={() => setActiveTool("crop")}
               size="icon-sm"

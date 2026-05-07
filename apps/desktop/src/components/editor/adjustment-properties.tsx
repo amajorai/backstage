@@ -1,4 +1,5 @@
-import { RotateCcw } from "lucide-react";
+import { Loader2, RotateCcw, Sparkles } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -9,12 +10,13 @@ import {
 interface AdjustmentPropertiesProps {
   adjustments: LayerAdjustments;
   onUpdate: (adjustments: LayerAdjustments) => void;
+  onAutoAdjust?: () => Promise<Partial<LayerAdjustments>>;
 }
 
 const SLIDERS: {
   key: keyof Pick<
     LayerAdjustments,
-    "brightness" | "contrast" | "hue" | "saturation" | "blur"
+    "brightness" | "contrast" | "hue" | "saturation" | "blur" | "sharpen"
   >;
   label: string;
   min: number;
@@ -26,6 +28,7 @@ const SLIDERS: {
   { key: "hue", label: "Hue", min: -180, max: 180, step: 1 },
   { key: "saturation", label: "Saturation", min: -100, max: 100, step: 1 },
   { key: "blur", label: "Blur", min: 0, max: 20, step: 0.5 },
+  { key: "sharpen", label: "Sharpen", min: 0, max: 1, step: 0.05 },
 ];
 
 const TOGGLES: {
@@ -44,6 +47,7 @@ function isDefault(adj: LayerAdjustments): boolean {
     adj.hue === 0 &&
     adj.saturation === 0 &&
     adj.blur === 0 &&
+    (adj.sharpen ?? 0) === 0 &&
     !adj.invert &&
     !adj.sepia &&
     !adj.grayscale
@@ -53,9 +57,22 @@ function isDefault(adj: LayerAdjustments): boolean {
 export function AdjustmentProperties({
   adjustments,
   onUpdate,
+  onAutoAdjust,
 }: AdjustmentPropertiesProps) {
+  const [isAutoLoading, setIsAutoLoading] = useState(false);
   const update = (patch: Partial<LayerAdjustments>) =>
     onUpdate({ ...adjustments, ...patch });
+
+  const handleAuto = async () => {
+    if (!onAutoAdjust) return;
+    setIsAutoLoading(true);
+    try {
+      const suggested = await onAutoAdjust();
+      onUpdate({ ...DEFAULT_ADJUSTMENTS, ...suggested });
+    } finally {
+      setIsAutoLoading(false);
+    }
+  };
 
   return (
     <div>
@@ -63,17 +80,35 @@ export function AdjustmentProperties({
         <span className="font-medium text-muted-foreground text-xs uppercase">
           Adjustments
         </span>
-        {!isDefault(adjustments) && (
-          <Button
-            className="h-6 gap-1 px-2 text-xs"
-            onClick={() => onUpdate({ ...DEFAULT_ADJUSTMENTS })}
-            size="sm"
-            variant="ghost"
-          >
-            <RotateCcw className="size-3" />
-            Reset
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          {onAutoAdjust && (
+            <Button
+              className="h-6 gap-1 px-2 text-xs"
+              disabled={isAutoLoading}
+              onClick={handleAuto}
+              size="sm"
+              variant="ghost"
+            >
+              {isAutoLoading ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <Sparkles className="size-3" />
+              )}
+              Auto
+            </Button>
+          )}
+          {!isDefault(adjustments) && (
+            <Button
+              className="h-6 gap-1 px-2 text-xs"
+              onClick={() => onUpdate({ ...DEFAULT_ADJUSTMENTS })}
+              size="sm"
+              variant="ghost"
+            >
+              <RotateCcw className="size-3" />
+              Reset
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -82,7 +117,7 @@ export function AdjustmentProperties({
             <div className="mb-1.5 flex items-center justify-between">
               <label className="text-muted-foreground text-xs">{label}</label>
               <span className="text-muted-foreground text-xs tabular-nums">
-                {adjustments[key]}
+                {adjustments[key] ?? 0}
               </span>
             </div>
             <Slider
@@ -90,7 +125,7 @@ export function AdjustmentProperties({
               min={min}
               onValueChange={(v) => update({ [key]: v[0] })}
               step={step}
-              value={[adjustments[key] as number]}
+              value={[(adjustments[key] ?? 0) as number]}
             />
           </div>
         ))}

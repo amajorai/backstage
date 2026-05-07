@@ -4,6 +4,7 @@ import { AdjustmentProperties } from "@/components/editor/adjustment-properties"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
+import { computeAutoAdjustments } from "@/lib/auto-adjust";
 import {
   DEFAULT_ADJUSTMENTS,
   type ImageLayer,
@@ -117,6 +118,7 @@ export function ImageProperties({ layer, onUpdate }: ImagePropertiesProps) {
       <div className="my-2 border-border border-t" />
       <AdjustmentProperties
         adjustments={layer.adjustments ?? { ...DEFAULT_ADJUSTMENTS }}
+        onAutoAdjust={() => computeAutoAdjustments(layer.dataUrl)}
         onUpdate={(adjustments) => onUpdate({ adjustments })}
       />
     </div>

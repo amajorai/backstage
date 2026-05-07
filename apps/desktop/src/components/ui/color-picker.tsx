@@ -738,7 +738,11 @@ function ColorPickerTrigger(
     <PopoverTrigger
       disabled={isDisabled}
       render={
-        <TriggerPrimitive data-slot="color-picker-trigger" {...triggerProps} />
+        <TriggerPrimitive
+          data-slot="color-picker-trigger"
+          variant="outline"
+          {...triggerProps}
+        />
       }
     />
   );

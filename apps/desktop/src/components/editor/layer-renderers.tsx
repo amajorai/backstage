@@ -2,13 +2,22 @@ import type Konva from "konva";
 import { Blur } from "konva/lib/filters/Blur";
 import { Brighten } from "konva/lib/filters/Brighten";
 import { Contrast } from "konva/lib/filters/Contrast";
+import { Enhance } from "konva/lib/filters/Enhance";
 import { Grayscale } from "konva/lib/filters/Grayscale";
 import { HSL } from "konva/lib/filters/HSL";
 import { Invert } from "konva/lib/filters/Invert";
 import { Sepia } from "konva/lib/filters/Sepia";
 import type { Filter } from "konva/lib/Node";
-import { useEffect, useRef, useState } from "react";
-import { Ellipse, Group, Image, Rect, Text } from "react-konva";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  Ellipse,
+  Group,
+  Image,
+  Rect,
+  RegularPolygon,
+  Star,
+  Text,
+} from "react-konva";
 import type {
   AnimatedImageLayer as AnimatedImageLayerType,
   DrawLayer as DrawLayerType,
@@ -74,6 +83,7 @@ function hasNoAdjustments(adj: LayerAdjustments): boolean {
     adj.hue === 0 &&
     adj.saturation === 0 &&
     adj.blur === 0 &&
+    (adj.sharpen ?? 0) === 0 &&
     !adj.invert &&
     !adj.sepia &&
     !adj.grayscale
@@ -97,12 +107,14 @@ function applyKonvaFilters(
   if (adj.invert) filters.push(Invert);
   if (adj.sepia) filters.push(Sepia);
   if (adj.grayscale) filters.push(Grayscale);
+  if ((adj.sharpen ?? 0) > 0) filters.push(Enhance);
   node.filters(filters);
   node.brightness(adj.brightness / 100);
   node.contrast(adj.contrast);
   node.hue(adj.hue);
   node.saturation(adj.saturation / 100);
   node.blurRadius(adj.blur);
+  node.enhance(adj.sharpen ?? 0);
   node.cache();
 }
 
@@ -202,7 +214,19 @@ export function renderImageLayer(
   return <ImageLayerComponent {...props} />;
 }
 
-export function renderTextLayer(
+function applyTextTransform(
+  text: string,
+  transform?: TextLayerType["textTransform"]
+): string {
+  if (!transform || transform === "none") return text;
+  if (transform === "uppercase") return text.toUpperCase();
+  if (transform === "lowercase") return text.toLowerCase();
+  if (transform === "capitalize")
+    return text.replace(/\b\w/g, (c) => c.toUpperCase());
+  return text;
+}
+
+function TextLayerComponent(
   props: LayerRenderProps & { layer: TextLayerType }
 ) {
   const {
@@ -214,11 +238,44 @@ export function renderTextLayer(
     onDragEnd,
     onTransformStart,
     onTransformEnd,
-    onSelect: _onSelect,
   } = props;
 
-  return (
+  const textRef = useRef<Konva.Text>(null);
+  const [bgSize, setBgSize] = useState({ width: 0, height: 0 });
+
+  useLayoutEffect(() => {
+    if (textRef.current && layer.backgroundColor) {
+      setBgSize({
+        width: textRef.current.width(),
+        height: textRef.current.height(),
+      });
+    }
+  }, [
+    layer.text,
+    layer.fontSize,
+    layer.fontFamily,
+    layer.fontStyle,
+    layer.lineHeight,
+    layer.letterSpacing,
+    layer.backgroundColor,
+    layer.textTransform,
+  ]);
+
+  const displayText = applyTextTransform(layer.text, layer.textTransform);
+  const padding = layer.backgroundPadding ?? 4;
+
+  // When glow is active it overrides shadow (Konva only supports one shadow)
+  const hasGlow = (layer.glowSize ?? 0) > 0 && layer.glowColor;
+  const shadowColor = hasGlow
+    ? (layer.glowColor ?? layer.shadowColor)
+    : layer.shadowColor;
+  const shadowBlur = hasGlow ? (layer.glowSize ?? 0) : layer.shadowBlur;
+  const shadowOffsetX = hasGlow ? 0 : layer.shadowOffsetX;
+  const shadowOffsetY = hasGlow ? 0 : layer.shadowOffsetY;
+
+  const textNode = (
     <Text
+      align={layer.align ?? "left"}
       draggable={!layer.locked && activeTool === "select" && isActive}
       fill={layer.fill}
       fontFamily={layer.fontFamily}
@@ -226,6 +283,8 @@ export function renderTextLayer(
       fontStyle={layer.fontStyle}
       id={layer.id}
       key={layer.id}
+      letterSpacing={layer.letterSpacing ?? 0}
+      lineHeight={layer.lineHeight ?? 1}
       onDblClick={() => props.onDblClick?.(layer.id)}
       onDragEnd={(e) => onDragEnd(e, layer.id)}
       onDragMove={onDragMove}
@@ -233,18 +292,77 @@ export function renderTextLayer(
       onTransformEnd={(e) => onTransformEnd(e, layer)}
       onTransformStart={onTransformStart}
       opacity={layer.opacity}
+      ref={textRef}
       rotation={layer.rotation}
-      shadowBlur={layer.shadowBlur}
-      shadowColor={layer.shadowColor}
-      shadowOffsetX={layer.shadowOffsetX}
-      shadowOffsetY={layer.shadowOffsetY}
+      shadowBlur={shadowBlur}
+      shadowColor={shadowColor}
+      shadowOffsetX={shadowOffsetX}
+      shadowOffsetY={shadowOffsetY}
       stroke={layer.stroke}
       strokeWidth={layer.strokeWidth}
-      text={layer.text}
+      text={displayText}
+      textDecoration={layer.textDecoration ?? ""}
       x={layer.x}
       y={layer.y}
     />
   );
+
+  const hasBackground =
+    !!layer.backgroundColor && layer.backgroundColor.trim() !== "";
+  if (!hasBackground || bgSize.width === 0) {
+    return textNode;
+  }
+
+  return (
+    <Group
+      draggable={!layer.locked && activeTool === "select" && isActive}
+      id={layer.id}
+      key={layer.id}
+      onDragEnd={(e) => onDragEnd(e, layer.id)}
+      onDragMove={onDragMove}
+      onDragStart={onDragStart}
+      onTransformEnd={(e) => onTransformEnd(e, layer)}
+      onTransformStart={onTransformStart}
+      opacity={layer.opacity}
+      rotation={layer.rotation}
+      x={layer.x}
+      y={layer.y}
+    >
+      <Rect
+        cornerRadius={layer.backgroundCornerRadius ?? 0}
+        fill={layer.backgroundColor}
+        height={bgSize.height + padding * 2}
+        width={bgSize.width + padding * 2}
+        x={-padding}
+        y={-padding}
+      />
+      <Text
+        align={layer.align ?? "left"}
+        fill={layer.fill}
+        fontFamily={layer.fontFamily}
+        fontSize={layer.fontSize}
+        fontStyle={layer.fontStyle}
+        letterSpacing={layer.letterSpacing ?? 0}
+        lineHeight={layer.lineHeight ?? 1}
+        onDblClick={() => props.onDblClick?.(layer.id)}
+        ref={textRef}
+        shadowBlur={shadowBlur}
+        shadowColor={shadowColor}
+        shadowOffsetX={shadowOffsetX}
+        shadowOffsetY={shadowOffsetY}
+        stroke={layer.stroke}
+        strokeWidth={layer.strokeWidth}
+        text={displayText}
+        textDecoration={layer.textDecoration ?? ""}
+      />
+    </Group>
+  );
+}
+
+export function renderTextLayer(
+  props: LayerRenderProps & { layer: TextLayerType }
+) {
+  return <TextLayerComponent {...props} />;
 }
 
 export function renderShapeLayer(
@@ -285,6 +403,42 @@ export function renderShapeLayer(
         fill={layer.fill}
         radiusX={layer.width / 2}
         radiusY={layer.height / 2}
+        scaleX={layer.scaleX}
+        scaleY={layer.scaleY}
+        stroke={layer.stroke}
+        strokeWidth={layer.strokeWidth}
+      />
+    );
+  }
+
+  if (layer.shapeType === "polygon") {
+    const radius = Math.min(layer.width, layer.height) / 2;
+    return (
+      <RegularPolygon
+        key={layer.id}
+        {...commonProps}
+        fill={layer.fill}
+        radius={radius}
+        scaleX={layer.scaleX}
+        scaleY={layer.scaleY}
+        sides={layer.sides ?? 6}
+        stroke={layer.stroke}
+        strokeWidth={layer.strokeWidth}
+      />
+    );
+  }
+
+  if (layer.shapeType === "star") {
+    const outerRadius = Math.min(layer.width, layer.height) / 2;
+    const innerRadius = outerRadius * (layer.innerRadiusRatio ?? 0.5);
+    return (
+      <Star
+        key={layer.id}
+        {...commonProps}
+        fill={layer.fill}
+        innerRadius={innerRadius}
+        numPoints={layer.starPoints ?? 5}
+        outerRadius={outerRadius}
         scaleX={layer.scaleX}
         scaleY={layer.scaleY}
         stroke={layer.stroke}

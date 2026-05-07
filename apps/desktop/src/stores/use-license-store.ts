@@ -63,6 +63,11 @@ async function activateLicenseKey(
     if (response.status === 404) {
       throw new Error("License key not found");
     }
+    if (response.status === 403) {
+      throw new Error(
+        "This license is already activated on another device. Deactivate it from your account portal first, then try again."
+      );
+    }
     if (response.status === 422) {
       const errorData = await response.json();
       throw new Error(errorData.detail?.[0]?.msg || "Invalid license key");

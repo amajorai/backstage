@@ -127,12 +127,14 @@ export function drawMarchingAnts(
   dashOffset: number,
   // transform: image pixel → screen pixel
   toScreenX: (x: number) => number,
-  toScreenY: (y: number) => number
+  toScreenY: (y: number) => number,
+  // screen pixels per image pixel — scales dash size with zoom
+  pixelSize = 1
 ): void {
-  const DASH = 5;
+  const DASH = Math.max(2, 5 * pixelSize);
 
   ctx.save();
-  ctx.lineWidth = 1;
+  ctx.lineWidth = Math.max(1, pixelSize);
 
   for (let pass = 0; pass < 2; pass++) {
     ctx.setLineDash([DASH, DASH]);
@@ -152,6 +154,54 @@ export function drawMarchingAnts(
   }
 
   ctx.restore();
+}
+
+export function fillPolygon(
+  points: Array<{ x: number; y: number }>,
+  width: number,
+  height: number
+): Uint8Array {
+  const mask = new Uint8Array(width * height);
+  if (points.length < 3) return mask;
+  const n = points.length;
+  for (let y = 0; y < height; y++) {
+    const xs: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const p1 = points[i];
+      const p2 = points[(i + 1) % n];
+      if ((p1.y <= y && p2.y > y) || (p2.y <= y && p1.y > y)) {
+        xs.push(p1.x + ((y - p1.y) / (p2.y - p1.y)) * (p2.x - p1.x));
+      }
+    }
+    xs.sort((a, b) => a - b);
+    for (let i = 0; i + 1 < xs.length; i += 2) {
+      const x1 = Math.max(0, Math.ceil(xs[i]));
+      const x2 = Math.min(width - 1, Math.floor(xs[i + 1]));
+      for (let x = x1; x <= x2; x++) {
+        mask[y * width + x] = 1;
+      }
+    }
+  }
+  return mask;
+}
+
+export function addToMask(base: Uint8Array, addition: Uint8Array): Uint8Array {
+  const result = new Uint8Array(base.length);
+  for (let i = 0; i < base.length; i++) {
+    result[i] = base[i] | addition[i];
+  }
+  return result;
+}
+
+export function subtractFromMask(
+  base: Uint8Array,
+  subtraction: Uint8Array
+): Uint8Array {
+  const result = new Uint8Array(base.length);
+  for (let i = 0; i < base.length; i++) {
+    result[i] = base[i] & (subtraction[i] ^ 1);
+  }
+  return result;
 }
 
 export function eraseSelectedPixels(

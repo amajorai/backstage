@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import { AddColorBackgroundDialog } from "@/components/editor/AddColorBackgroundDialog";
 import { CarouselGeneratorDialog } from "@/components/editor/CarouselGeneratorDialog";
@@ -318,17 +324,13 @@ export function ImageEditor({
   const RULER_SIZE = 24;
 
   // Draw workspace-fixed rulers whenever canvas position or zoom changes
-  useEffect(() => {
+  useLayoutEffect(() => {
     const topCanvas = topRulerRef.current;
     const leftCanvas = leftRulerRef.current;
     if (!(topCanvas && leftCanvas)) return;
 
     const rulerW = Math.max(1, workspaceSize.width - RULER_SIZE);
     const rulerH = Math.max(1, workspaceSize.height - RULER_SIZE);
-    topCanvas.width = rulerW;
-    topCanvas.height = RULER_SIZE;
-    leftCanvas.width = RULER_SIZE;
-    leftCanvas.height = rulerH;
 
     const effectiveScale = fitScale * zoom;
     const canvasLeft =
@@ -632,6 +634,8 @@ export function ImageEditor({
           onExport();
         }
       } else if (e.key === "Backspace" || e.key === "Delete") {
+        // Let KonvaCanvas handle Delete when magic select is active
+        if (useEditorStore.getState().activeTool === "magic-select") return;
         e.preventDefault();
         const { activeLayerIds, removeLayers } = useEditorStore.getState();
         if (activeLayerIds.length > 0) {
@@ -699,6 +703,16 @@ export function ImageEditor({
           if (al?.type === "image") {
             store.setActiveTool("crop");
             toast.info("Crop Tool (C)");
+          } else {
+            toast.info("Select an image layer first");
+          }
+        } else if (e.key.toLowerCase() === "w") {
+          e.preventDefault();
+          const { activeLayerIds: ids, layers: ls } = useEditorStore.getState();
+          const al = ls.find((l) => l.id === ids[0]);
+          if (al?.type === "image") {
+            store.setActiveTool("magic-select");
+            toast.info("Magic Select (W)");
           } else {
             toast.info("Select an image layer first");
           }
@@ -1039,12 +1053,14 @@ export function ImageEditor({
                 onMouseDown={handleTopRulerMouseDown}
                 ref={topRulerRef}
                 style={{ left: RULER_SIZE }}
+                width={Math.max(1, workspaceSize.width - RULER_SIZE)}
               />
             )}
             {/* Left ruler, fixed to workspace left edge */}
             {showRulers && (
               <canvas
                 className="absolute left-0 z-10 cursor-e-resize"
+                height={Math.max(1, workspaceSize.height - RULER_SIZE)}
                 onMouseDown={handleLeftRulerMouseDown}
                 ref={leftRulerRef}
                 style={{ top: RULER_SIZE }}
@@ -1119,9 +1135,9 @@ export function ImageEditor({
         </div>
 
         <ResizablePanel
-          defaultWidth={260}
-          maxWidth={360}
-          minWidth={180}
+          defaultWidth={400}
+          maxWidth={600}
+          minWidth={260}
           side="right"
         >
           <VerticalResizablePanel
@@ -1135,7 +1151,7 @@ export function ImageEditor({
                   <button
                     className={`flex-1 py-1.5 text-xs transition-colors ${
                       rightTab === "layers"
-                        ? "border-blue-500 border-b-2 text-white"
+                        ? "border-primary border-b-2 text-white"
                         : "text-neutral-400 hover:text-neutral-200"
                     }`}
                     onClick={() => setRightTab("layers")}
@@ -1146,7 +1162,7 @@ export function ImageEditor({
                   <button
                     className={`flex-1 py-1.5 text-xs transition-colors ${
                       rightTab === "history"
-                        ? "border-blue-500 border-b-2 text-white"
+                        ? "border-primary border-b-2 text-white"
                         : "text-neutral-400 hover:text-neutral-200"
                     }`}
                     onClick={() => setRightTab("history")}
@@ -1157,7 +1173,7 @@ export function ImageEditor({
                   <button
                     className={`flex-1 py-1.5 text-xs transition-colors ${
                       rightTab === "revisions"
-                        ? "border-blue-500 border-b-2 text-white"
+                        ? "border-primary border-b-2 text-white"
                         : "text-neutral-400 hover:text-neutral-200"
                     }`}
                     onClick={() => setRightTab("revisions")}

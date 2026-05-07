@@ -59,7 +59,18 @@ export function LicenseActivation() {
 
           {/* Error message */}
           {error && (
-            <p className="text-center text-destructive text-sm">{error}</p>
+            <div className="text-center text-destructive text-sm">
+              <p>{error}</p>
+              {error.includes("already activated") && (
+                <button
+                  className="mt-1 cursor-pointer bg-transparent p-0 text-destructive underline hover:opacity-80"
+                  onClick={() => openUrl(POLAR_CONFIG.customerPortalUrl)}
+                  type="button"
+                >
+                  Go to your account portal →
+                </button>
+              )}
+            </div>
           )}
 
           {/* Activate button */}
@@ -80,30 +91,33 @@ export function LicenseActivation() {
           </Button>
         </div>
 
-        {/* Purchase link */}
-        <div className="flex flex-col items-center gap-3 text-center">
-          <div className="flex flex-col items-center">
-            <p className="text-muted-foreground text-sm">
-              Don't have a license key?
-            </p>
+        {/* Links */}
+        <div className="flex w-full flex-col items-center gap-3">
+          <p className="text-muted-foreground text-sm">
+            Don't have a license?{" "}
             <button
-              className="inline-flex cursor-pointer items-center gap-1 bg-transparent p-0 text-primary text-sm hover:underline"
+              className="cursor-pointer bg-transparent p-0 text-primary hover:underline"
               onClick={() => openUrl(POLAR_CONFIG.purchaseUrl)}
               type="button"
             >
-              Purchase a license
+              Purchase one
             </button>
+          </p>
+          <div className="flex w-full items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-muted-foreground text-xs">or</span>
+            <div className="h-px flex-1 bg-border" />
           </div>
-          <div className="flex flex-col items-center">
-            <p className="text-muted-foreground text-sm">Already have a key?</p>
+          <p className="text-muted-foreground text-sm">
+            Already have a key?{" "}
             <button
-              className="inline-flex cursor-pointer items-center gap-1 bg-transparent p-0 text-primary text-sm hover:underline"
+              className="cursor-pointer bg-transparent p-0 text-primary hover:underline"
               onClick={() => openUrl(POLAR_CONFIG.customerPortalUrl)}
               type="button"
             >
               Retrieve it from your account
             </button>
-          </div>
+          </p>
         </div>
       </div>
     </div>

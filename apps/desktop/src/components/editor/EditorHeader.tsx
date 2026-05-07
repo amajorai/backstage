@@ -1,12 +1,11 @@
 import { ArrowLeft, ChevronDown, Grid2X2, Ruler } from "lucide-react";
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { TitleBar } from "@/components/TitleBar";
 import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -33,8 +32,16 @@ export function EditorHeader({
   onNameChange,
 }: EditorHeaderProps) {
   const [isEditingName, setIsEditingName] = useState(false);
+  const [editValue, setEditValue] = useState(projectName);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const measureRef = useRef<HTMLSpanElement>(null);
   const { showRulers, showGrid, toggleRulers, toggleGrid } = useEditorStore();
+
+  useLayoutEffect(() => {
+    if (nameInputRef.current && measureRef.current) {
+      nameInputRef.current.style.width = `${measureRef.current.scrollWidth}px`;
+    }
+  }, [editValue, isEditingName]);
 
   const handleBack = () => {
     if (hasUnsavedChanges) {
@@ -62,15 +69,25 @@ export function EditorHeader({
             </TooltipTrigger>
             <TooltipContent>Back to Gallery</TooltipContent>
           </Tooltip>
+
+          {/* hidden span to measure text width */}
+          <span
+            aria-hidden
+            className="pointer-events-none invisible absolute whitespace-pre font-medium text-sm"
+            ref={measureRef}
+          >
+            {editValue || " "}
+          </span>
+
           {isEditingName ? (
             <input
               autoFocus
-              className="max-w-50 border-none bg-transparent font-medium text-sm outline-none"
-              defaultValue={projectName}
-              onBlur={(e) => {
-                onNameChange(e.target.value);
+              className="border-none bg-transparent font-medium text-sm outline-none"
+              onBlur={() => {
+                onNameChange(editValue);
                 setIsEditingName(false);
               }}
+              onChange={(e) => setEditValue(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.currentTarget.blur();
@@ -80,13 +97,14 @@ export function EditorHeader({
                 }
               }}
               ref={nameInputRef}
+              value={editValue}
             />
           ) : (
             <span
               className="cursor-text truncate font-medium text-muted-foreground text-sm hover:text-foreground"
               onClick={() => {
+                setEditValue(projectName);
                 setIsEditingName(true);
-                setTimeout(() => nameInputRef.current?.focus(), 0);
               }}
             >
               {projectName}
@@ -113,7 +131,6 @@ export function EditorHeader({
                   </span>
                 </div>
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={toggleGrid}>
                 <Grid2X2 className="mr-2 size-4" />
                 Grid

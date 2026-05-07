@@ -180,7 +180,9 @@ export function LayersPanel() {
                 <div
                   className={cn(
                     "flex cursor-grab items-center gap-0.5 border-border border-b px-2 py-1.5 text-xs transition-colors",
-                    isSelected ? "bg-accent/20" : "hover:bg-muted/50",
+                    isSelected
+                      ? "bg-primary/20 text-primary"
+                      : "hover:bg-muted/50",
                     isDropTarget ? "border-primary border-t-2" : "",
                     isDragging ? "opacity-50" : ""
                   )}
@@ -238,7 +240,7 @@ export function LayersPanel() {
                   {isEditing ? (
                     <Input
                       autoFocus
-                      className="h-5 flex-1 px-1 text-xs"
+                      className="h-5 flex-1 border-0 bg-transparent px-1 text-xs shadow-none ring-0 focus-visible:ring-0 md:text-xs dark:bg-transparent"
                       onBlur={finishEditing}
                       onChange={(e) => setEditingName(e.target.value)}
                       onClick={(e) => e.stopPropagation()}

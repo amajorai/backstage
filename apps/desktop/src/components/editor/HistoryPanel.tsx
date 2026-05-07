@@ -45,7 +45,7 @@ export function HistoryPanel() {
             className={cn(
               "group flex cursor-pointer items-center gap-2 px-3 py-1.5 text-xs transition-colors",
               isCurrent
-                ? "bg-blue-600/20 font-medium text-blue-300"
+                ? "bg-primary/20 font-medium text-primary"
                 : isPast
                   ? "text-neutral-300 hover:bg-neutral-700/50"
                   : "text-neutral-600 hover:bg-neutral-700/30"
@@ -57,13 +57,13 @@ export function HistoryPanel() {
             <CornerDownLeft
               className={cn(
                 "shrink-0",
-                isCurrent ? "text-blue-400" : "opacity-0 group-hover:opacity-50"
+                isCurrent ? "text-primary" : "opacity-0 group-hover:opacity-50"
               )}
               size={11}
             />
             <span className="truncate">{label}</span>
             {isCurrent && (
-              <span className="ml-auto shrink-0 text-[10px] text-blue-400/70">
+              <span className="ml-auto shrink-0 text-[10px] text-primary/70">
                 current
               </span>
             )}
