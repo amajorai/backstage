@@ -2,6 +2,7 @@ import {
   Bot,
   Building2,
   Circle,
+  Crop,
   Eraser,
   ImageDown,
   ImagePlus,
@@ -112,6 +113,8 @@ export function EditorToolbar({
 
   const isBrushActive = activeTool === "brush";
   const isEraserActive = activeTool === "eraser";
+  const isCropActive = activeTool === "crop";
+  const canCrop = activeLayer?.type === "image" && !isProcessing;
 
   return (
     <div className="flex w-12 shrink-0 flex-col items-center gap-1 border-border border-r bg-background py-2">
@@ -285,6 +288,25 @@ export function EditorToolbar({
           </span>
         </TooltipTrigger>
         <TooltipContent side="right">Eraser (E)</TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span>
+            <Button
+              className="disabled:opacity-100"
+              disabled={!canCrop}
+              onClick={() => setActiveTool("crop")}
+              size="icon-sm"
+              variant={isCropActive ? "secondary" : "ghost"}
+            >
+              <Crop className="size-4" />
+            </Button>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          {canCrop ? "Crop Image (C)" : "Select an image layer to crop (C)"}
+        </TooltipContent>
       </Tooltip>
 
       <div className="my-1 h-px w-8 bg-border" />

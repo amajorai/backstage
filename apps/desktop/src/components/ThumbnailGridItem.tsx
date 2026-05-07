@@ -72,6 +72,7 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
 
   const titleRef = useRef<HTMLButtonElement>(null);
   const [isTitleTruncated, setIsTitleTruncated] = useState(false);
+  const [isTitleHovered, setIsTitleHovered] = useState(false);
 
   useEffect(() => {
     const el = titleRef.current;
@@ -174,16 +175,16 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
             ) : (
               <div className="absolute right-0 bottom-0 left-0 flex items-end gap-1 px-2 py-2">
                 <div className="min-w-0 flex-1 pl-1">
-                  <Tooltip>
+                  <Tooltip open={isTitleTruncated && isTitleHovered}>
                     <TooltipTrigger
                       className="block w-full truncate text-left text-sm text-white"
+                      onMouseEnter={() => setIsTitleHovered(true)}
+                      onMouseLeave={() => setIsTitleHovered(false)}
                       ref={titleRef}
                     >
                       {thumbnail.name}
                     </TooltipTrigger>
-                    {isTitleTruncated && (
-                      <TooltipContent>{thumbnail.name}</TooltipContent>
-                    )}
+                    <TooltipContent>{thumbnail.name}</TooltipContent>
                   </Tooltip>
                 </div>
                 {!isSelectionMode && (

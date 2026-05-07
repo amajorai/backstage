@@ -126,6 +126,21 @@ export function KonvaCanvas({
   const justFinishedCustomDragRef = useRef(false);
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
 
+  // Crop tool state
+  const cropRectNodeRef = useRef<Konva.Rect>(null);
+  const cropTransformerRef = useRef<Konva.Transformer>(null);
+  const overlayTopRef = useRef<Konva.Rect>(null);
+  const overlayBottomRef = useRef<Konva.Rect>(null);
+  const overlayLeftRef = useRef<Konva.Rect>(null);
+  const overlayRightRef = useRef<Konva.Rect>(null);
+  const [cropRect, setCropRect] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    layerId: string;
+  } | null>(null);
+
   // Brush painting refs and state
   const isPainting = useRef(false);
   const paintCanvas = useRef<HTMLCanvasElement | null>(null);
@@ -139,6 +154,7 @@ export function KonvaCanvas({
     layers,
     activeLayerIds,
     activeTool,
+    setActiveTool,
     setActiveLayers,
     toggleLayerSelection,
     updateLayer,
@@ -159,6 +175,157 @@ export function KonvaCanvas({
     toggleRulers,
     toggleGrid,
   } = useEditorStore();
+
+  // ── Crop tool logic ────────────────────────────────────────────────────────
+
+  const activeLayersKey = activeLayerIds.join(",");
+  useEffect(() => {
+    if (activeTool !== "crop") {
+      setCropRect(null);
+      return;
+    }
+    const storeState = useEditorStore.getState();
+    const layer = storeState.layers.find(
+      (l) => activeLayerIds.includes(l.id) && l.type === "image"
+    );
+    if (!layer || layer.type !== "image") {
+      setCropRect(null);
+      return;
+    }
+    if (layer.rotation !== 0) {
+      toast.error("Reset image rotation before cropping");
+      setActiveTool("select");
+      setCropRect(null);
+      return;
+    }
+    setCropRect({
+      x: layer.x,
+      y: layer.y,
+      width: layer.width * layer.scaleX,
+      height: layer.height * layer.scaleY,
+      layerId: layer.id,
+    });
+  }, [activeTool, activeLayersKey]);
+
+  const updateOverlayFromNode = useCallback(() => {
+    const node = cropRectNodeRef.current;
+    if (!node) return;
+    const nx = node.x();
+    const ny = node.y();
+    const nw = node.width() * node.scaleX();
+    const nh = node.height() * node.scaleY();
+    overlayTopRef.current?.height(10_000 + ny);
+    overlayLeftRef.current?.setAttrs({ y: ny, width: 10_000 + nx, height: nh });
+    overlayRightRef.current?.setAttrs({ x: nx + nw, y: ny, height: nh });
+    overlayBottomRef.current?.setAttrs({ y: ny + nh });
+    node.getLayer()?.batchDraw();
+  }, []);
+
+  const applyCrop = useCallback(() => {
+    const node = cropRectNodeRef.current;
+    if (!(node && cropRect)) return;
+    const storeState = useEditorStore.getState();
+    const layer = storeState.layers.find((l) => l.id === cropRect.layerId);
+    if (!layer || layer.type !== "image") return;
+
+    const cropX = node.x();
+    const cropY = node.y();
+    const cropW = node.width() * node.scaleX();
+    const cropH = node.height() * node.scaleY();
+
+    const imgLeft = layer.x;
+    const imgTop = layer.y;
+    const imgRight = layer.x + layer.width * layer.scaleX;
+    const imgBottom = layer.y + layer.height * layer.scaleY;
+
+    const clampedX = Math.max(cropX, imgLeft);
+    const clampedY = Math.max(cropY, imgTop);
+    const clampedRight = Math.min(cropX + cropW, imgRight);
+    const clampedBottom = Math.min(cropY + cropH, imgBottom);
+    const clampedW = clampedRight - clampedX;
+    const clampedH = clampedBottom - clampedY;
+
+    if (clampedW < 1 || clampedH < 1) {
+      setCropRect(null);
+      setActiveTool("select");
+      return;
+    }
+
+    const imgSrcX = (clampedX - layer.x) / layer.scaleX;
+    const imgSrcY = (clampedY - layer.y) / layer.scaleY;
+    const imgSrcW = clampedW / layer.scaleX;
+    const imgSrcH = clampedH / layer.scaleY;
+
+    const doApply = (img: HTMLImageElement) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(imgSrcW);
+      canvas.height = Math.round(imgSrcH);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(
+        img,
+        imgSrcX,
+        imgSrcY,
+        imgSrcW,
+        imgSrcH,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+      const newDataUrl = canvas.toDataURL("image/png");
+      pushHistory("Crop");
+      updateLayer(cropRect.layerId, {
+        dataUrl: newDataUrl,
+        x: clampedX,
+        y: clampedY,
+        width: canvas.width,
+        height: canvas.height,
+      });
+      setCropRect(null);
+      setActiveTool("select");
+    };
+
+    const cached = imageCache.current.get(layer.dataUrl);
+    if (cached?.complete) {
+      doApply(cached);
+    } else {
+      const img = new window.Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => doApply(img);
+      img.src = layer.dataUrl;
+    }
+  }, [cropRect, pushHistory, updateLayer, setActiveTool]);
+
+  useEffect(() => {
+    if (!cropRect) return;
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "Enter") {
+        e.preventDefault();
+        applyCrop();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setCropRect(null);
+        setActiveTool("select");
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [cropRect, applyCrop, setActiveTool]);
+
+  useEffect(() => {
+    if (!cropTransformerRef.current) return;
+    if (cropRect && cropRectNodeRef.current) {
+      cropTransformerRef.current.nodes([cropRectNodeRef.current]);
+    } else {
+      cropTransformerRef.current.nodes([]);
+    }
+    cropTransformerRef.current.getLayer()?.batchDraw();
+  }, [cropRect]);
+
+  // ── End crop tool logic ────────────────────────────────────────────────────
 
   const handleRemoveBackground = useCallback(
     async (layerId: string) => {
@@ -876,6 +1043,7 @@ export function KonvaCanvas({
   const handleStageMouseDown = (
     e: Konva.KonvaEventObject<MouseEvent | TouchEvent>
   ) => {
+    if (activeTool === "crop") return;
     if (activeTool === "brush" || activeTool === "eraser") {
       handleBrushMouseDown(e);
       return;
@@ -1058,7 +1226,12 @@ export function KonvaCanvas({
 
   const handleStageClick = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
-      if (activeTool === "brush" || activeTool === "eraser") return;
+      if (
+        activeTool === "brush" ||
+        activeTool === "eraser" ||
+        activeTool === "crop"
+      )
+        return;
       if (justDragSelectedRef.current) {
         justDragSelectedRef.current = false;
         return;
@@ -1601,6 +1774,109 @@ export function KonvaCanvas({
             />
           ))}
 
+          {/* Crop tool overlay */}
+          {cropRect && (
+            <>
+              <Rect
+                fill="rgba(0,0,0,0.55)"
+                height={10_000 + cropRect.y}
+                listening={false}
+                ref={overlayTopRef}
+                width={20_000}
+                x={-10_000}
+                y={-10_000}
+              />
+              <Rect
+                fill="rgba(0,0,0,0.55)"
+                height={10_000}
+                listening={false}
+                ref={overlayBottomRef}
+                width={20_000}
+                x={-10_000}
+                y={cropRect.y + cropRect.height}
+              />
+              <Rect
+                fill="rgba(0,0,0,0.55)"
+                height={cropRect.height}
+                listening={false}
+                ref={overlayLeftRef}
+                width={10_000 + cropRect.x}
+                x={-10_000}
+                y={cropRect.y}
+              />
+              <Rect
+                fill="rgba(0,0,0,0.55)"
+                height={cropRect.height}
+                listening={false}
+                ref={overlayRightRef}
+                width={10_000}
+                x={cropRect.x + cropRect.width}
+                y={cropRect.y}
+              />
+              <Rect
+                draggable
+                fill="transparent"
+                height={cropRect.height}
+                onClick={(e) => {
+                  e.cancelBubble = true;
+                }}
+                onDragEnd={() => {
+                  const node = cropRectNodeRef.current;
+                  if (node)
+                    setCropRect((prev) =>
+                      prev ? { ...prev, x: node.x(), y: node.y() } : null
+                    );
+                }}
+                onDragMove={updateOverlayFromNode}
+                onTap={(e) => {
+                  e.cancelBubble = true;
+                }}
+                ref={cropRectNodeRef}
+                stroke={UI_COLOR}
+                strokeWidth={1.5 * inv}
+                width={cropRect.width}
+                x={cropRect.x}
+                y={cropRect.y}
+              />
+              <Transformer
+                anchorCornerRadius={2}
+                anchorFill="#fff"
+                anchorSize={10}
+                anchorStroke={UI_COLOR}
+                anchorStrokeWidth={1.5}
+                borderStroke={UI_COLOR}
+                borderStrokeWidth={1.5}
+                boundBoxFunc={(oldBox, newBox) =>
+                  newBox.width < 10 || newBox.height < 10 ? oldBox : newBox
+                }
+                onTransform={updateOverlayFromNode}
+                onTransformEnd={() => {
+                  const node = cropRectNodeRef.current;
+                  if (!node) return;
+                  const newW = node.width() * node.scaleX();
+                  const newH = node.height() * node.scaleY();
+                  node.width(newW);
+                  node.height(newH);
+                  node.scaleX(1);
+                  node.scaleY(1);
+                  setCropRect((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          x: node.x(),
+                          y: node.y(),
+                          width: newW,
+                          height: newH,
+                        }
+                      : null
+                  );
+                }}
+                ref={cropTransformerRef}
+                rotateEnabled={false}
+              />
+            </>
+          )}
+
           <Transformer
             anchorCornerRadius={2}
             anchorFill="#fff"
@@ -1696,6 +1972,28 @@ export function KonvaCanvas({
           zIndex: 5,
         }}
       />
+
+      {/* Crop hint */}
+      {cropRect && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 12,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(0,0,0,0.72)",
+            color: "white",
+            fontSize: 12,
+            padding: "4px 12px",
+            borderRadius: 6,
+            pointerEvents: "none",
+            zIndex: 30,
+            whiteSpace: "nowrap",
+          }}
+        >
+          Enter to apply · Esc to cancel
+        </div>
+      )}
 
       {/* Brush cursor indicator */}
       <div

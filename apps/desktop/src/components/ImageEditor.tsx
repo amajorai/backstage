@@ -584,6 +584,9 @@ export function ImageEditor({
           e.preventDefault();
           const { activeLayerIds, duplicateLayer } = useEditorStore.getState();
           for (const id of activeLayerIds) duplicateLayer(id);
+        } else if (e.key === "e" || e.key === "E") {
+          e.preventDefault();
+          onExport();
         }
       } else if (e.key === "Backspace" || e.key === "Delete") {
         e.preventDefault();
@@ -646,6 +649,16 @@ export function ImageEditor({
           e.preventDefault();
           store.setActiveTool("eraser");
           toast.info("Eraser Tool (E)");
+        } else if (e.key.toLowerCase() === "c" && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          const { activeLayerIds: ids, layers: ls } = useEditorStore.getState();
+          const al = ls.find((l) => l.id === ids[0]);
+          if (al?.type === "image") {
+            store.setActiveTool("crop");
+            toast.info("Crop Tool (C)");
+          } else {
+            toast.info("Select an image layer first");
+          }
         } else if (e.key.toLowerCase() === "i") {
           e.preventDefault();
           setShowGalleryPicker(true);
@@ -695,6 +708,7 @@ export function ImageEditor({
     redo,
     handleRemoveBackground,
     onAiGenerate,
+    onExport,
     addThumbnail,
   ]);
 
