@@ -176,7 +176,7 @@ export function LayersPanel() {
 
           return (
             <ContextMenu key={layer.id}>
-              <ContextMenuTrigger asChild data-layer-item="true">
+              <ContextMenuTrigger data-layer-item="true">
                 <div
                   className={cn(
                     "flex cursor-grab items-center gap-0.5 border-border border-b px-2 py-1.5 text-xs transition-colors",

@@ -37,7 +37,11 @@ import {
   resolveFormattedEmoji,
   resolveIconToDataUrl,
 } from "@/lib/icon-resolver";
-import { deleteRecovery } from "@/lib/revision-storage";
+import {
+  deleteRecovery,
+  loadRecovery,
+  saveRecovery,
+} from "@/lib/revision-storage";
 import type { ImageLayer, Page } from "@/stores/use-editor-store";
 import { useEditorStore } from "@/stores/use-editor-store";
 import {

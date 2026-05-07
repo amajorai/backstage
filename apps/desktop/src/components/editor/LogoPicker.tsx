@@ -70,7 +70,7 @@ LogoGridItem.displayName = "LogoGridItem";
 const logoGridComponents = { List: LogoGridList, Item: LogoGridItem };
 
 function flattenLogos(logos: SvglLogo[]): DisplayLogo[] {
-  return logos.flatMap((logo) => {
+  return logos.flatMap((logo): DisplayLogo[] => {
     if (typeof logo.route === "string") {
       return [
         {
@@ -104,7 +104,7 @@ function flattenLogos(logos: SvglLogo[]): DisplayLogo[] {
 }
 
 function flattenRecentLogos(logos: RecentLogo[]): DisplayLogo[] {
-  return logos.flatMap((logo) => {
+  return logos.flatMap((logo): DisplayLogo[] => {
     if (typeof logo.route === "string") {
       return [
         {

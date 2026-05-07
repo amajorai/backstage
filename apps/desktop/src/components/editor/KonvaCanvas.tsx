@@ -52,6 +52,12 @@ interface KonvaCanvasProps {
 const SNAP_THRESHOLD = 20;
 const UI_COLOR = "#7dd3fc";
 
+/** Returns the effective width/height of a layer (TextLayer has none, so returns 0). */
+function getLayerDimensions(l: EditorLayer): { w: number; h: number } {
+  if (l.type === "text") return { w: 0, h: 0 };
+  return { w: l.width, h: l.height };
+}
+
 interface SnapGuides {
   vertical: number[];
   horizontal: number[];
@@ -676,10 +682,11 @@ export function KonvaCanvas({
       const layerHCanvas: number[] = [];
       for (const l of layers) {
         if (activeSet.has(l.id) || !l.visible) continue;
-        const lw = l.width * l.scaleX;
-        const lh = l.height * l.scaleY;
-        layerVCanvas.push(l.x, l.x + lw, l.x + lw / 2);
-        layerHCanvas.push(l.y, l.y + lh, l.y + lh / 2);
+        const { w: lw, h: lh } = getLayerDimensions(l);
+        const scaledLw = lw * l.scaleX;
+        const scaledLh = lh * l.scaleY;
+        layerVCanvas.push(l.x, l.x + scaledLw, l.x + scaledLw / 2);
+        layerHCanvas.push(l.y, l.y + scaledLh, l.y + scaledLh / 2);
       }
       const vPoints = [
         0,
@@ -746,10 +753,7 @@ export function KonvaCanvas({
   const handleTransformerTransform = useCallback(() => {
     const tr = transformerRef.current;
     if (!tr) return;
-    const layer = tr.getLayer();
-    const box = layer
-      ? tr.getClientRect({ relativeTo: layer })
-      : tr.getClientRect();
+    const box = tr.getClientRect();
     const left = box.x;
     const right = box.x + box.width;
     const top = box.y;
@@ -764,10 +768,11 @@ export function KonvaCanvas({
     const layerHPoints: number[] = [];
     for (const l of layers) {
       if (activeSet.has(l.id) || !l.visible) continue;
-      const lw = l.width * l.scaleX;
-      const lh = l.height * l.scaleY;
-      layerVPoints.push(l.x, l.x + lw, l.x + lw / 2);
-      layerHPoints.push(l.y, l.y + lh, l.y + lh / 2);
+      const { w: lw, h: lh } = getLayerDimensions(l);
+      const scaledLw = lw * l.scaleX;
+      const scaledLh = lh * l.scaleY;
+      layerVPoints.push(l.x, l.x + scaledLw, l.x + scaledLw / 2);
+      layerHPoints.push(l.y, l.y + scaledLh, l.y + scaledLh / 2);
     }
     const vPoints = [0, width, width / 2, ...userGuides.v, ...layerVPoints];
     let bestX = threshold;
@@ -817,10 +822,11 @@ export function KonvaCanvas({
       const layerHPoints: number[] = [];
       for (const l of layers) {
         if (activeSet.has(l.id) || !l.visible) continue;
-        const lw = l.width * l.scaleX;
-        const lh = l.height * l.scaleY;
-        layerVPoints.push(l.x, l.x + lw, l.x + lw / 2);
-        layerHPoints.push(l.y, l.y + lh, l.y + lh / 2);
+        const { w: lw, h: lh } = getLayerDimensions(l);
+        const scaledLw = lw * l.scaleX;
+        const scaledLh = lh * l.scaleY;
+        layerVPoints.push(l.x, l.x + scaledLw, l.x + scaledLw / 2);
+        layerHPoints.push(l.y, l.y + scaledLh, l.y + scaledLh / 2);
       }
       const vPoints = [0, width, width / 2, ...userGuides.v, ...layerVPoints];
       let bestX = threshold;
@@ -2182,32 +2188,36 @@ export function KonvaCanvas({
                   {menuItem("Center on Canvas", () => {
                     const l = layers.find((lay) => lay.id === cm.layerId!);
                     if (!l) return;
+                    const { w: lw, h: lh } = getLayerDimensions(l);
                     pushHistory("Center on Canvas");
                     updateLayer(cm.layerId!, {
-                      x: (width - l.width * l.scaleX) / 2,
-                      y: (height - l.height * l.scaleY) / 2,
+                      x: (width - lw * l.scaleX) / 2,
+                      y: (height - lh * l.scaleY) / 2,
                     });
                   })}
                   {menuItem("Fit to Canvas", () => {
                     const l = layers.find((lay) => lay.id === cm.layerId!);
                     if (!l) return;
+                    const { w: lw, h: lh } = getLayerDimensions(l);
                     pushHistory("Fit to Canvas");
-                    const s = Math.min(width / l.width, height / l.height);
+                    const s =
+                      lw > 0 && lh > 0 ? Math.min(width / lw, height / lh) : 1;
                     updateLayer(cm.layerId!, {
                       scaleX: s,
                       scaleY: s,
                       rotation: 0,
-                      x: (width - l.width * s) / 2,
-                      y: (height - l.height * s) / 2,
+                      x: (width - lw * s) / 2,
+                      y: (height - lh * s) / 2,
                     });
                   })}
                   {menuItem("Stretch to Canvas", () => {
                     const l = layers.find((lay) => lay.id === cm.layerId!);
                     if (!l) return;
+                    const { w: lw, h: lh } = getLayerDimensions(l);
                     pushHistory("Stretch to Canvas");
                     updateLayer(cm.layerId!, {
-                      scaleX: width / l.width,
-                      scaleY: height / l.height,
+                      scaleX: lw > 0 ? width / lw : 1,
+                      scaleY: lh > 0 ? height / lh : 1,
                       rotation: 0,
                       x: 0,
                       y: 0,

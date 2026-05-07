@@ -45,7 +45,7 @@ interface AppSettingsState {
   loadSettings: () => Promise<void>;
 }
 
-export const useAppSettingsStore = create<AppSettingsState>()((set, get) => ({
+export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
   showDecemberSnow: true,
   theme: "dark",
   bgRemovalQuality: "balanced",
@@ -97,7 +97,10 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, get) => ({
 
   setBgRemovalQuality: async (quality: BgRemovalQuality) => {
     try {
-      const store = await load(SETTINGS_STORE_NAME, { autoSave: true });
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
       await store.set(BG_REMOVAL_QUALITY_FIELD, quality);
       await store.save();
       set({ bgRemovalQuality: quality });
@@ -111,7 +114,10 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, get) => ({
 
   setBgRemovalProvider: async (provider: BgRemovalProvider) => {
     try {
-      const store = await load(SETTINGS_STORE_NAME, { autoSave: true });
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
       await store.set(BG_REMOVAL_PROVIDER_FIELD, provider);
       await store.save();
       set({ bgRemovalProvider: provider });
@@ -125,7 +131,10 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, get) => ({
 
   setBgRemovalGeminiEnabled: async (enabled: boolean) => {
     try {
-      const store = await load(SETTINGS_STORE_NAME, { autoSave: true });
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
       await store.set(BG_REMOVAL_GEMINI_ENABLED_FIELD, enabled);
       await store.save();
       set({ bgRemovalGeminiEnabled: enabled });
@@ -139,7 +148,10 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, get) => ({
 
   setBgRemovalGeminiModel: async (model: string) => {
     try {
-      const store = await load(SETTINGS_STORE_NAME, { autoSave: true });
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
       await store.set(BG_REMOVAL_GEMINI_MODEL_FIELD, model);
       await store.save();
       set({ bgRemovalGeminiModel: model });
@@ -153,7 +165,10 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, get) => ({
 
   setBgRemovalGeminiColor: async (color: string) => {
     try {
-      const store = await load(SETTINGS_STORE_NAME, { autoSave: true });
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
       await store.set(BG_REMOVAL_GEMINI_COLOR_FIELD, color);
       await store.save();
       set({ bgRemovalGeminiColor: color });
@@ -167,7 +182,10 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, get) => ({
 
   setBgRemovalGeminiAutoRemove: async (autoRemove: boolean) => {
     try {
-      const store = await load(SETTINGS_STORE_NAME, { autoSave: true });
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
       await store.set(BG_REMOVAL_GEMINI_AUTO_REMOVE_FIELD, autoRemove);
       await store.save();
       set({ bgRemovalGeminiAutoRemove: autoRemove });
@@ -183,6 +201,7 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, get) => ({
     try {
       logger.info("[Settings] Loading app settings...");
       const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
         autoSave: false,
       });
       const showSnow = await store.get<boolean>(SHOW_DECEMBER_SNOW_FIELD);

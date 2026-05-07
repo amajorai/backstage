@@ -116,7 +116,9 @@ export async function exportCanvasFramesToMp4(
     onProgress(1); // 100% done
   }
 
-  return new Blob([data], { type: "video/mp4" });
+  return new Blob([data as unknown as Uint8Array<ArrayBuffer>], {
+    type: "video/mp4",
+  });
 }
 
 /**

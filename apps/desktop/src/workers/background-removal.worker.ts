@@ -9,7 +9,10 @@ self.onmessage = async (
     const response = await fetch(imageData);
     const blob = await response.blob();
 
-    const resultBlob = await removeBackground(blob, model ? { model } : {});
+    const resultBlob = await removeBackground(
+      blob,
+      model ? { model: model as "isnet" | "isnet_fp16" | "isnet_quint8" } : {}
+    );
 
     // Convert result back to data URL
     const reader = new FileReader();

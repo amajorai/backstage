@@ -29,10 +29,7 @@ export function ShadowProperties({ layer, onUpdate }: ShadowPropertiesProps) {
             onValueChange={(shadowColor) => onUpdate({ shadowColor })}
             value={layer.shadowColor}
           >
-            <ColorPickerTrigger
-              className="w-full justify-start gap-2 px-2 text-left font-normal"
-              variant="outline"
-            >
+            <ColorPickerTrigger className="w-full justify-start gap-2 px-2 text-left font-normal">
               <div
                 className="size-4 rounded border border-border"
                 style={{

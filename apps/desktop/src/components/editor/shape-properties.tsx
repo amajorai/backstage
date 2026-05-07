@@ -80,10 +80,7 @@ export function ShapeProperties({ layer, onUpdate }: ShapePropertiesProps) {
             onValueChange={(fill) => onUpdate({ fill })}
             value={layer.fill}
           >
-            <ColorPickerTrigger
-              className="w-full justify-start gap-2 px-2 text-left font-normal"
-              variant="outline"
-            >
+            <ColorPickerTrigger className="w-full justify-start gap-2 px-2 text-left font-normal">
               <div
                 className="size-4 rounded border border-border"
                 style={{ backgroundColor: layer.fill }}
@@ -111,10 +108,7 @@ export function ShapeProperties({ layer, onUpdate }: ShapePropertiesProps) {
             onValueChange={(stroke) => onUpdate({ stroke })}
             value={layer.stroke || "#00000000"}
           >
-            <ColorPickerTrigger
-              className="w-full justify-start gap-2 px-2 text-left font-normal"
-              variant="outline"
-            >
+            <ColorPickerTrigger className="w-full justify-start gap-2 px-2 text-left font-normal">
               <div
                 className="size-4 rounded border border-border"
                 style={{ backgroundColor: layer.stroke || "transparent" }}

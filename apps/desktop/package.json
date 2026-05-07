@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tauri dev -- --features bria",
     "vite:dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "tauri": "tauri",
     "desktop:build": "tauri build",

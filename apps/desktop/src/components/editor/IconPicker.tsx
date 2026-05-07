@@ -137,7 +137,7 @@ export function IconPicker({ open, onOpenChange, onSelect }: IconPickerProps) {
       const Icon =
         library === "lucide"
           ? (
-              LucideIcons as Record<
+              LucideIcons as unknown as Record<
                 string,
                 React.ComponentType<{
                   color?: string;
@@ -150,7 +150,7 @@ export function IconPicker({ open, onOpenChange, onSelect }: IconPickerProps) {
               >
             )[name]
           : (
-              HugeIcons as Record<
+              HugeIcons as unknown as Record<
                 string,
                 React.ComponentType<{
                   color?: string;
@@ -270,13 +270,13 @@ export function IconPicker({ open, onOpenChange, onSelect }: IconPickerProps) {
     const Icon =
       library === "lucide"
         ? (
-            LucideIcons as Record<
+            LucideIcons as unknown as Record<
               string,
               React.ComponentType<{ className?: string }>
             >
           )[name]
         : (
-            HugeIcons as Record<
+            HugeIcons as unknown as Record<
               string,
               React.ComponentType<{ className?: string }>
             >

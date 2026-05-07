@@ -71,7 +71,7 @@ export function renderImageLayer(
     onDragEnd,
     onTransformStart,
     onTransformEnd,
-    onSelect,
+    onSelect: _onSelect,
   } = props;
 
   let image = imageCache.current.get(layer.dataUrl);
@@ -150,7 +150,7 @@ export function renderTextLayer(
     onDragEnd,
     onTransformStart,
     onTransformEnd,
-    onSelect,
+    onSelect: _onSelect,
   } = props;
 
   return (
@@ -189,13 +189,13 @@ export function renderShapeLayer(
   const {
     layer,
     activeTool,
-    isActive,
+    isActive: _isActive,
     onDragStart,
     onDragMove,
     onDragEnd,
     onTransformStart,
     onTransformEnd,
-    onSelect,
+    onSelect: _onSelect,
   } = props;
 
   const commonProps = {
@@ -256,7 +256,7 @@ function AnimatedImageLayerComponent({
   onDragEnd,
   onTransformStart,
   onTransformEnd,
-  onSelect,
+  onSelect: _onSelect,
 }: LayerRenderProps & { layer: AnimatedImageLayerType }) {
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const animationRef = useRef<number | null>(null);
@@ -390,7 +390,7 @@ export function renderDrawLayer(
     onDragEnd,
     onTransformStart,
     onTransformEnd,
-    onSelect,
+    onSelect: _onSelect,
   } = props;
 
   let image = imageCache.current.get(layer.dataUrl);
