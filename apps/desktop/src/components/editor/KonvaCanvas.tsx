@@ -668,8 +668,26 @@ export function KonvaCanvas({
       let w = newBox.width;
       let h = newBox.height;
 
-      const threshold = SNAP_THRESHOLD * inv;
-      const vPoints = [0, width, width / 2, ...userGuides.v];
+      // boundBoxFunc receives absolute stage-pixel coords, so convert canvas
+      // snap points (canvas units) → stage pixels before comparing
+      const threshold = SNAP_THRESHOLD;
+      const activeSet = new Set(activeLayerIds);
+      const layerVCanvas: number[] = [];
+      const layerHCanvas: number[] = [];
+      for (const l of layers) {
+        if (activeSet.has(l.id) || !l.visible) continue;
+        const lw = l.width * l.scaleX;
+        const lh = l.height * l.scaleY;
+        layerVCanvas.push(l.x, l.x + lw, l.x + lw / 2);
+        layerHCanvas.push(l.y, l.y + lh, l.y + lh / 2);
+      }
+      const vPoints = [
+        0,
+        width,
+        width / 2,
+        ...userGuides.v,
+        ...layerVCanvas,
+      ].map((p) => p * scale + offsetX);
       if (leftMoving) {
         let best = threshold;
         for (const p of vPoints) {
@@ -691,7 +709,13 @@ export function KonvaCanvas({
         }
       }
 
-      const hPoints = [0, height, height / 2, ...userGuides.h];
+      const hPoints = [
+        0,
+        height,
+        height / 2,
+        ...userGuides.h,
+        ...layerHCanvas,
+      ].map((p) => p * scale + offsetY);
       if (topMoving) {
         let best = threshold;
         for (const p of hPoints) {
@@ -716,7 +740,7 @@ export function KonvaCanvas({
       if (w < 10 || h < 10) return oldBox;
       return { x, y, width: w, height: h, rotation };
     },
-    [width, height, userGuides, inv]
+    [width, height, userGuides, scale, offsetX, offsetY, layers, activeLayerIds]
   );
 
   const handleTransformerTransform = useCallback(() => {
@@ -735,7 +759,17 @@ export function KonvaCanvas({
 
     const threshold = SNAP_THRESHOLD * inv;
     const guides: SnapGuides = { vertical: [], horizontal: [] };
-    const vPoints = [0, width, width / 2, ...userGuides.v];
+    const activeSet = new Set(activeLayerIds);
+    const layerVPoints: number[] = [];
+    const layerHPoints: number[] = [];
+    for (const l of layers) {
+      if (activeSet.has(l.id) || !l.visible) continue;
+      const lw = l.width * l.scaleX;
+      const lh = l.height * l.scaleY;
+      layerVPoints.push(l.x, l.x + lw, l.x + lw / 2);
+      layerHPoints.push(l.y, l.y + lh, l.y + lh / 2);
+    }
+    const vPoints = [0, width, width / 2, ...userGuides.v, ...layerVPoints];
     let bestX = threshold;
     for (const p of vPoints) {
       for (const edge of [left, right, cx]) {
@@ -746,7 +780,7 @@ export function KonvaCanvas({
         }
       }
     }
-    const hPoints = [0, height, height / 2, ...userGuides.h];
+    const hPoints = [0, height, height / 2, ...userGuides.h, ...layerHPoints];
     let bestY = threshold;
     for (const p of hPoints) {
       for (const edge of [top, bottom, cy]) {
@@ -758,7 +792,7 @@ export function KonvaCanvas({
       }
     }
     setSnapGuides(guides);
-  }, [width, height, userGuides, inv]);
+  }, [width, height, userGuides, inv, layers, activeLayerIds]);
 
   const calculateSnap = useCallback(
     (node: Konva.Node) => {
@@ -778,7 +812,17 @@ export function KonvaCanvas({
       let snapDeltaY = 0;
 
       const threshold = SNAP_THRESHOLD * inv;
-      const vPoints = [0, width, width / 2, ...userGuides.v];
+      const activeSet = new Set(activeLayerIds);
+      const layerVPoints: number[] = [];
+      const layerHPoints: number[] = [];
+      for (const l of layers) {
+        if (activeSet.has(l.id) || !l.visible) continue;
+        const lw = l.width * l.scaleX;
+        const lh = l.height * l.scaleY;
+        layerVPoints.push(l.x, l.x + lw, l.x + lw / 2);
+        layerHPoints.push(l.y, l.y + lh, l.y + lh / 2);
+      }
+      const vPoints = [0, width, width / 2, ...userGuides.v, ...layerVPoints];
       let bestX = threshold;
       for (const p of vPoints) {
         for (const [edge, delta] of [
@@ -795,7 +839,7 @@ export function KonvaCanvas({
         }
       }
 
-      const hPoints = [0, height, height / 2, ...userGuides.h];
+      const hPoints = [0, height, height / 2, ...userGuides.h, ...layerHPoints];
       let bestY = threshold;
       for (const p of hPoints) {
         for (const [edge, delta] of [
@@ -814,7 +858,7 @@ export function KonvaCanvas({
 
       return { snapDeltaX, snapDeltaY, guides };
     },
-    [width, height, userGuides, inv]
+    [width, height, userGuides, inv, layers, activeLayerIds]
   );
 
   // ── Brush helpers ──────────────────────────────────────────────────────────

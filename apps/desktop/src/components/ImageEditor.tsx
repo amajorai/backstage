@@ -10,6 +10,7 @@ import { KonvaCanvas } from "@/components/editor/KonvaCanvas";
 import { LayersPanel } from "@/components/editor/LayersPanel";
 import { PageCarousel } from "@/components/editor/PageCarousel";
 import { PropertiesPanel } from "@/components/editor/PropertiesPanel";
+import { RevisionPanel } from "@/components/editor/RevisionPanel";
 import { GalleryPicker } from "@/components/GalleryPicker";
 import {
   AlertDialog,
@@ -36,14 +37,16 @@ import {
   resolveFormattedEmoji,
   resolveIconToDataUrl,
 } from "@/lib/icon-resolver";
+import { deleteRecovery } from "@/lib/revision-storage";
 import { exportTemplate, importTemplate } from "@/lib/template-manager";
-import type { ImageLayer } from "@/stores/use-editor-store";
+import type { ImageLayer, Page } from "@/stores/use-editor-store";
 import { useEditorStore } from "@/stores/use-editor-store";
 import {
   type Layer as GalleryLayer,
   type ThumbnailItem,
   useGalleryStore,
 } from "@/stores/use-gallery-store";
+import { useRevisionStore } from "@/stores/use-revision-store";
 
 interface ImageEditorProps {
   thumbnail: ThumbnailItem;
@@ -64,6 +67,7 @@ export function ImageEditor({
   const topRulerRef = useRef<HTMLCanvasElement>(null);
   const leftRulerRef = useRef<HTMLCanvasElement>(null);
   const initializedRef = useRef(false);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [projectId, setProjectId] = useState<string | null>(thumbnail.id);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showColorBgDialog, setShowColorBgDialog] = useState(false);
@@ -72,7 +76,11 @@ export function ImageEditor({
   const [showLogoPicker, setShowLogoPicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
-  const [rightTab, setRightTab] = useState<"layers" | "history">("layers");
+  const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
+  const [recoveryPages, setRecoveryPages] = useState<Page[] | null>(null);
+  const [rightTab, setRightTab] = useState<"layers" | "history" | "revisions">(
+    "layers"
+  );
   const [savedHistoryIndex, setSavedHistoryIndex] = useState(-1);
   const [canvasSize, setCanvasSize] = useState({
     width: thumbnail.canvasWidth || 1280,
@@ -96,6 +104,7 @@ export function ImageEditor({
   const saveProject = useGalleryStore((s) => s.saveProject);
   const updateThumbnailName = useGalleryStore((s) => s.updateThumbnailName);
   const addThumbnail = useGalleryStore((s) => s.addThumbnail);
+  const { createRevision, loadRevisions } = useRevisionStore();
   const [projectName, setProjectName] = useState(thumbnail.name);
   const {
     layers,
@@ -157,6 +166,12 @@ export function ImageEditor({
             thumbnail.canvasHeight || 720
           );
           setSavedHistoryIndex(useEditorStore.getState().historyIndex);
+          // Check for crash recovery
+          const recovery = await loadRecovery(thumbnail.id);
+          if (recovery && recovery.savedAt > (thumbnail.updatedAt ?? 0)) {
+            setRecoveryPages(recovery.pages);
+            setShowRecoveryDialog(true);
+          }
         } else {
           const fullImageUrl = await loadFullImageForId(thumbnail.id);
           if (!fullImageUrl) {
@@ -165,13 +180,19 @@ export function ImageEditor({
             return;
           }
           const img = new window.Image();
-          img.onload = () => {
+          img.onload = async () => {
             const w = img.naturalWidth;
             const h = img.naturalHeight;
             addImageLayer(fullImageUrl, w, h);
             setCanvasSize({ width: w, height: h });
             setStoreCanvasSize(w, h);
             setSavedHistoryIndex(useEditorStore.getState().historyIndex);
+            // Check for crash recovery (new projects may also have a recovery)
+            const rec = await loadRecovery(thumbnail.id);
+            if (rec && rec.savedAt > (thumbnail.updatedAt ?? 0)) {
+              setRecoveryPages(rec.pages);
+              setShowRecoveryDialog(true);
+            }
             setIsLoadingEditor(false);
           };
           img.onerror = () => {
@@ -190,6 +211,7 @@ export function ImageEditor({
     loadProject();
   }, [
     thumbnail.id,
+    thumbnail.updatedAt,
     thumbnail.canvasWidth,
     thumbnail.canvasHeight,
     addImageLayer,
@@ -198,6 +220,32 @@ export function ImageEditor({
     loadFullImageForId,
     loadLayerDataForId,
   ]);
+
+  // Auto-save recovery every 60s when there are unsaved changes
+  useEffect(() => {
+    if (!projectId) {
+      return;
+    }
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+    autoSaveTimerRef.current = setTimeout(async () => {
+      const pages = useEditorStore.getState().pages;
+      await saveRecovery(projectId, pages);
+    }, 60_000);
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [historyIndex, projectId]);
+
+  // Load revisions when switching to revisions tab
+  useEffect(() => {
+    if (rightTab === "revisions" && projectId) {
+      loadRevisions(projectId);
+    }
+  }, [rightTab, projectId, loadRevisions]);
 
   // Calculate fit scale
   useEffect(() => {
@@ -484,24 +532,35 @@ export function ImageEditor({
     setIsSaving(true);
     try {
       const previewDataUrl = exportRef.current();
-      await saveProject(
+      const pages = useEditorStore.getState().pages;
+      const savedId = await saveProject(
         projectId,
         projectName,
         previewDataUrl,
         layers as unknown as GalleryLayer[],
         canvasSize.width,
         canvasSize.height,
-        { pages: useEditorStore.getState().pages }
+        { pages }
       );
       toast.success("Project saved");
       setSavedHistoryIndex(useEditorStore.getState().historyIndex);
+      await createRevision(savedId, pages);
+      if (savedId) await deleteRecovery(savedId);
     } catch (error) {
       console.error("Save failed:", error);
       toast.error("Failed to save");
     } finally {
       setIsSaving(false);
     }
-  }, [saveProject, projectId, projectName, layers, canvasSize, isSaving]);
+  }, [
+    saveProject,
+    projectId,
+    projectName,
+    layers,
+    canvasSize,
+    isSaving,
+    createRevision,
+  ]);
 
   const handleSaveAsNew = useCallback(async () => {
     if (!exportRef.current) {
@@ -1181,8 +1240,28 @@ export function ImageEditor({
                   >
                     History
                   </button>
+                  <button
+                    className={`flex-1 py-1.5 text-xs transition-colors ${
+                      rightTab === "revisions"
+                        ? "border-blue-500 border-b-2 text-white"
+                        : "text-neutral-400 hover:text-neutral-200"
+                    }`}
+                    onClick={() => setRightTab("revisions")}
+                    type="button"
+                  >
+                    Saves
+                  </button>
                 </div>
-                {rightTab === "layers" ? <LayersPanel /> : <HistoryPanel />}
+                {rightTab === "layers" ? (
+                  <LayersPanel />
+                ) : rightTab === "history" ? (
+                  <HistoryPanel />
+                ) : projectId ? (
+                  <RevisionPanel
+                    onRestored={() => setRightTab("layers")}
+                    projectId={projectId}
+                  />
+                ) : null}
               </div>
             }
           />

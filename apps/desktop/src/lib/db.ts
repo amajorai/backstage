@@ -49,6 +49,24 @@ async function initDb(): Promise<Database> {
     )
   `);
 
+  // Project revisions table
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS project_revisions (
+      id TEXT PRIMARY KEY,
+      projectId TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      name TEXT NOT NULL
+    )
+  `);
+
+  try {
+    await database.execute(
+      "CREATE INDEX IF NOT EXISTS idx_project_revisions_projectId ON project_revisions(projectId, createdAt)"
+    );
+  } catch {
+    // Index likely already exists
+  }
+
   logger.info("[DB] Tables verified");
   return database;
 }

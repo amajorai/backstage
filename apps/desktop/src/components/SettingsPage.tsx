@@ -100,6 +100,12 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
             >
               Billing
             </TabsTrigger>
+            <TabsTrigger
+              className="justify-start border-none px-3 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none"
+              value="storage"
+            >
+              Storage
+            </TabsTrigger>
           </TabsList>
 
           {/* Content area */}
@@ -119,6 +125,10 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
 
               <TabsContent className="mt-0" value="billing">
                 <BillingSettings />
+              </TabsContent>
+
+              <TabsContent className="mt-0" value="storage">
+                <StorageSettings />
               </TabsContent>
             </div>
           </div>
@@ -712,6 +722,45 @@ function ProcessingSettings() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function StorageSettings() {
+  const [isPurging, setIsPurging] = useState(false);
+
+  const handlePurge = async () => {
+    setIsPurging(true);
+    try {
+      const { purgeAllRevisions } = await import(
+        "@/stores/use-revision-store"
+      ).then((m) => m.useRevisionStore.getState());
+      await purgeAllRevisions();
+      toast.success("All revision history deleted");
+    } catch {
+      toast.error("Failed to purge revision history");
+    } finally {
+      setIsPurging(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3 pt-4">
+      <p className="pl-2 font-medium text-muted-foreground text-xs">Storage</p>
+      <SettingRow
+        description="Remove all saved revision checkpoints to free up disk space (up to ~50 MB per project)."
+        title="Revision History"
+      >
+        <Button
+          disabled={isPurging}
+          onClick={handlePurge}
+          size="sm"
+          variant="destructive"
+        >
+          <Trash2 className="mr-2 size-4" />
+          {isPurging ? "Purging…" : "Purge All"}
+        </Button>
+      </SettingRow>
     </div>
   );
 }
