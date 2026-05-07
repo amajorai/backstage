@@ -17,7 +17,10 @@ interface WorkerResult {
   error?: string;
 }
 
-export function removeBackgroundAsync(imageDataUrl: string): Promise<string> {
+export function removeBackgroundAsync(
+  imageDataUrl: string,
+  model?: string
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const w = getWorker();
 
@@ -40,7 +43,7 @@ export function removeBackgroundAsync(imageDataUrl: string): Promise<string> {
 
     w.addEventListener("message", handleMessage);
     w.addEventListener("error", handleError);
-    w.postMessage({ imageData: imageDataUrl });
+    w.postMessage({ imageData: imageDataUrl, model });
   });
 }
 

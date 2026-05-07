@@ -169,7 +169,12 @@ export function KonvaCanvas({
         const { removeBackgroundAsync } = await import(
           "@/lib/background-removal"
         );
-        const resultDataUrl = await removeBackgroundAsync(layer.dataUrl);
+        const { BG_REMOVAL_MODEL_MAP, useAppSettingsStore } = await import(
+          "@/stores/use-app-settings-store"
+        );
+        const model =
+          BG_REMOVAL_MODEL_MAP[useAppSettingsStore.getState().bgRemovalQuality];
+        const resultDataUrl = await removeBackgroundAsync(layer.dataUrl, model);
         const img = new window.Image();
         img.onload = () => {
           addImageLayer(resultDataUrl, img.width, img.height);

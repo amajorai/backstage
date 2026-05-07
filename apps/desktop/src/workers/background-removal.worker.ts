@@ -1,17 +1,15 @@
-// Web Worker for background removal
-// This runs in a separate thread to prevent UI freezing
 import { removeBackground } from "@imgly/background-removal";
 
-self.onmessage = async (event: MessageEvent<{ imageData: string }>) => {
+self.onmessage = async (
+  event: MessageEvent<{ imageData: string; model?: string }>
+) => {
   try {
-    const { imageData } = event.data;
+    const { imageData, model } = event.data;
 
-    // Convert data URL to blob
     const response = await fetch(imageData);
     const blob = await response.blob();
 
-    // Run background removal (this is CPU-intensive)
-    const resultBlob = await removeBackground(blob);
+    const resultBlob = await removeBackground(blob, model ? { model } : {});
 
     // Convert result back to data URL
     const reader = new FileReader();

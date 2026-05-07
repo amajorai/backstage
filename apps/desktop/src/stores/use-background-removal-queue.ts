@@ -77,7 +77,12 @@ export const useBackgroundRemovalQueue = create<BackgroundRemovalQueueState>()(
         const { removeBackgroundAsync } = await import(
           "@/lib/background-removal"
         );
-        const resultDataUrl = await removeBackgroundAsync(fullImageUrl);
+        const { BG_REMOVAL_MODEL_MAP, useAppSettingsStore } = await import(
+          "@/stores/use-app-settings-store"
+        );
+        const model =
+          BG_REMOVAL_MODEL_MAP[useAppSettingsStore.getState().bgRemovalQuality];
+        const resultDataUrl = await removeBackgroundAsync(fullImageUrl, model);
 
         // Add the result as a new thumbnail
         const addThumbnail = useGalleryStore.getState().addThumbnail;

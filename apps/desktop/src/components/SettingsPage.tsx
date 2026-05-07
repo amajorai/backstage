@@ -5,8 +5,11 @@ import {
   ExternalLink,
   Monitor,
   Moon,
+  Sparkles,
   Sun,
   Trash2,
+  Wand2,
+  Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -28,7 +31,10 @@ import {
   setGeminiApiKey,
 } from "@/lib/gemini-store";
 import { POLAR_CONFIG } from "@/lib/polar-config";
-import { useAppSettingsStore } from "@/stores/use-app-settings-store"; // Added this import
+import {
+  type BgRemovalQuality,
+  useAppSettingsStore,
+} from "@/stores/use-app-settings-store";
 import { useLicenseStore } from "@/stores/use-license-store";
 
 interface SettingsPageProps {
@@ -80,6 +86,12 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
             </TabsTrigger>
             <TabsTrigger
               className="justify-start border-none px-3 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none"
+              value="processing"
+            >
+              Processing
+            </TabsTrigger>
+            <TabsTrigger
+              className="justify-start border-none px-3 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none"
               value="billing"
             >
               Billing
@@ -95,6 +107,10 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
 
               <TabsContent className="mt-0" value="appearance">
                 <AppearanceSettings />
+              </TabsContent>
+
+              <TabsContent className="mt-0" value="processing">
+                <ProcessingSettings />
               </TabsContent>
 
               <TabsContent className="mt-0" value="billing">
@@ -302,6 +318,97 @@ function AppearanceSettings() {
         <p className="-mt-2 pl-2 text-muted-foreground text-xs">
           Show a festive snowfall effect in the title bar during December.
         </p>
+      </div>
+    </div>
+  );
+}
+
+const BG_QUALITY_OPTIONS: {
+  value: BgRemovalQuality;
+  label: string;
+  description: string;
+  detail: string;
+  icon: React.ReactNode;
+}[] = [
+  {
+    value: "fast",
+    label: "Fast",
+    description: "Quickest processing, good for previews",
+    detail: "~40 MB model · lowest resource usage",
+    icon: <Zap className="size-5" />,
+  },
+  {
+    value: "balanced",
+    label: "Balanced",
+    description: "Great results with reasonable speed",
+    detail: "~80 MB model · recommended",
+    icon: <Wand2 className="size-5" />,
+  },
+  {
+    value: "best",
+    label: "Best Quality",
+    description: "Sharpest edges, highest accuracy",
+    detail: "~160 MB model · slower, more memory",
+    icon: <Sparkles className="size-5" />,
+  },
+];
+
+function ProcessingSettings() {
+  const { bgRemovalQuality, setBgRemovalQuality } = useAppSettingsStore();
+
+  return (
+    <div className="space-y-6">
+      <h2 className="pl-2 font-semibold text-lg">Processing</h2>
+
+      <div className="space-y-3">
+        <p className="pl-2 font-medium text-sm">Background Removal Quality</p>
+        <p className="pl-2 text-muted-foreground text-xs">
+          Higher quality uses a larger AI model downloaded on first use. The
+          model is cached locally after that.
+        </p>
+
+        <div className="mt-3 flex flex-col gap-2">
+          {BG_QUALITY_OPTIONS.map((option) => {
+            const isSelected = bgRemovalQuality === option.value;
+            return (
+              <button
+                className={`flex items-center gap-4 rounded-lg border p-4 text-left transition-colors ${
+                  isSelected
+                    ? "border-primary bg-primary/5"
+                    : "border-transparent bg-muted/50 hover:bg-muted"
+                }`}
+                key={option.value}
+                onClick={() => setBgRemovalQuality(option.value)}
+                type="button"
+              >
+                <div
+                  className={`shrink-0 ${isSelected ? "text-primary" : "text-muted-foreground"}`}
+                >
+                  {option.icon}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-sm">{option.label}</span>
+                    {option.value === "balanced" && (
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
+                        Default
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-muted-foreground text-sm">
+                    {option.description}
+                  </p>
+                  <p className="mt-0.5 text-muted-foreground/70 text-xs">
+                    {option.detail}
+                  </p>
+                </div>
+                {isSelected && (
+                  <Check className="size-4 shrink-0 text-primary" />
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

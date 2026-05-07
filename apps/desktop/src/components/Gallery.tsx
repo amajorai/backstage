@@ -169,7 +169,15 @@ export function Gallery({
         const { removeBackgroundAsync } = await import(
           "@/lib/background-removal"
         );
-        const resultDataUrl = await removeBackgroundAsync(fullImageUrl);
+        const { BG_REMOVAL_MODEL_MAP } = await import(
+          "@/stores/use-app-settings-store"
+        );
+        const { useAppSettingsStore } = await import(
+          "@/stores/use-app-settings-store"
+        );
+        const model =
+          BG_REMOVAL_MODEL_MAP[useAppSettingsStore.getState().bgRemovalQuality];
+        const resultDataUrl = await removeBackgroundAsync(fullImageUrl, model);
         addThumbnail(resultDataUrl, `${thumbnail.name} (no bg)`);
       } catch (error) {
         console.error("Background removal failed:", error);
