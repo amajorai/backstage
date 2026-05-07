@@ -29,6 +29,8 @@ interface DragSelectionResult {
   scrollerRef: React.MutableRefObject<HTMLDivElement | null>;
   /** Mouse down handler to attach to the container */
   handleMouseDown: (e: React.MouseEvent) => void;
+  /** True if selection mode was just entered on this interaction — check in onClick to skip immediate exit */
+  justEnteredSelectionMode: React.MutableRefObject<boolean>;
 }
 
 /**
@@ -46,6 +48,7 @@ export function useDragSelection({
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const isDragging = useRef(false);
   const startPoint = useRef<{ x: number; y: number } | null>(null);
+  const justEnteredSelectionMode = useRef(false);
   const [selectionBox, setSelectionBox] = useState<SelectionBox | null>(null);
 
   const handleMouseDown = useCallback(
@@ -78,6 +81,7 @@ export function useDragSelection({
 
       // Enable selection mode if not already active
       if (!isSelectionMode) {
+        justEnteredSelectionMode.current = true;
         onEnableSelectionMode?.();
       }
 
@@ -164,5 +168,6 @@ export function useDragSelection({
     containerRef,
     scrollerRef,
     handleMouseDown,
+    justEnteredSelectionMode,
   };
 }

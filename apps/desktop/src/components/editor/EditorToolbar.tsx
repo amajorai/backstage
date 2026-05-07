@@ -6,6 +6,7 @@ import {
   ImageDown,
   ImagePlus,
   MousePointer,
+  PaintBucket,
   Paintbrush,
   RectangleHorizontal,
   Redo2,
@@ -33,6 +34,7 @@ import { LogoPicker } from "./LogoPicker";
 interface EditorToolbarProps {
   isProcessing: boolean;
   onRemoveBackground: () => void;
+  onAddColorBackground: () => void;
   onAddImage: () => void;
   onAiGenerate: () => void;
   onSaveLayerAsImage: () => void;
@@ -47,6 +49,7 @@ interface EditorToolbarProps {
 export function EditorToolbar({
   isProcessing,
   onRemoveBackground,
+  onAddColorBackground,
   onAddImage,
   onAiGenerate,
   onSaveLayerAsImage,
@@ -363,8 +366,30 @@ export function EditorToolbar({
           </span>
         </TooltipTrigger>
         <TooltipContent side="right">
-          Remove Background (X){" "}
-          {(!activeLayer || activeLayer.type !== "image") && "— Select Image"}
+          {!activeLayer || activeLayer.type !== "image"
+            ? "Select an image layer to remove background (X)"
+            : "Remove Background (X)"}
+        </TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span>
+            <Button
+              className="disabled:opacity-100"
+              disabled={!canRemoveBg}
+              onClick={onAddColorBackground}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <PaintBucket className="size-4" />
+            </Button>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          {!activeLayer || activeLayer.type !== "image"
+            ? "Select an image layer to add a color background (P)"
+            : "Add Color Background (P)"}
         </TooltipContent>
       </Tooltip>
 
@@ -383,8 +408,9 @@ export function EditorToolbar({
           </span>
         </TooltipTrigger>
         <TooltipContent side="right">
-          Generate Image (A){" "}
-          {(!activeLayer || activeLayer.type !== "image") && "— Select Image"}
+          {!activeLayer || activeLayer.type !== "image"
+            ? "Select an image layer to generate (A)"
+            : "Generate Image (A)"}
         </TooltipContent>
       </Tooltip>
 

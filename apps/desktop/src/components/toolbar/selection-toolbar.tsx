@@ -1,4 +1,13 @@
-import { Copy, Loader2, Sparkles, Trash2, Wand2, X } from "lucide-react";
+import {
+  Copy,
+  Download,
+  Loader2,
+  PaintBucket,
+  Sparkles,
+  Trash2,
+  Wand2,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -13,6 +22,7 @@ interface SelectionToolbarProps {
   onDuplicate: () => void;
   onDelete: () => void;
   onRemoveBackground: () => void;
+  onAddColorBackground: () => void;
   onAutoRename: () => void;
   onExport?: () => void;
 }
@@ -24,6 +34,7 @@ export function SelectionToolbar({
   onDuplicate,
   onDelete,
   onRemoveBackground,
+  onAddColorBackground,
   onAutoRename,
   onExport,
 }: SelectionToolbarProps) {
@@ -97,6 +108,17 @@ export function SelectionToolbar({
         </TooltipTrigger>
         <TooltipContent>
           <span>Ctrl+B</span>
+        </TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button onClick={onAddColorBackground} size="sm" variant="ghost">
+            <PaintBucket className="mr-2 size-4" />
+            Add Color BG
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <span>Replace background with a solid color</span>
         </TooltipContent>
       </Tooltip>
       {onExport && (

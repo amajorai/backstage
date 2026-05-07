@@ -2,6 +2,7 @@ import { Loader2, Settings, Sparkles, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { ViewMode } from "@/App";
+import { AddColorBackgroundDialog } from "@/components/editor/AddColorBackgroundDialog";
 import { AddMenu } from "@/components/toolbar/add-menu";
 import { SelectionToolbar } from "@/components/toolbar/selection-toolbar";
 import { SortMenu } from "@/components/toolbar/sort-menu";
@@ -47,6 +48,7 @@ export function BottomToolbar({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [colorBgDialogOpen, setColorBgDialogOpen] = useState(false);
 
   const thumbnails = useGalleryStore((s) => s.thumbnails);
   const duplicateThumbnailsBatch = useGalleryStore(
@@ -62,6 +64,9 @@ export function BottomToolbar({
   const exitSelectionMode = useSelectionStore((s) => s.exitSelectionMode);
 
   const addToBgQueue = useBackgroundRemovalQueue((s) => s.addToQueue);
+  const addColorBgToQueue = useBackgroundRemovalQueue(
+    (s) => s.addColorBgToQueue
+  );
   const addToRenameQueue = useAutoRenameQueue((s) => s.addToQueue);
 
   const trashItems = useTrashStore((s) => s.trashItems);
@@ -101,6 +106,20 @@ export function BottomToolbar({
     toast.success(`Added ${itemsToProcess.length} items to processing queue`);
     clearSelection();
   }, [thumbnails, selectedIds, addToBgQueue, clearSelection]);
+
+  const handleBulkAddColorBackground = useCallback(
+    (color: string) => {
+      const itemsToProcess = thumbnails
+        .filter((t) => selectedIds.has(t.id))
+        .map((t) => ({ thumbnailId: t.id, name: t.name, color }));
+      addColorBgToQueue(itemsToProcess);
+      toast.success(
+        `Added ${itemsToProcess.length} items to color background queue`
+      );
+      clearSelection();
+    },
+    [thumbnails, selectedIds, addColorBgToQueue, clearSelection]
+  );
 
   const handleBulkAutoRename = useCallback(() => {
     const itemsToRename = thumbnails
@@ -177,6 +196,7 @@ export function BottomToolbar({
       {isSelectionMode && selectedIds.size > 0 ? (
         <SelectionToolbar
           isDuplicating={isDuplicating}
+          onAddColorBackground={() => setColorBgDialogOpen(true)}
           onAutoRename={handleBulkAutoRename}
           onClearSelection={clearSelection}
           onDelete={() => setDeleteDialogOpen(true)}
@@ -250,6 +270,16 @@ export function BottomToolbar({
           </>
         )}
       </div>
+
+      <AddColorBackgroundDialog
+        isProcessing={false}
+        onConfirm={(color) => {
+          setColorBgDialogOpen(false);
+          handleBulkAddColorBackground(color);
+        }}
+        onOpenChange={setColorBgDialogOpen}
+        open={colorBgDialogOpen}
+      />
 
       <AlertDialog onOpenChange={setDeleteDialogOpen} open={deleteDialogOpen}>
         <AlertDialogContent>

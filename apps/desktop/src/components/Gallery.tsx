@@ -12,6 +12,7 @@ import { useCallback, useMemo, useState } from "react";
 import { VirtuosoGrid } from "react-virtuoso";
 import { toast } from "sonner";
 import type { ViewMode } from "@/App";
+import { AddColorBackgroundDialog } from "@/components/editor/AddColorBackgroundDialog";
 import { EmptyState } from "@/components/gallery/EmptyState";
 import { gridComponents } from "@/components/gallery/VirtuosoGridComponents";
 import { ThumbnailGridItem } from "@/components/ThumbnailGridItem";
@@ -75,6 +76,8 @@ export function Gallery({
   onNewProjectClick,
 }: GalleryProps) {
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [colorBgThumbnail, setColorBgThumbnail] =
+    useState<ThumbnailItem | null>(null);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [showVideoExtractor, setShowVideoExtractor] = useState(false);
@@ -138,14 +141,19 @@ export function Gallery({
   }, [viewMode]);
 
   // Drag selection hook
-  const { selectionBox, containerRef, scrollerRef, handleMouseDown } =
-    useDragSelection({
-      dataAttribute: "data-thumbnail-id",
-      isSelectionMode,
-      onEnableSelectionMode: toggleSelectionMode,
-      onSelectionChange: (ids) => useSelectionStore.getState().selectAll(ids),
-      onClearSelection: () => useSelectionStore.getState().clearSelection(),
-    });
+  const {
+    selectionBox,
+    containerRef,
+    scrollerRef,
+    handleMouseDown,
+    justEnteredSelectionMode,
+  } = useDragSelection({
+    dataAttribute: "data-thumbnail-id",
+    isSelectionMode,
+    onEnableSelectionMode: toggleSelectionMode,
+    onSelectionChange: (ids) => useSelectionStore.getState().selectAll(ids),
+    onClearSelection: () => useSelectionStore.getState().clearSelection(),
+  });
 
   const handleAddImage = useCallback(async () => {
     const images = await openAndLoadImages();
@@ -166,19 +174,15 @@ export function Gallery({
           console.error("Failed to load image for background removal");
           return;
         }
-        const { removeBackgroundAsync } = await import(
-          "@/lib/background-removal"
+        const { runBgRemovalPipeline } = await import(
+          "@/lib/bg-removal-pipeline"
         );
-        const { BG_REMOVAL_MODEL_MAP } = await import(
-          "@/stores/use-app-settings-store"
-        );
-        const { useAppSettingsStore } = await import(
-          "@/stores/use-app-settings-store"
-        );
-        const model =
-          BG_REMOVAL_MODEL_MAP[useAppSettingsStore.getState().bgRemovalQuality];
-        const resultDataUrl = await removeBackgroundAsync(fullImageUrl, model);
-        addThumbnail(resultDataUrl, `${thumbnail.name} (no bg)`);
+        const result = await runBgRemovalPipeline(fullImageUrl);
+        const outputName =
+          result.kind === "gemini-only"
+            ? `${thumbnail.name} (gemini bg)`
+            : `${thumbnail.name} (no bg)`;
+        addThumbnail(result.dataUrl, outputName);
       } catch (error) {
         console.error("Background removal failed:", error);
       } finally {
@@ -186,6 +190,53 @@ export function Gallery({
       }
     },
     [addThumbnail, loadFullImageForId]
+  );
+
+  const handleConfirmColorBg = useCallback(
+    async (color: string, extraPrompt: string) => {
+      const thumbnail = colorBgThumbnail;
+      setColorBgThumbnail(null);
+      if (!thumbnail) return;
+      setProcessingId(thumbnail.id);
+      const toastId = toast.loading("Adding color background...");
+      try {
+        const fullImageUrl = await loadFullImageForId(thumbnail.id);
+        if (!fullImageUrl) throw new Error("Image not found");
+        const { getGeminiApiKey } = await import("@/lib/gemini-store");
+        const apiKey = await getGeminiApiKey();
+        if (!apiKey)
+          throw new Error(
+            "Gemini API key not set. Add it in Settings → API Keys."
+          );
+        const { generateImageWithGemini, base64ToDataUrl } = await import(
+          "@/lib/gemini-image"
+        );
+        const { useAppSettingsStore } = await import(
+          "@/stores/use-app-settings-store"
+        );
+        const model = useAppSettingsStore.getState()
+          .bgRemovalGeminiModel as import("@/lib/gemini-image").GeminiImageModel;
+        const extra = extraPrompt.trim();
+        const prompt = `Replace the background of this image with a solid flat ${color} color. Keep the subject exactly as-is. Output the full image with the new solid color background.${extra ? ` Additional instructions: ${extra}` : ""}`;
+        const result = await generateImageWithGemini(
+          apiKey,
+          model,
+          prompt,
+          fullImageUrl
+        );
+        const dataUrl = base64ToDataUrl(result.imageBase64, result.mimeType);
+        await addThumbnail(dataUrl, `${thumbnail.name} (${color} bg)`);
+        toast.success("Color background added", { id: toastId });
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Failed to add background",
+          { id: toastId }
+        );
+      } finally {
+        setProcessingId(null);
+      }
+    },
+    [colorBgThumbnail, loadFullImageForId, addThumbnail]
   );
 
   const handleAutoRename = useCallback(
@@ -214,6 +265,7 @@ export function Gallery({
         return (
           <ThumbnailGridItem
             isProcessing={processingId === thumbnail.id}
+            onAddColorBackground={setColorBgThumbnail}
             onAutoRename={handleAutoRename}
             onDelete={handleDelete}
             onExportClick={onExportClick}
@@ -232,6 +284,7 @@ export function Gallery({
       return (
         <ThumbnailGridItem
           isProcessing={processingId === thumbnail.id}
+          onAddColorBackground={setColorBgThumbnail}
           onAutoRename={handleAutoRename}
           onDelete={handleDelete}
           onExportClick={onExportClick}
@@ -335,6 +388,10 @@ export function Gallery({
               <div
                 className="h-full w-full overflow-hidden"
                 onClick={(e) => {
+                  if (justEnteredSelectionMode.current) {
+                    justEnteredSelectionMode.current = false;
+                    return;
+                  }
                   if (
                     isSelectionMode &&
                     !(e.target as HTMLElement).closest("[data-thumbnail-id]")
@@ -476,6 +533,15 @@ export function Gallery({
       {showVideoExtractor && (
         <VideoExtractor onClose={() => setShowVideoExtractor(false)} />
       )}
+
+      <AddColorBackgroundDialog
+        isProcessing={false}
+        onConfirm={handleConfirmColorBg}
+        onOpenChange={(open) => {
+          if (!open) setColorBgThumbnail(null);
+        }}
+        open={colorBgThumbnail !== null}
+      />
 
       {/* Rename Dialog */}
       <Dialog onOpenChange={setRenameDialogOpen} open={renameDialogOpen}>

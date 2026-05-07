@@ -386,12 +386,35 @@ function formatBytes(bytes: number): string {
   return `${mb.toFixed(1)} MB`;
 }
 
+const GEMINI_BG_MODELS: { value: string; label: string }[] = [
+  {
+    value: "gemini-2.5-flash-image",
+    label: "Gemini 2.5 Flash Image (Nano Banana)",
+  },
+  {
+    value: "gemini-3.1-flash-image-preview",
+    label: "Gemini 3.1 Flash Image (Nano Banana 2)",
+  },
+  {
+    value: "gemini-3-pro-image-preview",
+    label: "Gemini 3 Pro Image (Nano Banana Pro)",
+  },
+];
+
 function ProcessingSettings() {
   const {
     bgRemovalQuality,
     setBgRemovalQuality,
     bgRemovalProvider,
     setBgRemovalProvider,
+    bgRemovalGeminiEnabled,
+    setBgRemovalGeminiEnabled,
+    bgRemovalGeminiModel,
+    setBgRemovalGeminiModel,
+    bgRemovalGeminiColor,
+    setBgRemovalGeminiColor,
+    bgRemovalGeminiAutoRemove,
+    setBgRemovalGeminiAutoRemove,
   } = useAppSettingsStore();
 
   const [isBriaAvailable, setIsBriaAvailable] = useState(false);
@@ -413,7 +436,7 @@ function ProcessingSettings() {
       const status = await invoke<BriaModelStatus>("bria_model_status");
       setBriaStatus(status);
     } catch {
-      // ignore — Tauri command unavailable in web context
+      // not available outside Tauri, safe to ignore
     }
   }, []);
 
@@ -457,7 +480,7 @@ function ProcessingSettings() {
     <div className="space-y-6">
       <h2 className="pl-2 font-semibold text-lg">Processing</h2>
 
-      {/* Provider selector — BRIA option hidden in commercial build */}
+      {/* Provider selector, hidden in commercial builds without BRIA */}
       {isBriaAvailable && (
         <div className="space-y-3">
           <p className="pl-2 font-medium text-sm">Background Removal Engine</p>
@@ -547,7 +570,7 @@ function ProcessingSettings() {
         </div>
       )}
 
-      {/* Quality tiers — imgly only */}
+      {/* Quality tiers are only applicable when using the imgly provider */}
       {bgRemovalProvider === "imgly" && (
         <div className="space-y-3">
           <p className="pl-2 font-medium text-sm">Background Removal Quality</p>
@@ -602,6 +625,93 @@ function ProcessingSettings() {
           </div>
         </div>
       )}
+
+      {/* Gemini Pre-processing */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between pl-2">
+          <div>
+            <p className="font-medium text-sm">Gemini Pre-processing</p>
+            <p className="text-muted-foreground text-xs">
+              Use Gemini to fill the background with a solid color before
+              running background removal for potentially cleaner subject cuts
+            </p>
+          </div>
+          <Switch
+            checked={bgRemovalGeminiEnabled}
+            onCheckedChange={setBgRemovalGeminiEnabled}
+          />
+        </div>
+
+        {bgRemovalGeminiEnabled && (
+          <div className="space-y-4 rounded-lg border bg-muted/30 p-4">
+            <div className="space-y-1.5">
+              <p className="font-medium text-xs">Gemini Model</p>
+              <Select
+                onValueChange={(v) => v && setBgRemovalGeminiModel(v)}
+                value={bgRemovalGeminiModel}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {GEMINI_BG_MODELS.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>
+                      {m.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <p className="font-medium text-xs">Background Color</p>
+              <p className="text-muted-foreground text-xs">
+                Color Gemini fills the background with before removal
+              </p>
+              <div className="flex items-center gap-3">
+                <input
+                  className="h-9 w-12 cursor-pointer rounded border border-input bg-transparent p-0.5"
+                  onChange={(e) => setBgRemovalGeminiColor(e.target.value)}
+                  title="Pick background color"
+                  type="color"
+                  value={bgRemovalGeminiColor}
+                />
+                <span className="font-mono text-muted-foreground text-xs">
+                  {bgRemovalGeminiColor}
+                </span>
+                <div className="flex gap-1.5">
+                  {["#00ff00", "#000000", "#808080", "#ffffff"].map((c) => (
+                    <button
+                      className="h-5 w-5 rounded border border-input transition-transform hover:scale-110"
+                      key={c}
+                      onClick={() => setBgRemovalGeminiColor(c)}
+                      style={{ background: c }}
+                      title={c}
+                      type="button"
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-xs">
+                  Auto-remove background after Gemini
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  Pass Gemini output through the background remover for a
+                  transparent result
+                </p>
+              </div>
+              <Switch
+                checked={bgRemovalGeminiAutoRemove}
+                onCheckedChange={setBgRemovalGeminiAutoRemove}
+              />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

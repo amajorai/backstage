@@ -41,7 +41,7 @@ export function BackgroundRemovalQueue() {
     <div className="fixed right-4 bottom-20 z-50 flex w-80 flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl transition-all">
       <div className="flex items-center justify-between border-b bg-muted/50 p-2">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-sm">Background Removal</span>
+          <span className="font-medium text-sm">Processing Queue</span>
           <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary text-xs">
             {pendingCount} pending
           </span>
@@ -96,7 +96,14 @@ export function BackgroundRemovalQueue() {
                   {item.status === "error" && (
                     <XCircle className="size-4 text-destructive" />
                   )}
-                  <span className="truncate text-sm">{item.name}</span>
+                  <div className="min-w-0">
+                    <span className="block truncate text-sm">{item.name}</span>
+                    <span className="text-muted-foreground text-xs">
+                      {item.operation === "add-color-bg"
+                        ? `Add background${item.color ? ` (${item.color})` : ""}`
+                        : "Remove background"}
+                    </span>
+                  </div>
                 </div>
                 {item.status !== "processing" && (
                   <Button

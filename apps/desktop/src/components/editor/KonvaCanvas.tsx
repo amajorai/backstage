@@ -166,25 +166,31 @@ export function KonvaCanvas({
       if (!layer || layer.type !== "image") return;
       const toastId = toast.loading("Removing background…");
       try {
-        const { removeBackgroundAsync } = await import(
-          "@/lib/background-removal"
+        const { runBgRemovalPipeline } = await import(
+          "@/lib/bg-removal-pipeline"
         );
-        const { BG_REMOVAL_MODEL_MAP, useAppSettingsStore } = await import(
-          "@/stores/use-app-settings-store"
+        const result = await runBgRemovalPipeline(
+          (layer as import("@/stores/use-editor-store").ImageLayer).dataUrl
         );
-        const model =
-          BG_REMOVAL_MODEL_MAP[useAppSettingsStore.getState().bgRemovalQuality];
-        const resultDataUrl = await removeBackgroundAsync(layer.dataUrl, model);
         const img = new window.Image();
         img.onload = () => {
-          addImageLayer(resultDataUrl, img.width, img.height);
+          addImageLayer(result.dataUrl, img.width, img.height);
           const newId = useEditorStore.getState().activeLayerIds[0];
           if (newId) updateLayer(newId, { x: layer.x, y: layer.y });
-          toast.success("Background removed", { id: toastId });
+          const message =
+            result.kind === "gemini-only"
+              ? "Background replaced with color"
+              : "Background removed";
+          toast.success(message, { id: toastId });
         };
-        img.src = resultDataUrl;
-      } catch {
-        toast.error("Failed to remove background", { id: toastId });
+        img.src = result.dataUrl;
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Failed to remove background",
+          { id: toastId }
+        );
       }
     },
     [layers, addImageLayer, updateLayer]

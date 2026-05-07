@@ -1,5 +1,13 @@
-import { Copy, Download, Loader2, Pencil, Trash2, Wand2 } from "lucide-react";
-import { memo, useCallback, useEffect, useState } from "react";
+import {
+  Copy,
+  Download,
+  Loader2,
+  PaintBucket,
+  Pencil,
+  Trash2,
+  Wand2,
+} from "lucide-react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { SelectionCheckbox } from "@/components/gallery/SelectionCheckbox";
 import { ThumbnailActionButtons } from "@/components/gallery/ThumbnailActionButtons";
@@ -34,6 +42,7 @@ interface ThumbnailGridItemProps {
   onRename: (thumbnail: ThumbnailItem) => void;
   onDelete: (thumbnail: ThumbnailItem) => void;
   onAutoRename: (thumbnail: ThumbnailItem) => Promise<void>;
+  onAddColorBackground: (thumbnail: ThumbnailItem) => void;
 }
 
 export const ThumbnailGridItem = memo(function ThumbnailGridItem({
@@ -45,6 +54,7 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
   onRename,
   onDelete,
   onAutoRename,
+  onAddColorBackground,
 }: ThumbnailGridItemProps) {
   const isSelectionMode = useSelectionStore((s) => s.isSelectionMode);
   const selectedIds = useSelectionStore((s) => s.selectedIds);
@@ -59,6 +69,19 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
     thumbnail.previewUrl || cachedPreviewUrl || null
   );
   const [isLoadingPreview, setIsLoadingPreview] = useState(!previewUrl);
+
+  const titleRef = useRef<HTMLButtonElement>(null);
+  const [isTitleTruncated, setIsTitleTruncated] = useState(false);
+
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    const check = () => setIsTitleTruncated(el.scrollWidth > el.clientWidth);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [thumbnail.name]);
 
   useEffect(() => {
     if (cachedPreviewUrl) {
@@ -152,14 +175,20 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
               <div className="absolute right-0 bottom-0 left-0 flex items-end gap-1 px-2 py-2">
                 <div className="min-w-0 flex-1 pl-1">
                   <Tooltip>
-                    <TooltipTrigger className="block w-full truncate text-left text-sm text-white">
+                    <TooltipTrigger
+                      className="block w-full truncate text-left text-sm text-white"
+                      ref={titleRef}
+                    >
                       {thumbnail.name}
                     </TooltipTrigger>
-                    <TooltipContent>{thumbnail.name}</TooltipContent>
+                    {isTitleTruncated && (
+                      <TooltipContent>{thumbnail.name}</TooltipContent>
+                    )}
                   </Tooltip>
                 </div>
                 {!isSelectionMode && (
                   <ThumbnailActionButtons
+                    onAddColorBackground={onAddColorBackground}
                     onAutoRename={onAutoRename}
                     onDelete={onDelete}
                     onExportClick={onExportClick}
@@ -195,6 +224,10 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
         <ContextMenuItem onClick={(e) => onRemoveBackground(e, thumbnail)}>
           <Wand2 className="mr-2 size-4" />
           Remove Background
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => onAddColorBackground(thumbnail)}>
+          <PaintBucket className="mr-2 size-4" />
+          Add Color Background
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem

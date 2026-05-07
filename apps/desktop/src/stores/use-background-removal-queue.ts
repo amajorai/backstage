@@ -8,14 +8,18 @@ export interface QueueItem {
   thumbnailId: string;
   name: string;
   status: QueueItemStatus;
+  operation: "remove-bg" | "add-color-bg";
+  color?: string;
   error?: string;
 }
 
 interface BackgroundRemovalQueueState {
   queue: QueueItem[];
   isProcessing: boolean;
-  // Changed: no longer needs dataUrl - will load from files
   addToQueue: (items: { thumbnailId: string; name: string }[]) => void;
+  addColorBgToQueue: (
+    items: { thumbnailId: string; name: string; color: string }[]
+  ) => void;
   processQueue: () => Promise<void>;
   removeFromQueue: (id: string) => void;
   clearCompleted: () => void;
@@ -32,16 +36,23 @@ export const useBackgroundRemovalQueue = create<BackgroundRemovalQueueState>()(
         thumbnailId: item.thumbnailId,
         name: item.name,
         status: "pending" as const,
+        operation: "remove-bg" as const,
       }));
+      set((state) => ({ queue: [...state.queue, ...newItems] }));
+      if (!get().isProcessing) get().processQueue();
+    },
 
-      set((state) => ({
-        queue: [...state.queue, ...newItems],
+    addColorBgToQueue: (items) => {
+      const newItems: QueueItem[] = items.map((item) => ({
+        id: crypto.randomUUID(),
+        thumbnailId: item.thumbnailId,
+        name: item.name,
+        status: "pending" as const,
+        operation: "add-color-bg" as const,
+        color: item.color,
       }));
-
-      // Start processing if not already
-      if (!get().isProcessing) {
-        get().processQueue();
-      }
+      set((state) => ({ queue: [...state.queue, ...newItems] }));
+      if (!get().isProcessing) get().processQueue();
     },
 
     processQueue: async () => {
@@ -65,7 +76,6 @@ export const useBackgroundRemovalQueue = create<BackgroundRemovalQueueState>()(
       }));
 
       try {
-        // Load full image from file storage
         const loadFullImageForId =
           useGalleryStore.getState().loadFullImageForId;
         const fullImageUrl = await loadFullImageForId(pendingItem.thumbnailId);
@@ -74,31 +84,53 @@ export const useBackgroundRemovalQueue = create<BackgroundRemovalQueueState>()(
           throw new Error("Image data not found in file storage");
         }
 
-        const { useAppSettingsStore, BG_REMOVAL_MODEL_MAP } = await import(
-          "@/stores/use-app-settings-store"
-        );
-        const { bgRemovalProvider, bgRemovalQuality } =
-          useAppSettingsStore.getState();
-
         let resultDataUrl: string;
-        if (bgRemovalProvider === "briaai") {
-          const { invoke } = await import("@tauri-apps/api/core");
-          resultDataUrl = await invoke<string>("remove_background_bria", {
-            imageData: fullImageUrl,
-          });
-        } else {
-          const { removeBackgroundAsync } = await import(
-            "@/lib/background-removal"
+        let outputName: string;
+
+        if (pendingItem.operation === "add-color-bg") {
+          const { getGeminiApiKey } = await import("@/lib/gemini-store");
+          const apiKey = await getGeminiApiKey();
+          if (!apiKey) {
+            throw new Error(
+              "Gemini API key not set. Add it in Settings → API Keys."
+            );
+          }
+          const { generateImageWithGemini, base64ToDataUrl } = await import(
+            "@/lib/gemini-image"
           );
-          const model = BG_REMOVAL_MODEL_MAP[bgRemovalQuality];
-          resultDataUrl = await removeBackgroundAsync(fullImageUrl, model);
+          const { useAppSettingsStore } = await import(
+            "@/stores/use-app-settings-store"
+          );
+          const model = useAppSettingsStore.getState()
+            .bgRemovalGeminiModel as import("@/lib/gemini-image").GeminiImageModel;
+          const color = pendingItem.color ?? "#ffffff";
+          const prompt = `Replace the background of this image with a solid flat ${color} color. Keep the subject exactly as-is. Output the full image with the new solid color background.`;
+          const geminiResult = await generateImageWithGemini(
+            apiKey,
+            model,
+            prompt,
+            fullImageUrl
+          );
+          resultDataUrl = base64ToDataUrl(
+            geminiResult.imageBase64,
+            geminiResult.mimeType
+          );
+          outputName = `${pendingItem.name} (${color} bg)`;
+        } else {
+          const { runBgRemovalPipeline } = await import(
+            "@/lib/bg-removal-pipeline"
+          );
+          const result = await runBgRemovalPipeline(fullImageUrl);
+          resultDataUrl = result.dataUrl;
+          outputName =
+            result.kind === "gemini-only"
+              ? `${pendingItem.name} (gemini bg)`
+              : `${pendingItem.name} (no bg)`;
         }
 
-        // Add the result as a new thumbnail
         const addThumbnail = useGalleryStore.getState().addThumbnail;
-        await addThumbnail(resultDataUrl, `${pendingItem.name} (no bg)`);
+        await addThumbnail(resultDataUrl, outputName);
 
-        // Update status to done
         set((state) => ({
           queue: state.queue.map((item) =>
             item.id === pendingItem.id ? { ...item, status: "done" } : item

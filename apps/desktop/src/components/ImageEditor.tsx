@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { AddColorBackgroundDialog } from "@/components/editor/AddColorBackgroundDialog";
 import { CarouselGeneratorDialog } from "@/components/editor/CarouselGeneratorDialog";
 import { EditorFooter } from "@/components/editor/EditorFooter";
 import { EditorHeader } from "@/components/editor/EditorHeader";
@@ -65,6 +66,7 @@ export function ImageEditor({
   const initializedRef = useRef(false);
   const [projectId, setProjectId] = useState<string | null>(thumbnail.id);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showColorBgDialog, setShowColorBgDialog] = useState(false);
   const [showGalleryPicker, setShowGalleryPicker] = useState(false);
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [showLogoPicker, setShowLogoPicker] = useState(false);
@@ -154,6 +156,7 @@ export function ImageEditor({
             thumbnail.canvasWidth || 1280,
             thumbnail.canvasHeight || 720
           );
+          setSavedHistoryIndex(useEditorStore.getState().historyIndex);
         } else {
           const fullImageUrl = await loadFullImageForId(thumbnail.id);
           if (!fullImageUrl) {
@@ -398,29 +401,81 @@ export function ImageEditor({
     setIsProcessing(true);
     const toastId = toast.loading("Removing background...");
     try {
-      const { removeBackgroundAsync } = await import(
-        "@/lib/background-removal"
+      const { runBgRemovalPipeline } = await import(
+        "@/lib/bg-removal-pipeline"
       );
-      const { BG_REMOVAL_MODEL_MAP, useAppSettingsStore } = await import(
-        "@/stores/use-app-settings-store"
-      );
-      const model =
-        BG_REMOVAL_MODEL_MAP[useAppSettingsStore.getState().bgRemovalQuality];
-      const resultDataUrl = await removeBackgroundAsync(
-        activeLayer.dataUrl,
-        model
+      const result = await runBgRemovalPipeline(
+        (activeLayer as ImageLayer).dataUrl
       );
       const img = new window.Image();
-      img.onload = () => addImageLayer(resultDataUrl, img.width, img.height);
-      img.src = resultDataUrl;
-      toast.success("Background removed", { id: toastId });
+      img.onload = () => addImageLayer(result.dataUrl, img.width, img.height);
+      img.src = result.dataUrl;
+      const message =
+        result.kind === "gemini-only"
+          ? "Background replaced with color"
+          : "Background removed";
+      toast.success(message, { id: toastId });
     } catch (error) {
-      console.error("Background removal failed:", error);
-      toast.error("Failed to remove background", { id: toastId });
+      toast.error(
+        error instanceof Error ? error.message : "Failed to remove background",
+        { id: toastId }
+      );
     } finally {
       setIsProcessing(false);
     }
   }, [activeLayerId, layers, addImageLayer]);
+
+  const handleAddColorBackground = useCallback(
+    async (color: string, extraPrompt: string) => {
+      const activeLayer = layers.find((l) => l.id === activeLayerId);
+      if (!activeLayer || activeLayer.type !== "image") {
+        return;
+      }
+      setShowColorBgDialog(false);
+      setIsProcessing(true);
+      const toastId = toast.loading("Adding color background...");
+      try {
+        const apiKey = await getGeminiApiKey();
+        if (!apiKey) {
+          throw new Error(
+            "Gemini API key not set. Add it in Settings → API Keys."
+          );
+        }
+        const { generateImageWithGemini, base64ToDataUrl } = await import(
+          "@/lib/gemini-image"
+        );
+        const { useAppSettingsStore } = await import(
+          "@/stores/use-app-settings-store"
+        );
+        const model = useAppSettingsStore.getState()
+          .bgRemovalGeminiModel as import("@/lib/gemini-image").GeminiImageModel;
+        const extra = extraPrompt.trim();
+        const prompt = `Replace the background of this image with a solid flat ${color} color. Keep the subject (person, object, or foreground element) exactly as-is. Output the full image with the new solid color background.${extra ? ` Additional instructions: ${extra}` : ""}`;
+        const result = await generateImageWithGemini(
+          apiKey,
+          model,
+          prompt,
+          (activeLayer as ImageLayer).dataUrl
+        );
+        const resultDataUrl = base64ToDataUrl(
+          result.imageBase64,
+          result.mimeType
+        );
+        const img = new window.Image();
+        img.onload = () => addImageLayer(resultDataUrl, img.width, img.height);
+        img.src = resultDataUrl;
+        toast.success("Color background added", { id: toastId });
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Failed to add background",
+          { id: toastId }
+        );
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    [activeLayerId, layers, addImageLayer]
+  );
 
   const handleSave = useCallback(async () => {
     if (!exportRef.current || isSaving) {
@@ -623,6 +678,12 @@ export function ImageEditor({
           } else {
             toast.info("Select an image layer first");
           }
+        } else if (e.key.toLowerCase() === "p") {
+          e.preventDefault();
+          const { activeLayerIds: ids, layers: ls } = useEditorStore.getState();
+          const al = ls.find((l) => l.id === ids[0]);
+          if (al?.type === "image") setShowColorBgDialog(true);
+          else toast.info("Select an image layer first");
         }
       }
     };
@@ -935,6 +996,7 @@ export function ImageEditor({
       <div className="flex flex-1 overflow-hidden">
         <EditorToolbar
           isProcessing={isProcessing}
+          onAddColorBackground={() => setShowColorBgDialog(true)}
           onAddIcon={handleAddIcon}
           onAddImage={() => setShowGalleryPicker(true)}
           onAiGenerate={() => {
@@ -1112,6 +1174,13 @@ export function ImageEditor({
           />
         </ResizablePanel>
       </div>
+
+      <AddColorBackgroundDialog
+        isProcessing={isProcessing}
+        onConfirm={handleAddColorBackground}
+        onOpenChange={setShowColorBgDialog}
+        open={showColorBgDialog}
+      />
 
       <CarouselGeneratorDialog
         currentCanvasContext={

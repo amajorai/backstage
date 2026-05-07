@@ -195,9 +195,9 @@ export function ExportDialog({
     [originalDimensions.width, originalDimensions.height]
   );
 
-  // Load the full image on mount (single mode only)
+  // Load the full image on mount (single mode only, not when using live editor state)
   useEffect(() => {
-    if (isBatchMode || !primaryThumbnail) return;
+    if (isBatchMode || !primaryThumbnail || useCurrentEditorState) return;
     const cancelled = false;
     setIsLoadingImage(true);
 

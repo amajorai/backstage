@@ -2,6 +2,7 @@ import {
   Copy,
   Download,
   MoreHorizontal,
+  PaintBucket,
   Pencil,
   Sparkles,
   Trash2,
@@ -28,6 +29,7 @@ interface ThumbnailActionButtonsProps {
   onRename: (thumbnail: ThumbnailItem) => void;
   onDelete: (thumbnail: ThumbnailItem) => void;
   onAutoRename: (thumbnail: ThumbnailItem) => Promise<void>;
+  onAddColorBackground: (thumbnail: ThumbnailItem) => void;
 }
 
 export function ThumbnailActionButtons({
@@ -37,6 +39,7 @@ export function ThumbnailActionButtons({
   onRename,
   onDelete,
   onAutoRename,
+  onAddColorBackground,
 }: ThumbnailActionButtonsProps) {
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const duplicateThumbnail = useGalleryStore((s) => s.duplicateThumbnail);
@@ -156,6 +159,19 @@ export function ThumbnailActionButtons({
               >
                 <Pencil className="mr-2 size-4" />
                 Rename
+              </Button>
+              <Button
+                className="w-full justify-start"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddColorBackground(thumbnail);
+                  setMenuOpenId(null);
+                }}
+                size="sm"
+                variant="ghost"
+              >
+                <PaintBucket className="mr-2 size-4" />
+                Add Color Background
               </Button>
               <Button
                 className="w-full justify-start text-destructive hover:text-destructive"
