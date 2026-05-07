@@ -74,15 +74,25 @@ export const useBackgroundRemovalQueue = create<BackgroundRemovalQueueState>()(
           throw new Error("Image data not found in file storage");
         }
 
-        const { removeBackgroundAsync } = await import(
-          "@/lib/background-removal"
-        );
-        const { BG_REMOVAL_MODEL_MAP, useAppSettingsStore } = await import(
+        const { useAppSettingsStore, BG_REMOVAL_MODEL_MAP } = await import(
           "@/stores/use-app-settings-store"
         );
-        const model =
-          BG_REMOVAL_MODEL_MAP[useAppSettingsStore.getState().bgRemovalQuality];
-        const resultDataUrl = await removeBackgroundAsync(fullImageUrl, model);
+        const { bgRemovalProvider, bgRemovalQuality } =
+          useAppSettingsStore.getState();
+
+        let resultDataUrl: string;
+        if (bgRemovalProvider === "briaai") {
+          const { invoke } = await import("@tauri-apps/api/core");
+          resultDataUrl = await invoke<string>("remove_background_bria", {
+            imageData: fullImageUrl,
+          });
+        } else {
+          const { removeBackgroundAsync } = await import(
+            "@/lib/background-removal"
+          );
+          const model = BG_REMOVAL_MODEL_MAP[bgRemovalQuality];
+          resultDataUrl = await removeBackgroundAsync(fullImageUrl, model);
+        }
 
         // Add the result as a new thumbnail
         const addThumbnail = useGalleryStore.getState().addThumbnail;

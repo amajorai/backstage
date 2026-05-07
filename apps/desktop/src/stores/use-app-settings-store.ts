@@ -6,9 +6,11 @@ const SETTINGS_STORE_NAME = "settings.json";
 const SHOW_DECEMBER_SNOW_FIELD = "show_december_snow";
 const THEME_FIELD = "app_theme";
 const BG_REMOVAL_QUALITY_FIELD = "bg_removal_quality";
+const BG_REMOVAL_PROVIDER_FIELD = "bg_removal_provider";
 
 export type AppTheme = "light" | "dark" | "system";
 export type BgRemovalQuality = "fast" | "balanced" | "best";
+export type BgRemovalProvider = "imgly" | "briaai";
 
 export const BG_REMOVAL_MODEL_MAP: Record<BgRemovalQuality, string> = {
   fast: "isnet_quint8",
@@ -20,12 +22,14 @@ interface AppSettingsState {
   showDecemberSnow: boolean;
   theme: AppTheme;
   bgRemovalQuality: BgRemovalQuality;
+  bgRemovalProvider: BgRemovalProvider;
   isInitialLoadDone: boolean;
 
   // Actions
   setShowDecemberSnow: (show: boolean) => Promise<void>;
   setTheme: (theme: AppTheme) => Promise<void>;
   setBgRemovalQuality: (quality: BgRemovalQuality) => Promise<void>;
+  setBgRemovalProvider: (provider: BgRemovalProvider) => Promise<void>;
   loadSettings: () => Promise<void>;
 }
 
@@ -33,6 +37,7 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, get) => ({
   showDecemberSnow: true,
   theme: "dark",
   bgRemovalQuality: "balanced",
+  bgRemovalProvider: "imgly",
   isInitialLoadDone: false,
 
   setShowDecemberSnow: async (show: boolean) => {
@@ -88,6 +93,20 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, get) => ({
     }
   },
 
+  setBgRemovalProvider: async (provider: BgRemovalProvider) => {
+    try {
+      const store = await load(SETTINGS_STORE_NAME, { autoSave: true });
+      await store.set(BG_REMOVAL_PROVIDER_FIELD, provider);
+      await store.save();
+      set({ bgRemovalProvider: provider });
+    } catch (error) {
+      logger.error(
+        { err: error },
+        "[Settings] Failed to save setting: bgRemovalProvider"
+      );
+    }
+  },
+
   loadSettings: async () => {
     try {
       logger.info("[Settings] Loading app settings...");
@@ -99,6 +118,9 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, get) => ({
       const bgRemovalQuality = await store.get<BgRemovalQuality>(
         BG_REMOVAL_QUALITY_FIELD
       );
+      const bgRemovalProvider = await store.get<BgRemovalProvider>(
+        BG_REMOVAL_PROVIDER_FIELD
+      );
 
       const finalTheme = theme ?? "dark";
 
@@ -106,6 +128,7 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, get) => ({
         showDecemberSnow: showSnow ?? true,
         theme: finalTheme,
         bgRemovalQuality: bgRemovalQuality ?? "balanced",
+        bgRemovalProvider: bgRemovalProvider ?? "imgly",
         isInitialLoadDone: true,
       });
 

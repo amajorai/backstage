@@ -62,7 +62,7 @@ export function PropertiesPanel() {
   const pushHistoryDebounced = () => {
     const now = Date.now();
     if (now - lastPushRef.current > 500) {
-      pushHistory();
+      pushHistory("Edit Properties");
       lastPushRef.current = now;
     }
   };

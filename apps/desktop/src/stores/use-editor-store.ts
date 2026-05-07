@@ -91,8 +91,10 @@ interface EditorState {
   brushSize: number;
   brushColor: string;
   brushOpacity: number;
-  history: Page[][]; // History now tracks pages snapshot
-  historyIndex: number;
+  // past[i].label = action that will move FROM past[i].pages TO next state
+  historyPast: Array<{ pages: Page[]; label: string }>;
+  historyFuture: Array<{ pages: Page[]; label: string }>;
+  historyIndex: number; // absolute counter for unsaved-changes tracking
   clipboard: Layer[];
   // View toggles
   showRulers: boolean;
@@ -142,11 +144,12 @@ interface EditorState {
   setCanvasSize: (width: number, height: number) => void;
   reset: () => void;
   // History
-  pushHistory: () => void;
+  pushHistory: (label?: string) => void;
   undo: () => void;
   redo: () => void;
   canUndo: () => boolean;
   canRedo: () => boolean;
+  jumpToHistory: (panelIndex: number) => void;
   // Internal helper to sync state
   _syncLayers: (pages: Page[], activeIndex: number) => void;
 }
@@ -162,7 +165,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   brushSize: 20,
   brushColor: "#000000",
   brushOpacity: 1,
-  history: [],
+  historyPast: [],
+  historyFuture: [],
   historyIndex: -1,
   clipboard: (() => {
     try {
@@ -187,7 +191,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   addImageLayer: (dataUrl, width, height) => {
-    get().pushHistory();
+    get().pushHistory("Add Image");
     const newLayer: ImageLayer = {
       id: crypto.randomUUID(),
       type: "image",
@@ -221,7 +225,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   addAnimatedImageLayer: (frames, delays, width, height) => {
-    get().pushHistory();
+    get().pushHistory("Add Animation");
     const newLayer: AnimatedImageLayer = {
       id: crypto.randomUUID(),
       type: "animated-image",
@@ -257,7 +261,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   addTextLayer: (text) => {
-    get().pushHistory();
+    get().pushHistory("Add Text");
     const newLayer: TextLayer = {
       id: crypto.randomUUID(),
       type: "text",
@@ -298,7 +302,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   addDrawLayer: (dataUrl, width, height) => {
-    get().pushHistory();
+    get().pushHistory("Draw");
     const newLayer: DrawLayer = {
       id: crypto.randomUUID(),
       type: "draw",
@@ -331,7 +335,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   addShapeLayer: (shapeType) => {
-    get().pushHistory();
+    get().pushHistory("Add Shape");
     const newLayer: ShapeLayer = {
       id: crypto.randomUUID(),
       type: "shape",
@@ -368,7 +372,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   addEmptyLayer: () => {
-    get().pushHistory();
+    get().pushHistory("Add Layer");
     const { pages, activePageIndex, canvasWidth, canvasHeight } = get();
     const newLayer: ShapeLayer = {
       id: crypto.randomUUID(),
@@ -405,7 +409,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   removeLayer: (id) => {
-    get().pushHistory();
+    get().pushHistory("Delete Layer");
     const { pages, activePageIndex, activeLayerIds } = get();
     const newPages = [...pages];
     const currentCallback = newPages[activePageIndex];
@@ -423,6 +427,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   removeLayers: (ids) => {
+    get().pushHistory("Delete Layers");
     const { pages, activePageIndex, activeLayerIds } = get();
     const newPages = [...pages];
     const currentCallback = newPages[activePageIndex];
@@ -481,7 +486,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     if (!clipboard || clipboard.length === 0) return;
 
-    get().pushHistory();
+    get().pushHistory("Paste");
     const { pages, activePageIndex } = get();
     const newPages = [...pages];
     const currentCallback = newPages[activePageIndex];
@@ -507,7 +512,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   duplicateLayer: (id) => {
-    get().pushHistory();
+    get().pushHistory("Duplicate Layer");
     const { layers, pages, activePageIndex } = get();
     const layer = layers.find((l) => l.id === id);
     if (!layer) return;
@@ -530,7 +535,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   setLayerAsBackground: (id) => {
-    get().pushHistory();
+    get().pushHistory("Set Background");
     const { layers, pages, activePageIndex, canvasWidth, canvasHeight } = get();
     const layerIndex = layers.findIndex((l) => l.id === id);
     if (layerIndex === -1) return;
@@ -591,7 +596,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setBrushOpacity: (opacity) => set({ brushOpacity: opacity }),
 
   moveLayer: (id, direction) => {
-    get().pushHistory();
+    get().pushHistory("Reorder Layer");
     const { pages, activePageIndex } = get();
     const newPages = [...pages];
     const currentCallback = newPages[activePageIndex];
@@ -618,7 +623,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   reorderLayers: (fromIndex, toIndex) => {
-    get().pushHistory();
+    get().pushHistory("Reorder Layers");
     const { pages, activePageIndex } = get();
     const newPages = [...pages];
     const currentCallback = newPages[activePageIndex];
@@ -637,7 +642,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   // Page Actions
   addPage: () => {
-    get().pushHistory();
+    get().pushHistory("Add Page");
     const { pages, canvasWidth, canvasHeight } = get();
 
     const bgLayer: ShapeLayer = {
@@ -680,7 +685,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   removePage: (index) => {
-    get().pushHistory();
+    get().pushHistory("Remove Page");
     const { pages, activePageIndex } = get();
     if (pages.length <= 1) {
       return; // Cannot remove last page
@@ -714,7 +719,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   duplicatePage: (index) => {
-    get().pushHistory();
+    get().pushHistory("Duplicate Page");
     const { pages } = get();
     const pageToDup = pages[index];
     if (!pageToDup) {
@@ -746,7 +751,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   reorderPages: (fromIndex, toIndex) => {
-    get().pushHistory();
+    get().pushHistory("Reorder Pages");
     const { pages, activePageIndex } = get();
     const newPages = [...pages];
     const [removed] = newPages.splice(fromIndex, 1);
@@ -828,71 +833,104 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       brushSize: 20,
       brushColor: "#000000",
       brushOpacity: 1,
-      history: [],
+      historyPast: [],
+      historyFuture: [],
       historyIndex: -1,
     });
   },
 
-  pushHistory: () => {
-    const { pages, history, historyIndex } = get();
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(JSON.parse(JSON.stringify(pages)));
-    if (newHistory.length > 50) {
-      newHistory.shift();
+  pushHistory: (label = "Edit") => {
+    const { pages, historyPast } = get();
+    const newPast = [
+      ...historyPast,
+      { pages: JSON.parse(JSON.stringify(pages)), label },
+    ];
+    if (newPast.length > 50) {
+      newPast.shift();
     }
-    set({ history: newHistory, historyIndex: newHistory.length - 1 });
+    set({
+      historyPast: newPast,
+      historyFuture: [],
+      historyIndex: get().historyIndex + 1,
+    });
   },
 
   undo: () => {
-    const { history, historyIndex, pages } = get();
-    if (historyIndex < 0) {
-      return;
-    }
+    const { historyPast, historyFuture, pages, activePageIndex, historyIndex } =
+      get();
+    if (historyPast.length === 0) return;
 
-    if (historyIndex === history.length - 1) {
-      const newHistory = [...history];
-      newHistory.push(JSON.parse(JSON.stringify(pages)));
-      set({ history: newHistory });
-    }
+    const prev = historyPast[historyPast.length - 1];
+    const newPast = historyPast.slice(0, -1);
+    const newFuture = [
+      { pages: JSON.parse(JSON.stringify(pages)), label: prev.label },
+      ...historyFuture,
+    ];
+    const validIndex = Math.min(activePageIndex, prev.pages.length - 1);
 
-    const newIndex = Math.max(0, historyIndex - 1);
-    const previousPages = history[newIndex];
-    if (previousPages) {
-      // Restore pages
-      // We also need to ensure activePageIndex is valid, usually keep it unless out of bounds
-      const currentIndex = get().activePageIndex;
-      const validIndex = Math.min(currentIndex, previousPages.length - 1);
-
-      set({
-        pages: JSON.parse(JSON.stringify(previousPages)),
-        historyIndex: newIndex,
-        activePageIndex: validIndex,
-        layers: previousPages[validIndex].layers,
-      });
-    }
+    set({
+      historyPast: newPast,
+      historyFuture: newFuture,
+      pages: JSON.parse(JSON.stringify(prev.pages)),
+      historyIndex: historyIndex - 1,
+      activePageIndex: validIndex,
+      layers: prev.pages[validIndex].layers,
+    });
   },
 
   redo: () => {
-    const { history, historyIndex } = get();
-    if (historyIndex >= history.length - 1) {
-      return;
-    }
+    const { historyPast, historyFuture, pages, activePageIndex, historyIndex } =
+      get();
+    if (historyFuture.length === 0) return;
 
-    const newIndex = historyIndex + 1;
-    const nextPages = history[newIndex];
-    if (nextPages) {
-      const currentIndex = get().activePageIndex;
-      const validIndex = Math.min(currentIndex, nextPages.length - 1);
+    const [next, ...remainingFuture] = historyFuture;
+    const validIndex = Math.min(activePageIndex, next.pages.length - 1);
 
-      set({
-        pages: JSON.parse(JSON.stringify(nextPages)),
-        historyIndex: newIndex,
-        activePageIndex: validIndex,
-        layers: nextPages[validIndex].layers,
-      });
-    }
+    set({
+      historyPast: [
+        ...historyPast,
+        { pages: JSON.parse(JSON.stringify(pages)), label: next.label },
+      ],
+      historyFuture: remainingFuture,
+      pages: JSON.parse(JSON.stringify(next.pages)),
+      historyIndex: historyIndex + 1,
+      activePageIndex: validIndex,
+      layers: next.pages[validIndex].layers,
+    });
   },
 
-  canUndo: () => get().historyIndex >= 0,
-  canRedo: () => get().historyIndex < get().history.length - 1,
+  jumpToHistory: (panelIndex: number) => {
+    const { historyPast, historyFuture, pages, activePageIndex, historyIndex } =
+      get();
+    // Full timeline: [past[0], ..., past[N-1], current, future[0], ...]
+    const allEntries = [
+      ...historyPast,
+      { pages: JSON.parse(JSON.stringify(pages)), label: "_current" },
+      ...historyFuture,
+    ];
+    const currentPos = historyPast.length;
+    if (
+      panelIndex === currentPos ||
+      panelIndex < 0 ||
+      panelIndex >= allEntries.length
+    )
+      return;
+
+    const target = allEntries[panelIndex];
+    const newPast = allEntries.slice(0, panelIndex);
+    const newFuture = allEntries.slice(panelIndex + 1);
+    const validIndex = Math.min(activePageIndex, target.pages.length - 1);
+
+    set({
+      historyPast: newPast,
+      historyFuture: newFuture,
+      pages: JSON.parse(JSON.stringify(target.pages)),
+      historyIndex: historyIndex + (panelIndex - currentPos),
+      activePageIndex: validIndex,
+      layers: target.pages[validIndex].layers,
+    });
+  },
+
+  canUndo: () => get().historyPast.length > 0,
+  canRedo: () => get().historyFuture.length > 0,
 }));

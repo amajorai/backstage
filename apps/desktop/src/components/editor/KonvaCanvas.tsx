@@ -324,7 +324,7 @@ export function KonvaCanvas({
 
   const handleTextBlur = useCallback(() => {
     setEditingId(null);
-    pushHistory();
+    pushHistory("Edit Text");
   }, [pushHistory]);
 
   // Wire up startPendingGuideRef so ImageEditor rulers can trigger guide creation
@@ -856,7 +856,7 @@ export function KonvaCanvas({
     if (targetLayerId === "__new__") {
       addDrawLayer(finalDataUrl, lw, lh);
     } else {
-      pushHistory();
+      pushHistory("Draw");
       updateLayer(targetLayerId, { dataUrl: finalDataUrl });
     }
 
@@ -899,7 +899,7 @@ export function KonvaCanvas({
       });
 
       if (activeAtPos) {
-        pushHistory();
+        pushHistory("Move");
         isCustomDragging.current = true;
         customDragHasMoved.current = false;
         customDragStartPointer.current = pos;
@@ -1133,7 +1133,7 @@ export function KonvaCanvas({
 
   const handleDragStart = useCallback(
     (e: Konva.KonvaEventObject<DragEvent>) => {
-      pushHistory();
+      pushHistory("Move");
       const draggedNode = e.target;
       if (activeLayerIds.includes(draggedNode.id())) {
         const selectedNodes = transformerRef.current?.nodes() || [];
@@ -1261,7 +1261,7 @@ export function KonvaCanvas({
           });
         }
       });
-      pushHistory();
+      pushHistory("Transform");
     }
   };
 
@@ -1283,7 +1283,7 @@ export function KonvaCanvas({
       onDragStart: handleDragStart,
       onDragMove: handleDragMove,
       onDragEnd: handleDragEnd,
-      onTransformStart: pushHistory,
+      onTransformStart: () => pushHistory("Transform"),
       onTransformEnd: handleTransformEnd,
       onSelect: (id: string) => {
         setActiveLayers([id]);
@@ -1630,7 +1630,7 @@ export function KonvaCanvas({
             } else if (e.key === "Enter" && e.shiftKey) {
               e.preventDefault();
               setEditingId(null);
-              pushHistory();
+              pushHistory("Edit Text");
             }
           }}
           ref={textAreaRef}
@@ -1776,7 +1776,7 @@ export function KonvaCanvas({
                     )}
                   {isImage && divider("d3")}
                   {menuItem("Reset Transform", () => {
-                    pushHistory();
+                    pushHistory("Reset Transform");
                     updateLayer(cm.layerId!, {
                       x: 0,
                       y: 0,
@@ -1788,7 +1788,7 @@ export function KonvaCanvas({
                   {menuItem("Center on Canvas", () => {
                     const l = layers.find((lay) => lay.id === cm.layerId!);
                     if (!l) return;
-                    pushHistory();
+                    pushHistory("Center on Canvas");
                     updateLayer(cm.layerId!, {
                       x: (width - l.width * l.scaleX) / 2,
                       y: (height - l.height * l.scaleY) / 2,
@@ -1797,7 +1797,7 @@ export function KonvaCanvas({
                   {menuItem("Fit to Canvas", () => {
                     const l = layers.find((lay) => lay.id === cm.layerId!);
                     if (!l) return;
-                    pushHistory();
+                    pushHistory("Fit to Canvas");
                     const s = Math.min(width / l.width, height / l.height);
                     updateLayer(cm.layerId!, {
                       scaleX: s,
@@ -1810,7 +1810,7 @@ export function KonvaCanvas({
                   {menuItem("Stretch to Canvas", () => {
                     const l = layers.find((lay) => lay.id === cm.layerId!);
                     if (!l) return;
-                    pushHistory();
+                    pushHistory("Stretch to Canvas");
                     updateLayer(cm.layerId!, {
                       scaleX: width / l.width,
                       scaleY: height / l.height,

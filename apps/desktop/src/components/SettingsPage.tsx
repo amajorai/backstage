@@ -1,7 +1,10 @@
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   ArrowLeft,
   Check,
+  Download,
   ExternalLink,
   Monitor,
   Moon,
@@ -32,6 +35,7 @@ import {
 } from "@/lib/gemini-store";
 import { POLAR_CONFIG } from "@/lib/polar-config";
 import {
+  type BgRemovalProvider,
   type BgRemovalQuality,
   useAppSettingsStore,
 } from "@/stores/use-app-settings-store";
@@ -353,63 +357,251 @@ const BG_QUALITY_OPTIONS: {
   },
 ];
 
+const BG_PROVIDER_OPTIONS: {
+  value: BgRemovalProvider;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "imgly",
+    label: "ISNet (img.ly)",
+    description: "Runs in-browser, no extra download needed",
+  },
+  {
+    value: "briaai",
+    label: "BRIA RMBG-1.4",
+    description: "Higher accuracy · requires one-time ~176 MB model download",
+  },
+];
+
+interface BriaModelStatus {
+  exists: boolean;
+  path: string;
+  size_bytes: number;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const mb = bytes / (1024 * 1024);
+  return `${mb.toFixed(1)} MB`;
+}
+
 function ProcessingSettings() {
-  const { bgRemovalQuality, setBgRemovalQuality } = useAppSettingsStore();
+  const {
+    bgRemovalQuality,
+    setBgRemovalQuality,
+    bgRemovalProvider,
+    setBgRemovalProvider,
+  } = useAppSettingsStore();
+
+  const [isBriaAvailable, setIsBriaAvailable] = useState(false);
+  const [briaStatus, setBriaStatus] = useState<BriaModelStatus | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<{
+    downloaded: number;
+    total: number;
+  } | null>(null);
+
+  useEffect(() => {
+    invoke<boolean>("is_bria_available")
+      .then(setIsBriaAvailable)
+      .catch(() => setIsBriaAvailable(false));
+  }, []);
+
+  const loadBriaStatus = useCallback(async () => {
+    try {
+      const status = await invoke<BriaModelStatus>("bria_model_status");
+      setBriaStatus(status);
+    } catch {
+      // ignore — Tauri command unavailable in web context
+    }
+  }, []);
+
+  useEffect(() => {
+    loadBriaStatus();
+  }, [loadBriaStatus]);
+
+  useEffect(() => {
+    const unlistenPromise = listen<{ downloaded: number; total: number }>(
+      "bria-download-progress",
+      (event) => {
+        setDownloadProgress(event.payload);
+      }
+    );
+    return () => {
+      unlistenPromise.then((unlisten) => unlisten());
+    };
+  }, []);
+
+  const handleDownload = useCallback(async () => {
+    setIsDownloading(true);
+    setDownloadProgress(null);
+    try {
+      await invoke("download_bria_model");
+      await loadBriaStatus();
+      toast.success("BRIA model downloaded successfully");
+    } catch (error) {
+      toast.error(`Download failed: ${error}`);
+    } finally {
+      setIsDownloading(false);
+      setDownloadProgress(null);
+    }
+  }, [loadBriaStatus]);
+
+  const downloadPercent =
+    downloadProgress && downloadProgress.total > 0
+      ? Math.round((downloadProgress.downloaded / downloadProgress.total) * 100)
+      : null;
 
   return (
     <div className="space-y-6">
       <h2 className="pl-2 font-semibold text-lg">Processing</h2>
 
-      <div className="space-y-3">
-        <p className="pl-2 font-medium text-sm">Background Removal Quality</p>
-        <p className="pl-2 text-muted-foreground text-xs">
-          Higher quality uses a larger AI model downloaded on first use. The
-          model is cached locally after that.
-        </p>
-
-        <div className="mt-3 flex flex-col gap-2">
-          {BG_QUALITY_OPTIONS.map((option) => {
-            const isSelected = bgRemovalQuality === option.value;
-            return (
-              <button
-                className={`flex items-center gap-4 rounded-lg border p-4 text-left transition-colors ${
-                  isSelected
-                    ? "border-primary bg-primary/5"
-                    : "border-transparent bg-muted/50 hover:bg-muted"
-                }`}
-                key={option.value}
-                onClick={() => setBgRemovalQuality(option.value)}
-                type="button"
-              >
-                <div
-                  className={`shrink-0 ${isSelected ? "text-primary" : "text-muted-foreground"}`}
+      {/* Provider selector — BRIA option hidden in commercial build */}
+      {isBriaAvailable && (
+        <div className="space-y-3">
+          <p className="pl-2 font-medium text-sm">Background Removal Engine</p>
+          <div className="flex flex-col gap-2">
+            {BG_PROVIDER_OPTIONS.map((option) => {
+              const isSelected = bgRemovalProvider === option.value;
+              return (
+                <button
+                  className={`flex items-center gap-4 rounded-lg border p-4 text-left transition-colors ${
+                    isSelected
+                      ? "border-primary bg-primary/5"
+                      : "border-transparent bg-muted/50 hover:bg-muted"
+                  }`}
+                  key={option.value}
+                  onClick={() => setBgRemovalProvider(option.value)}
+                  type="button"
                 >
-                  {option.icon}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex-1">
                     <span className="font-medium text-sm">{option.label}</span>
-                    {option.value === "balanced" && (
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
-                        Default
-                      </span>
-                    )}
+                    <p className="text-muted-foreground text-xs">
+                      {option.description}
+                    </p>
                   </div>
-                  <p className="text-muted-foreground text-sm">
-                    {option.description}
-                  </p>
-                  <p className="mt-0.5 text-muted-foreground/70 text-xs">
-                    {option.detail}
+                  {isSelected && (
+                    <Check className="size-4 shrink-0 text-primary" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* BRIA model download status */}
+      {isBriaAvailable && bgRemovalProvider === "briaai" && (
+        <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+          <p className="font-medium text-sm">BRIA RMBG-1.4 Model</p>
+          {briaStatus === null ? (
+            <p className="text-muted-foreground text-xs">Checking status…</p>
+          ) : briaStatus.exists ? (
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-500 text-sm">Model ready</p>
+                <p className="text-muted-foreground text-xs">
+                  {formatBytes(briaStatus.size_bytes)} · {briaStatus.path}
+                </p>
+              </div>
+              <Button
+                disabled={isDownloading}
+                onClick={handleDownload}
+                size="sm"
+                variant="ghost"
+              >
+                Re-download
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-muted-foreground text-xs">
+                Model not found. Download it once (~176 MB) to use BRIA
+                background removal.
+              </p>
+              {isDownloading && downloadProgress ? (
+                <div className="space-y-1">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full bg-primary transition-all"
+                      style={{ width: `${downloadPercent ?? 0}%` }}
+                    />
+                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    {formatBytes(downloadProgress.downloaded)} /{" "}
+                    {formatBytes(downloadProgress.total)} ({downloadPercent}%)
                   </p>
                 </div>
-                {isSelected && (
-                  <Check className="size-4 shrink-0 text-primary" />
-                )}
-              </button>
-            );
-          })}
+              ) : null}
+              <Button
+                disabled={isDownloading}
+                onClick={handleDownload}
+                size="sm"
+              >
+                <Download className="mr-2 size-4" />
+                {isDownloading ? "Downloading…" : "Download Model"}
+              </Button>
+            </div>
+          )}
         </div>
-      </div>
+      )}
+
+      {/* Quality tiers — imgly only */}
+      {bgRemovalProvider === "imgly" && (
+        <div className="space-y-3">
+          <p className="pl-2 font-medium text-sm">Background Removal Quality</p>
+          <p className="pl-2 text-muted-foreground text-xs">
+            Higher quality uses a larger AI model downloaded on first use. The
+            model is cached locally after that.
+          </p>
+
+          <div className="mt-3 flex flex-col gap-2">
+            {BG_QUALITY_OPTIONS.map((option) => {
+              const isSelected = bgRemovalQuality === option.value;
+              return (
+                <button
+                  className={`flex items-center gap-4 rounded-lg border p-4 text-left transition-colors ${
+                    isSelected
+                      ? "border-primary bg-primary/5"
+                      : "border-transparent bg-muted/50 hover:bg-muted"
+                  }`}
+                  key={option.value}
+                  onClick={() => setBgRemovalQuality(option.value)}
+                  type="button"
+                >
+                  <div
+                    className={`shrink-0 ${isSelected ? "text-primary" : "text-muted-foreground"}`}
+                  >
+                    {option.icon}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">
+                        {option.label}
+                      </span>
+                      {option.value === "balanced" && (
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
+                          Default
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-muted-foreground text-sm">
+                      {option.description}
+                    </p>
+                    <p className="mt-0.5 text-muted-foreground/70 text-xs">
+                      {option.detail}
+                    </p>
+                  </div>
+                  {isSelected && (
+                    <Check className="size-4 shrink-0 text-primary" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

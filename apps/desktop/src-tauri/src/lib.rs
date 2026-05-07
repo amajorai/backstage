@@ -2,6 +2,8 @@ use tauri::Manager;
 use tauri_plugin_decorum::WebviewWindowExt;
 
 // Declare modules
+#[cfg(feature = "bria")]
+pub mod background_removal;
 pub mod secure_storage;
 pub mod security;
 
@@ -18,6 +20,11 @@ async fn fetch_as_base64(url: String) -> Result<String, String> {
         .map_err(|e| e.to_string())?;
     use base64::Engine;
     Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
+}
+
+#[tauri::command]
+fn is_bria_available() -> bool {
+    cfg!(feature = "bria")
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -43,7 +50,7 @@ pub fn run() {
             // Initialize Secure Storage
             let app_data_dir = app.path().app_data_dir().unwrap();
             let app_name = app.package_info().name.clone();
-            
+
             secure_storage::init_secure_storage(&app_name, &app_data_dir)
                 .expect("Failed to initialize secure storage");
 
@@ -58,7 +65,14 @@ pub fn run() {
             secure_storage::secure_storage_retrieve_batch,
             secure_storage::secure_storage_list_keys,
             secure_storage::secure_storage_clear_all,
-            fetch_as_base64
+            fetch_as_base64,
+            is_bria_available,
+            #[cfg(feature = "bria")]
+            background_removal::bria_model_status,
+            #[cfg(feature = "bria")]
+            background_removal::download_bria_model,
+            #[cfg(feature = "bria")]
+            background_removal::remove_background_bria,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

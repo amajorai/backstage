@@ -4,6 +4,7 @@ import { CarouselGeneratorDialog } from "@/components/editor/CarouselGeneratorDi
 import { EditorFooter } from "@/components/editor/EditorFooter";
 import { EditorHeader } from "@/components/editor/EditorHeader";
 import { EditorToolbar } from "@/components/editor/EditorToolbar";
+import { HistoryPanel } from "@/components/editor/HistoryPanel";
 import { KonvaCanvas } from "@/components/editor/KonvaCanvas";
 import { LayersPanel } from "@/components/editor/LayersPanel";
 import { PageCarousel } from "@/components/editor/PageCarousel";
@@ -69,6 +70,7 @@ export function ImageEditor({
   const [showLogoPicker, setShowLogoPicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const [rightTab, setRightTab] = useState<"layers" | "history">("layers");
   const [savedHistoryIndex, setSavedHistoryIndex] = useState(-1);
   const [canvasSize, setCanvasSize] = useState({
     width: thumbnail.canvasWidth || 1280,
@@ -904,7 +906,8 @@ export function ImageEditor({
         canvasWidth: width,
         canvasHeight: height,
         activePageIndex: 0,
-        history: [pages], // Reset history to this state
+        historyPast: [],
+        historyFuture: [],
         historyIndex: 0,
       });
 
@@ -1077,7 +1080,35 @@ export function ImageEditor({
             defaultTopHeight={45}
             maxTopHeight={70}
             minTopHeight={25}
-            topPanel={<LayersPanel />}
+            topPanel={
+              <div className="flex h-full flex-col overflow-hidden">
+                <div className="flex shrink-0 border-neutral-700 border-b">
+                  <button
+                    className={`flex-1 py-1.5 text-xs transition-colors ${
+                      rightTab === "layers"
+                        ? "border-blue-500 border-b-2 text-white"
+                        : "text-neutral-400 hover:text-neutral-200"
+                    }`}
+                    onClick={() => setRightTab("layers")}
+                    type="button"
+                  >
+                    Layers
+                  </button>
+                  <button
+                    className={`flex-1 py-1.5 text-xs transition-colors ${
+                      rightTab === "history"
+                        ? "border-blue-500 border-b-2 text-white"
+                        : "text-neutral-400 hover:text-neutral-200"
+                    }`}
+                    onClick={() => setRightTab("history")}
+                    type="button"
+                  >
+                    History
+                  </button>
+                </div>
+                {rightTab === "layers" ? <LayersPanel /> : <HistoryPanel />}
+              </div>
+            }
           />
         </ResizablePanel>
       </div>
