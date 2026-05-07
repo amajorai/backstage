@@ -1,3 +1,4 @@
+import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -8,6 +9,7 @@ import {
   ExternalLink,
   Monitor,
   Moon,
+  RefreshCw,
   Sparkles,
   Sun,
   Trash2,
@@ -18,6 +20,17 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { TitleBar } from "@/components/TitleBar";
 import { Button } from "@/components/ui/button";
+import {
+  ColorPicker,
+  ColorPickerAlphaSlider,
+  ColorPickerArea,
+  ColorPickerContent,
+  ColorPickerEyeDropper,
+  ColorPickerHueSlider,
+  ColorPickerInput,
+  ColorPickerSwatch,
+  ColorPickerTrigger,
+} from "@/components/ui/color-picker";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -28,6 +41,11 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  checkForUpdate,
+  downloadAndInstall,
+  useUpdateStore,
+} from "@/hooks/use-app-updater";
 import {
   getGeminiApiKey,
   removeGeminiApiKey,
@@ -106,6 +124,12 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
             >
               Storage
             </TabsTrigger>
+            <TabsTrigger
+              className="justify-start border-none px-3 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none"
+              value="updates"
+            >
+              Updates
+            </TabsTrigger>
           </TabsList>
 
           {/* Content area */}
@@ -129,6 +153,10 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
 
               <TabsContent className="mt-0" value="storage">
                 <StorageSettings />
+              </TabsContent>
+
+              <TabsContent className="mt-0" value="updates">
+                <UpdateSettings />
               </TabsContent>
             </div>
           </div>
@@ -714,13 +742,25 @@ function ProcessingSettings() {
                   <span className="font-mono text-muted-foreground text-xs">
                     {bgRemovalGeminiColor}
                   </span>
-                  <input
-                    className="h-9 w-12 cursor-pointer rounded border border-input bg-transparent p-0.5"
-                    onChange={(e) => setBgRemovalGeminiColor(e.target.value)}
-                    title="Pick background color"
-                    type="color"
+                  <ColorPicker
+                    onValueChange={setBgRemovalGeminiColor}
                     value={bgRemovalGeminiColor}
-                  />
+                  >
+                    <ColorPickerTrigger className="h-9 w-12 px-1">
+                      <ColorPickerSwatch className="size-full rounded" />
+                    </ColorPickerTrigger>
+                    <ColorPickerContent>
+                      <ColorPickerArea className="h-40 w-full rounded-md border" />
+                      <div className="flex gap-2">
+                        <ColorPickerHueSlider />
+                        <ColorPickerAlphaSlider />
+                      </div>
+                      <div className="flex gap-2">
+                        <ColorPickerInput />
+                        <ColorPickerEyeDropper />
+                      </div>
+                    </ColorPickerContent>
+                  </ColorPicker>
                 </div>
               </SettingRow>
 
@@ -815,6 +855,132 @@ function BillingSettings() {
           You can reactivate it anytime by logging into the portal with your
           email.
         </p>
+      </div>
+    </div>
+  );
+}
+
+function UpdateSettings() {
+  const { autoCheckForUpdates, setAutoCheckForUpdates } = useAppSettingsStore();
+  const { checking, downloading, progress, available } = useUpdateStore();
+  const [currentVersion, setCurrentVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    getVersion()
+      .then(setCurrentVersion)
+      .catch(() => {});
+  }, []);
+
+  const handleCheckNow = useCallback(async () => {
+    await checkForUpdate();
+    if (!useUpdateStore.getState().available) {
+      toast.success("You're up to date", {
+        description: currentVersion
+          ? `Version ${currentVersion} is the latest.`
+          : undefined,
+      });
+    }
+  }, [currentVersion]);
+
+  const handleInstall = useCallback(async () => {
+    if (available) {
+      await downloadAndInstall(available);
+    }
+  }, [available]);
+
+  return (
+    <div className="space-y-6">
+      <h2 className="pl-2 font-semibold text-lg">Updates</h2>
+
+      <div className="space-y-4">
+        <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
+          Version
+        </p>
+
+        <SettingRow
+          description={
+            currentVersion ? `Current version: ${currentVersion}` : undefined
+          }
+          title="Backstage"
+        >
+          <div className="flex items-center gap-2">
+            {available && !downloading && (
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary text-xs">
+                v{available.version} available
+              </span>
+            )}
+            <Button
+              disabled={checking || downloading}
+              onClick={handleCheckNow}
+              size="sm"
+              variant="ghost"
+            >
+              <RefreshCw
+                className={`mr-2 size-4 ${checking ? "animate-spin" : ""}`}
+              />
+              {checking ? "Checking…" : "Check for updates"}
+            </Button>
+          </div>
+        </SettingRow>
+
+        {available && (
+          <div className="space-y-3">
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-0.5">
+                  <p className="font-medium text-sm">
+                    Version {available.version} is available
+                  </p>
+                  {available.date && (
+                    <p className="text-muted-foreground text-xs">
+                      Released{" "}
+                      {new Date(available.date).toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  disabled={downloading}
+                  onClick={handleInstall}
+                  size="sm"
+                >
+                  <Download className="mr-2 size-4" />
+                  {downloading ? "Installing…" : "Update now"}
+                </Button>
+              </div>
+
+              {downloading && (
+                <div className="mt-3 space-y-1">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-primary/20">
+                    <div
+                      className="h-full bg-primary transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <p className="text-muted-foreground text-xs">{progress}%</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="pt-2">
+          <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
+            Preferences
+          </p>
+          <SettingRow
+            description="Automatically check for updates when the app starts"
+            title="Check for updates automatically"
+          >
+            <Switch
+              checked={autoCheckForUpdates}
+              onCheckedChange={setAutoCheckForUpdates}
+            />
+          </SettingRow>
+        </div>
       </div>
     </div>
   );
