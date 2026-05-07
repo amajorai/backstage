@@ -10,7 +10,7 @@
   </tr>
 </table>
 
-**Backstage** is a free, open-source desktop app for making YouTube thumbnails that actually get clicks. Extract frames from your videos, edit with a layer-based canvas, remove backgrounds with AI, and generate images with Gemini — all without leaving your machine.
+**Backstage** is a free, open-source desktop app for making YouTube thumbnails that actually get clicks. Extract frames from your videos, edit with a layer-based canvas, remove backgrounds with AI, and generate images with Gemini. Everything runs on your machine.
 
 Built with Tauri and React. Runs on Windows, macOS, and Linux.
 
@@ -55,7 +55,7 @@ Built with Tauri and React. Runs on Windows, macOS, and Linux.
 - Adjustable canvas size
 - Undo/redo
 - Auto-save with unsaved changes detection
-- Project revisions — save named snapshots and restore previous states
+- Project revisions: save named snapshots and restore previous states
 
 ### Carousel Generator
 
@@ -119,7 +119,7 @@ bunx tauri build
 
 ### Open-source build
 
-The version published on GitHub. This build includes the BRIA RMBG-1.4 background removal engine in addition to img.ly. The BRIA option is gated behind a Cargo feature flag (`bria`) and is compiled out entirely in the commercial build — no dead code, no extra binary size.
+The version published on GitHub. This build includes the BRIA RMBG-1.4 background removal engine in addition to img.ly. The BRIA option is gated behind a Cargo feature flag (`bria`) and is compiled out entirely in the commercial build, with no dead code and no extra binary size.
 
 **Windows:**
 
@@ -143,8 +143,8 @@ On macOS and Linux, ONNX Runtime is linked statically into the binary. No additi
 
 ### Prerequisites
 
-- [Bun](https://bun.sh/) — JavaScript runtime and package manager
-- [Rust](https://rustup.rs/) — required for Tauri
+- [Bun](https://bun.sh/) - JavaScript runtime and package manager
+- [Rust](https://rustup.rs/) - required for Tauri
 
 ### Install dependencies
 

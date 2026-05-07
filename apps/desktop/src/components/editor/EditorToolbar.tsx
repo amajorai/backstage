@@ -402,7 +402,8 @@ export function EditorToolbar({
         </TooltipTrigger>
         <TooltipContent side="right">
           Save Layer as Image (Ctrl+Shift+S){" "}
-          {(!activeLayer || activeLayer.type !== "image") && "— Select Image"}
+          {(!activeLayer || activeLayer.type !== "image") &&
+            "(Select an image layer)"}
         </TooltipContent>
       </Tooltip>
 

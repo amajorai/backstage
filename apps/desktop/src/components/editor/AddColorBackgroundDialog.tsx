@@ -117,7 +117,7 @@ export function AddColorBackgroundDialog({
             <Textarea
               className="resize-none text-sm"
               onChange={(e) => setExtraPrompt(e.target.value)}
-              placeholder="Optional — leave blank to just replace the background"
+              placeholder="Optional: leave blank to just replace the background"
               rows={3}
               value={extraPrompt}
             />

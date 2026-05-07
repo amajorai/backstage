@@ -1031,7 +1031,7 @@ export function ImageEditor({
                 }}
               />
             )}
-            {/* Top ruler — fixed to workspace top edge */}
+            {/* Top ruler, fixed to workspace top edge */}
             {showRulers && (
               <canvas
                 className="absolute top-0 z-10 cursor-s-resize"
@@ -1041,7 +1041,7 @@ export function ImageEditor({
                 style={{ left: RULER_SIZE }}
               />
             )}
-            {/* Left ruler — fixed to workspace left edge */}
+            {/* Left ruler, fixed to workspace left edge */}
             {showRulers && (
               <canvas
                 className="absolute left-0 z-10 cursor-e-resize"

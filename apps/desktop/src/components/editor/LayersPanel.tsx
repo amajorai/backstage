@@ -234,7 +234,7 @@ export function LayersPanel() {
                     )}
                   </Button>
 
-                  {/* Name — click to select, double-click to edit */}
+                  {/* Name: click to select, double-click to edit */}
                   {isEditing ? (
                     <Input
                       autoFocus

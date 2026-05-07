@@ -400,7 +400,7 @@ export function KonvaCanvas({
           return;
         }
       } catch {
-        // clipboard API not available or denied — silently ignore
+        // clipboard API not available or denied; silently ignore
       }
     },
     [addImageLayer, updateLayer, width, height]
@@ -1366,7 +1366,7 @@ export function KonvaCanvas({
         if (e.evt.metaKey || e.evt.ctrlKey || e.evt.shiftKey) {
           toggleLayerSelection(clickedId);
         } else if (justFinishedCustomDragRef.current) {
-          // Click was on top of an active layer — keep current selection
+          // Click was on top of an active layer; keep current selection
           justFinishedCustomDragRef.current = false;
         } else if (!activeLayerIds.includes(clickedId)) {
           // Clicking a non-active node: only change selection if no active

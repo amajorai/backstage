@@ -29,7 +29,7 @@ interface DragSelectionResult {
   scrollerRef: React.MutableRefObject<HTMLDivElement | null>;
   /** Mouse down handler to attach to the container */
   handleMouseDown: (e: React.MouseEvent) => void;
-  /** True if selection mode was just entered on this interaction — check in onClick to skip immediate exit */
+  /** True if selection mode was just entered on this interaction; check in onClick to skip immediate exit */
   justEnteredSelectionMode: React.MutableRefObject<boolean>;
 }
 

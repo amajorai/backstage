@@ -57,7 +57,7 @@ export interface AnimatedImageLayer extends BaseLayer {
   height: number;
   cornerRadius: number | [number, number, number, number];
 }
-// Draw layer — raster paint/draw strokes, always full-canvas or per-layer
+// Draw layer: raster paint/draw strokes, always full-canvas or per-layer
 export interface DrawLayer extends BaseLayer {
   type: "draw";
   dataUrl: string;
