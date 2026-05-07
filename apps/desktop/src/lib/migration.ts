@@ -1,40 +1,15 @@
-import { appDataDir, join } from "@tauri-apps/api/path";
-import { copyFile, exists, mkdir, readDir } from "@tauri-apps/plugin-fs";
+import { invoke } from "@tauri-apps/api/core";
 import { logger } from "@/lib/logger";
 
-const OLD_APP_IDENTIFIER = "pub.youtube.desktop";
 const OLD_LOCALSTORAGE_KEY = "youtube.pub:clipboard:v1";
 const NEW_LOCALSTORAGE_KEY = "backstage:clipboard:v1";
 
-async function copyDirRecursive(src: string, dest: string): Promise<void> {
-  if (!(await exists(dest))) {
-    await mkdir(dest, { recursive: true });
-  }
-  const entries = await readDir(src);
-  for (const entry of entries) {
-    const srcPath = await join(src, entry.name);
-    const destPath = await join(dest, entry.name);
-    if (entry.isDirectory) {
-      await copyDirRecursive(srcPath, destPath);
-    } else {
-      await copyFile(srcPath, destPath);
-    }
-  }
-}
-
 async function migrateAppData(): Promise<void> {
   try {
-    const newAppData = await appDataDir();
-    // Derive old path: replace new identifier with old one in the path
-    const newIdentifier = "com.backstage.desktop";
-    const oldAppData = newAppData.replace(newIdentifier, OLD_APP_IDENTIFIER);
-
-    if (oldAppData === newAppData) return;
-    if (!(await exists(oldAppData))) return;
-
-    logger.info("[Migration] Migrating app data from old folder to Backstage");
-    await copyDirRecursive(oldAppData, newAppData);
-    logger.info("[Migration] App data migration complete");
+    const migrated = await invoke<boolean>("migrate_app_data");
+    if (migrated) {
+      logger.info("[Migration] App data migrated from pub.youtube.desktop");
+    }
   } catch (error) {
     logger.error({ err: error }, "[Migration] App data migration failed");
   }

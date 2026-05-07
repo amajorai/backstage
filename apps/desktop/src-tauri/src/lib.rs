@@ -8,6 +8,35 @@ pub mod secure_storage;
 pub mod security;
 
 #[tauri::command]
+async fn migrate_app_data(app: tauri::AppHandle) -> Result<bool, String> {
+    let new_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let roaming_dir = new_data_dir.parent().ok_or("no parent")?;
+    let old_data_dir = roaming_dir.join("pub.youtube.desktop");
+
+    if !old_data_dir.exists() {
+        return Ok(false);
+    }
+
+    copy_dir_recursive(&old_data_dir, &new_data_dir).map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        let dest_path = dst.join(entry.file_name());
+        if ty.is_dir() {
+            copy_dir_recursive(&entry.path(), &dest_path)?;
+        } else {
+            std::fs::copy(entry.path(), dest_path)?;
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
 async fn fetch_as_base64(url: String) -> Result<String, String> {
     let client = reqwest::Client::new();
     let bytes = client
@@ -67,6 +96,7 @@ pub fn run() {
             secure_storage::secure_storage_clear_all,
             fetch_as_base64,
             is_bria_available,
+            migrate_app_data,
             #[cfg(feature = "bria")]
             background_removal::bria_model_status,
             #[cfg(feature = "bria")]
