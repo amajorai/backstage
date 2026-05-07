@@ -98,34 +98,6 @@ export default function App() {
     setPage("gallery");
   };
 
-  const handleStartFromTemplate = async (template: ThumbnailItem) => {
-    // Duplicate template as a new project
-    const loadLayerDataForId = useGalleryStore.getState().loadLayerDataForId;
-    const layers = await loadLayerDataForId(template.id);
-
-    // Check if it's multi-page (Page[]) or single page (Layer[])
-    const pages =
-      layers && layers.length > 0 && "layers" in layers[0] ? layers : null;
-    const layerList = pages ? pages[0].layers : layers || [];
-
-    const newId = await saveProject(
-      null,
-      `${template.name} (Copy)`,
-      template.previewUrl || "",
-      layerList,
-      template.canvasWidth || 1080,
-      template.canvasHeight || 1080,
-      { pages: pages || undefined }
-    );
-
-    const newThumbnail = useGalleryStore
-      .getState()
-      .thumbnails.find((t) => t.id === newId);
-    if (newThumbnail) {
-      handleEditThumbnail(newThumbnail);
-    }
-  };
-
   const handleOpenAiGenerate = (imageDataUrl: string) => {
     setAiInputImage(imageDataUrl);
     setAiGenerateSource("editor");
@@ -273,7 +245,6 @@ export default function App() {
         onAddVideoClick={() => setShowExtractor(true)}
         onExportClick={setExportingThumbnail}
         onNewProjectClick={() => setNewProjectOpen(true)}
-        onTemplateClick={handleStartFromTemplate}
         onThumbnailClick={handleEditThumbnail}
         viewMode={viewMode}
       />

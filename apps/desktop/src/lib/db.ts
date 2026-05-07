@@ -28,14 +28,6 @@ async function initDb(): Promise<Database> {
     )
   `);
 
-  try {
-    await database.execute(
-      "ALTER TABLE thumbnails ADD COLUMN isTemplate INTEGER DEFAULT 0"
-    );
-  } catch {
-    // Column likely already exists
-  }
-
   // Trash table
   await database.execute(`
     CREATE TABLE IF NOT EXISTS trash (

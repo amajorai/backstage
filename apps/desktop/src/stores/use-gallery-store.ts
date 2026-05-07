@@ -19,7 +19,6 @@ export interface ThumbnailItem {
   updatedAt: number;
   canvasWidth?: number;
   canvasHeight?: number;
-  isTemplate?: boolean;
   // Lazy loaded fields (not in DB)
   previewUrl?: string;
 }
@@ -71,7 +70,7 @@ interface GalleryState {
     layers: Layer[],
     canvasWidth: number,
     canvasHeight: number,
-    options?: { isTemplate?: boolean; pages?: any[] }
+    options?: { pages?: any[] }
   ) => Promise<string>;
   updateThumbnailName: (id: string, name: string) => Promise<void>;
   updateThumbnail: (id: string, dataUrl: string) => Promise<void>;
@@ -321,7 +320,6 @@ export const useGalleryStore = create<GalleryState>()((set, get) => ({
   ) => {
     const projectId = id || crypto.randomUUID();
     const now = Date.now();
-    const isTemplate = options?.isTemplate ?? false;
     logger.info(
       { name, layerCount: layers.length },
       "[Gallery] Saving project"
@@ -354,8 +352,8 @@ export const useGalleryStore = create<GalleryState>()((set, get) => ({
       try {
         const database = await getDb();
         await database.execute(
-          "UPDATE thumbnails SET name = $1, canvasWidth = $2, canvasHeight = $3, updatedAt = $4, isTemplate = $5 WHERE id = $6",
-          [name, canvasWidth, canvasHeight, now, isTemplate ? 1 : 0, projectId]
+          "UPDATE thumbnails SET name = $1, canvasWidth = $2, canvasHeight = $3, updatedAt = $4 WHERE id = $5",
+          [name, canvasWidth, canvasHeight, now, projectId]
         );
         logger.info({ projectId }, "[Gallery] Project updated");
       } catch (error) {
@@ -370,7 +368,6 @@ export const useGalleryStore = create<GalleryState>()((set, get) => ({
         updatedAt: now,
         canvasWidth,
         canvasHeight,
-        isTemplate,
         previewUrl,
       };
 
@@ -382,16 +379,8 @@ export const useGalleryStore = create<GalleryState>()((set, get) => ({
       try {
         const database = await getDb();
         await database.execute(
-          "INSERT INTO thumbnails (id, name, createdAt, updatedAt, canvasWidth, canvasHeight, isTemplate) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-          [
-            projectId,
-            name,
-            now,
-            now,
-            canvasWidth,
-            canvasHeight,
-            isTemplate ? 1 : 0,
-          ]
+          "INSERT INTO thumbnails (id, name, createdAt, updatedAt, canvasWidth, canvasHeight) VALUES ($1, $2, $3, $4, $5, $6)",
+          [projectId, name, now, now, canvasWidth, canvasHeight]
         );
         logger.info({ projectId }, "[Gallery] Project saved");
       } catch (error) {
@@ -595,7 +584,7 @@ export const useGalleryStore = create<GalleryState>()((set, get) => ({
       const database = await getDb();
       // Only load metadata - NO image data!
       const result = await database.select<ThumbnailItem[]>(
-        "SELECT id, name, createdAt, updatedAt, canvasWidth, canvasHeight, isTemplate FROM thumbnails ORDER BY updatedAt DESC"
+        "SELECT id, name, createdAt, updatedAt, canvasWidth, canvasHeight FROM thumbnails ORDER BY updatedAt DESC"
       );
       logger.info(
         { count: result.length },

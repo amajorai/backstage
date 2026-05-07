@@ -33,8 +33,8 @@ export default function UserMenu() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" />}>
-        {session.user.name}
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost">{session.user.name}</Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="bg-card">
         <DropdownMenuGroup>
@@ -42,6 +42,7 @@ export default function UserMenu() {
           <DropdownMenuSeparator />
           <DropdownMenuItem>{session.user.email}</DropdownMenuItem>
           <DropdownMenuItem
+            className="text-destructive focus:text-destructive"
             onClick={() => {
               authClient.signOut({
                 fetchOptions: {
@@ -51,7 +52,6 @@ export default function UserMenu() {
                 },
               });
             }}
-            variant="destructive"
           >
             Sign Out
           </DropdownMenuItem>

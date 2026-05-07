@@ -1,11 +1,4 @@
-import {
-  ArrowLeft,
-  ChevronDown,
-  Download,
-  Grid2X2,
-  Ruler,
-  Upload,
-} from "lucide-react";
+import { ArrowLeft, ChevronDown, Grid2X2, Ruler } from "lucide-react";
 import { useRef, useState } from "react";
 import { TitleBar } from "@/components/TitleBar";
 import { buttonVariants } from "@/components/ui/button";
@@ -30,8 +23,6 @@ interface EditorHeaderProps {
   onClose: () => void;
   onShowConfirmClose: () => void;
   onNameChange: (name: string) => void;
-  onExportTemplate?: () => void;
-  onImportTemplate?: () => void;
 }
 
 export function EditorHeader({
@@ -40,8 +31,6 @@ export function EditorHeader({
   onClose,
   onShowConfirmClose,
   onNameChange,
-  onExportTemplate,
-  onImportTemplate,
 }: EditorHeaderProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -103,25 +92,6 @@ export function EditorHeader({
               {projectName}
             </span>
           )}
-
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className={cn(
-                buttonVariants({ variant: "ghost", size: "sm" }),
-                "ml-2 h-8 gap-1 px-2 text-muted-foreground hover:text-foreground"
-              )}
-            >
-              File <ChevronDown className="size-3 opacity-50" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={onImportTemplate}>
-                <Upload className="mr-2 size-4" /> Import Template
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onExportTemplate}>
-                <Download className="mr-2 size-4" /> Export Template
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
 
           <DropdownMenu>
             <DropdownMenuTrigger

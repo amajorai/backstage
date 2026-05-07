@@ -411,6 +411,65 @@ const GEMINI_BG_MODELS: { value: string; label: string }[] = [
   },
 ];
 
+interface BriaModelRowProps {
+  briaStatus: BriaModelStatus | null;
+  isDownloading: boolean;
+  downloadProgress: { downloaded: number; total: number } | null;
+  downloadPercent: number | null;
+  onDownload: () => void;
+}
+
+function BriaModelRow({
+  briaStatus,
+  isDownloading,
+  downloadProgress,
+  downloadPercent,
+  onDownload,
+}: BriaModelRowProps) {
+  let description = "Checking status…";
+  if (briaStatus !== null) {
+    description = briaStatus.exists
+      ? `${formatBytes(briaStatus.size_bytes)} · ${briaStatus.path}`
+      : "Model not found. Download it once (~176 MB) to use BRIA background removal.";
+  }
+
+  return (
+    <SettingRow description={description} title="BRIA RMBG-1.4 Model">
+      {briaStatus?.exists ? (
+        <Button
+          disabled={isDownloading}
+          onClick={onDownload}
+          size="sm"
+          variant="ghost"
+        >
+          Re-download
+        </Button>
+      ) : (
+        <div className="flex flex-col items-end gap-2">
+          {isDownloading && downloadProgress && (
+            <div className="w-40 space-y-1">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${downloadPercent ?? 0}%` }}
+                />
+              </div>
+              <p className="text-muted-foreground text-xs">
+                {formatBytes(downloadProgress.downloaded)} /{" "}
+                {formatBytes(downloadProgress.total)} ({downloadPercent}%)
+              </p>
+            </div>
+          )}
+          <Button disabled={isDownloading} onClick={onDownload} size="sm">
+            <Download className="mr-2 size-4" />
+            {isDownloading ? "Downloading…" : "Download Model"}
+          </Button>
+        </div>
+      )}
+    </SettingRow>
+  );
+}
+
 function ProcessingSettings() {
   const {
     bgRemovalQuality,
@@ -490,237 +549,193 @@ function ProcessingSettings() {
     <div className="space-y-6">
       <h2 className="pl-2 font-semibold text-lg">Processing</h2>
 
-      {/* Provider selector, hidden in commercial builds without BRIA */}
-      {isBriaAvailable && (
-        <div className="space-y-3">
-          <p className="pl-2 font-medium text-sm">Background Removal Engine</p>
-          <div className="flex flex-col gap-2">
-            {BG_PROVIDER_OPTIONS.map((option) => {
-              const isSelected = bgRemovalProvider === option.value;
-              return (
-                <button
-                  className={`flex items-center gap-4 rounded-lg border p-4 text-left transition-colors ${
-                    isSelected
-                      ? "border-primary bg-primary/5"
-                      : "border-transparent bg-muted/50 hover:bg-muted"
-                  }`}
-                  key={option.value}
-                  onClick={() => setBgRemovalProvider(option.value)}
-                  type="button"
-                >
-                  <div className="flex-1">
-                    <span className="font-medium text-sm">{option.label}</span>
-                    <p className="text-muted-foreground text-xs">
-                      {option.description}
-                    </p>
-                  </div>
-                  {isSelected && (
-                    <Check className="size-4 shrink-0 text-primary" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* BRIA model download status */}
-      {isBriaAvailable && bgRemovalProvider === "briaai" && (
-        <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
-          <p className="font-medium text-sm">BRIA RMBG-1.4 Model</p>
-          {briaStatus === null ? (
-            <p className="text-muted-foreground text-xs">Checking status…</p>
-          ) : briaStatus.exists ? (
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-500 text-sm">Model ready</p>
-                <p className="text-muted-foreground text-xs">
-                  {formatBytes(briaStatus.size_bytes)} · {briaStatus.path}
-                </p>
-              </div>
-              <Button
-                disabled={isDownloading}
-                onClick={handleDownload}
-                size="sm"
-                variant="ghost"
-              >
-                Re-download
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-muted-foreground text-xs">
-                Model not found. Download it once (~176 MB) to use BRIA
-                background removal.
-              </p>
-              {isDownloading && downloadProgress ? (
-                <div className="space-y-1">
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full bg-primary transition-all"
-                      style={{ width: `${downloadPercent ?? 0}%` }}
-                    />
-                  </div>
-                  <p className="text-muted-foreground text-xs">
-                    {formatBytes(downloadProgress.downloaded)} /{" "}
-                    {formatBytes(downloadProgress.total)} ({downloadPercent}%)
-                  </p>
-                </div>
-              ) : null}
-              <Button
-                disabled={isDownloading}
-                onClick={handleDownload}
-                size="sm"
-              >
-                <Download className="mr-2 size-4" />
-                {isDownloading ? "Downloading…" : "Download Model"}
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Quality tiers are only applicable when using the imgly provider */}
-      {bgRemovalProvider === "imgly" && (
-        <div className="space-y-3">
-          <p className="pl-2 font-medium text-sm">Background Removal Quality</p>
-          <p className="pl-2 text-muted-foreground text-xs">
-            Higher quality uses a larger AI model downloaded on first use. The
-            model is cached locally after that.
-          </p>
-
-          <div className="mt-3 flex flex-col gap-2">
-            {BG_QUALITY_OPTIONS.map((option) => {
-              const isSelected = bgRemovalQuality === option.value;
-              return (
-                <button
-                  className={`flex items-center gap-4 rounded-lg border p-4 text-left transition-colors ${
-                    isSelected
-                      ? "border-primary bg-primary/5"
-                      : "border-transparent bg-muted/50 hover:bg-muted"
-                  }`}
-                  key={option.value}
-                  onClick={() => setBgRemovalQuality(option.value)}
-                  type="button"
-                >
-                  <div
-                    className={`shrink-0 ${isSelected ? "text-primary" : "text-muted-foreground"}`}
+      <div className="space-y-4">
+        {/* Provider selector, hidden in commercial builds without BRIA */}
+        {isBriaAvailable && (
+          <div className="pt-2">
+            <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
+              Background Removal Engine
+            </p>
+            <div className="flex flex-col gap-2">
+              {BG_PROVIDER_OPTIONS.map((option) => {
+                const isSelected = bgRemovalProvider === option.value;
+                return (
+                  <button
+                    className={`flex items-center gap-4 rounded-lg border p-4 text-left transition-colors ${
+                      isSelected
+                        ? "border-primary bg-primary/5"
+                        : "border-transparent bg-muted/50 hover:bg-muted"
+                    }`}
+                    key={option.value}
+                    onClick={() => setBgRemovalProvider(option.value)}
+                    type="button"
                   >
-                    {option.icon}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex-1">
                       <span className="font-medium text-sm">
                         {option.label}
                       </span>
-                      {option.value === "balanced" && (
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
-                          Default
-                        </span>
-                      )}
+                      <p className="text-muted-foreground text-xs">
+                        {option.description}
+                      </p>
                     </div>
-                    <p className="text-muted-foreground text-sm">
-                      {option.description}
-                    </p>
-                    <p className="mt-0.5 text-muted-foreground/70 text-xs">
-                      {option.detail}
-                    </p>
-                  </div>
-                  {isSelected && (
-                    <Check className="size-4 shrink-0 text-primary" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Gemini Pre-processing */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between pl-2">
-          <div>
-            <p className="font-medium text-sm">Gemini Pre-processing</p>
-            <p className="text-muted-foreground text-xs">
-              Use Gemini to fill the background with a solid color before
-              running background removal for potentially cleaner subject cuts
-            </p>
-          </div>
-          <Switch
-            checked={bgRemovalGeminiEnabled}
-            onCheckedChange={setBgRemovalGeminiEnabled}
-          />
-        </div>
-
-        {bgRemovalGeminiEnabled && (
-          <div className="space-y-4 rounded-lg border bg-muted/30 p-4">
-            <div className="space-y-1.5">
-              <p className="font-medium text-xs">Gemini Model</p>
-              <Select
-                onValueChange={(v) => v && setBgRemovalGeminiModel(v)}
-                value={bgRemovalGeminiModel}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {GEMINI_BG_MODELS.map((m) => (
-                    <SelectItem key={m.value} value={m.value}>
-                      {m.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <p className="font-medium text-xs">Background Color</p>
-              <p className="text-muted-foreground text-xs">
-                Color Gemini fills the background with before removal
-              </p>
-              <div className="flex items-center gap-3">
-                <input
-                  className="h-9 w-12 cursor-pointer rounded border border-input bg-transparent p-0.5"
-                  onChange={(e) => setBgRemovalGeminiColor(e.target.value)}
-                  title="Pick background color"
-                  type="color"
-                  value={bgRemovalGeminiColor}
-                />
-                <span className="font-mono text-muted-foreground text-xs">
-                  {bgRemovalGeminiColor}
-                </span>
-                <div className="flex gap-1.5">
-                  {["#00ff00", "#000000", "#808080", "#ffffff"].map((c) => (
-                    <button
-                      className="h-5 w-5 rounded border border-input transition-transform hover:scale-110"
-                      key={c}
-                      onClick={() => setBgRemovalGeminiColor(c)}
-                      style={{ background: c }}
-                      title={c}
-                      type="button"
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-xs">
-                  Auto-remove background after Gemini
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  Pass Gemini output through the background remover for a
-                  transparent result
-                </p>
-              </div>
-              <Switch
-                checked={bgRemovalGeminiAutoRemove}
-                onCheckedChange={setBgRemovalGeminiAutoRemove}
-              />
+                    {isSelected && (
+                      <Check className="size-4 shrink-0 text-primary" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
+
+        {/* BRIA model download status */}
+        {isBriaAvailable && bgRemovalProvider === "briaai" && (
+          <BriaModelRow
+            briaStatus={briaStatus}
+            downloadPercent={downloadPercent}
+            downloadProgress={downloadProgress}
+            isDownloading={isDownloading}
+            onDownload={handleDownload}
+          />
+        )}
+
+        {/* Quality tiers are only applicable when using the imgly provider */}
+        {bgRemovalProvider === "imgly" && (
+          <div className="pt-2">
+            <p className="mb-1 pl-2 font-medium text-muted-foreground text-xs">
+              Background Removal Quality
+            </p>
+            <p className="mb-3 pl-2 text-muted-foreground text-xs">
+              Higher quality uses a larger AI model downloaded on first use. The
+              model is cached locally after that.
+            </p>
+            <div className="flex flex-col gap-2">
+              {BG_QUALITY_OPTIONS.map((option) => {
+                const isSelected = bgRemovalQuality === option.value;
+                return (
+                  <button
+                    className={`flex items-center gap-4 rounded-lg border p-4 text-left transition-colors ${
+                      isSelected
+                        ? "border-primary bg-primary/5"
+                        : "border-transparent bg-muted/50 hover:bg-muted"
+                    }`}
+                    key={option.value}
+                    onClick={() => setBgRemovalQuality(option.value)}
+                    type="button"
+                  >
+                    <div
+                      className={`shrink-0 ${isSelected ? "text-primary" : "text-muted-foreground"}`}
+                    >
+                      {option.icon}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">
+                          {option.label}
+                        </span>
+                        {option.value === "balanced" && (
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
+                            Default
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-muted-foreground text-sm">
+                        {option.description}
+                      </p>
+                      <p className="mt-0.5 text-muted-foreground/70 text-xs">
+                        {option.detail}
+                      </p>
+                    </div>
+                    {isSelected && (
+                      <Check className="size-4 shrink-0 text-primary" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Gemini Pre-processing */}
+        <div className="pt-2">
+          <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
+            Gemini Pre-processing
+          </p>
+          <SettingRow
+            description="Use Gemini to fill the background with a solid color before running background removal for potentially cleaner subject cuts"
+            title="Enable Pre-processing"
+          >
+            <Switch
+              checked={bgRemovalGeminiEnabled}
+              onCheckedChange={setBgRemovalGeminiEnabled}
+            />
+          </SettingRow>
+
+          {bgRemovalGeminiEnabled && (
+            <div className="mt-2 space-y-3">
+              <SettingRow title="Gemini Model">
+                <Select
+                  onValueChange={(v) => v && setBgRemovalGeminiModel(v)}
+                  value={bgRemovalGeminiModel}
+                >
+                  <SelectTrigger
+                    className="w-56 border-none bg-transparent shadow-none focus:bg-transparent dark:bg-transparent"
+                    size="sm"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {GEMINI_BG_MODELS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </SettingRow>
+
+              <SettingRow
+                description="Color Gemini fills the background with before removal"
+                title="Background Color"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex gap-1.5">
+                    {["#00ff00", "#000000", "#808080", "#ffffff"].map((c) => (
+                      <button
+                        className="h-5 w-5 rounded border border-input transition-transform hover:scale-110"
+                        key={c}
+                        onClick={() => setBgRemovalGeminiColor(c)}
+                        style={{ background: c }}
+                        title={c}
+                        type="button"
+                      />
+                    ))}
+                  </div>
+                  <span className="font-mono text-muted-foreground text-xs">
+                    {bgRemovalGeminiColor}
+                  </span>
+                  <input
+                    className="h-9 w-12 cursor-pointer rounded border border-input bg-transparent p-0.5"
+                    onChange={(e) => setBgRemovalGeminiColor(e.target.value)}
+                    title="Pick background color"
+                    type="color"
+                    value={bgRemovalGeminiColor}
+                  />
+                </div>
+              </SettingRow>
+
+              <SettingRow
+                description="Pass Gemini output through the background remover for a transparent result"
+                title="Auto-remove background"
+              >
+                <Switch
+                  checked={bgRemovalGeminiAutoRemove}
+                  onCheckedChange={setBgRemovalGeminiAutoRemove}
+                />
+              </SettingRow>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

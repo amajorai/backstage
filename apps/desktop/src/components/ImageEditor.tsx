@@ -38,7 +38,6 @@ import {
   resolveIconToDataUrl,
 } from "@/lib/icon-resolver";
 import { deleteRecovery } from "@/lib/revision-storage";
-import { exportTemplate, importTemplate } from "@/lib/template-manager";
 import type { ImageLayer, Page } from "@/stores/use-editor-store";
 import { useEditorStore } from "@/stores/use-editor-store";
 import {
@@ -581,25 +580,6 @@ export function ImageEditor({
     toast.success("Saved as new project");
   }, [saveProject, projectName, layers, canvasSize]);
 
-  const handleSaveAsTemplate = useCallback(async () => {
-    if (!exportRef.current) {
-      return;
-    }
-    const previewDataUrl = exportRef.current();
-    const newId = await saveProject(
-      null,
-      `${projectName} (Template)`,
-      previewDataUrl,
-      layers as unknown as GalleryLayer[],
-      canvasSize.width,
-      canvasSize.height,
-      { isTemplate: true, pages: useEditorStore.getState().pages }
-    );
-    setProjectId(newId);
-    setProjectName(`${projectName} (Template)`);
-    toast.success("Saved as template");
-  }, [saveProject, projectName, layers, canvasSize]);
-
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -987,80 +967,11 @@ export function ImageEditor({
     }
   }, []);
 
-  const handleExportTemplate = useCallback(async () => {
-    setIsProcessing(true);
-    const toastId = toast.loading("Exporting template...");
-    try {
-      const { pages, canvasWidth, canvasHeight } = useEditorStore.getState();
-      await exportTemplate(projectName, pages, canvasWidth, canvasHeight);
-      toast.success("Template exported successfully!", { id: toastId });
-    } catch (error) {
-      console.error("Template export failed:", error);
-      toast.error("Failed to export template", { id: toastId });
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [projectName]);
-
-  const handleImportTemplate = useCallback(async () => {
-    setIsProcessing(true);
-    const toastId = toast.loading("Importing template...");
-    try {
-      const result = await importTemplate();
-      if (!result) {
-        toast.dismiss(toastId);
-        return;
-      }
-
-      const { pages, width, height, name } = result;
-
-      // Update store
-      setStoreCanvasSize(width, height);
-      setCanvasSize({ width, height });
-      setProjectName(name);
-
-      // We need to use setState directly to replace pages as there is no "setPages" action
-      // But we can reset and then add pages.
-      // However, useEditorStore doesn't expose a direct "setPages".
-      // Let's use `reset()` then iteratively add if needed, or add a `loadState` action.
-      // Since we don't want to modify the store contract right now, we can use `replaceState` pattern if available, or hack it?
-      // Actually, standard way is to clear and rebuild.
-
-      // Let's check reset() behavior. It resets pages to [empty_page].
-      useEditorStore.getState().reset();
-
-      // Now we intentionally hack/inject the state because rebuilding page-by-page might be tedious
-      // if we have complex IDs.
-      // But `useEditorStore` is a Zustand store. We can call setState on it directly if exported?
-      // It is not exported as a variable we can setState on from here directly without the hook...
-      // ACTUALLY `useEditorStore.setState({ pages, ... })` works because it's a zustand store!
-
-      useEditorStore.setState({
-        pages,
-        canvasWidth: width,
-        canvasHeight: height,
-        activePageIndex: 0,
-        historyPast: [],
-        historyFuture: [],
-        historyIndex: 0,
-      });
-
-      toast.success("Template imported successfully!", { id: toastId });
-    } catch (error) {
-      console.error("Template import failed:", error);
-      toast.error("Failed to import template", { id: toastId });
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [setStoreCanvasSize]);
-
   return (
     <div className="flex h-full flex-col bg-background">
       <EditorHeader
         hasUnsavedChanges={hasUnsavedChanges}
         onClose={onClose}
-        onExportTemplate={handleExportTemplate}
-        onImportTemplate={handleImportTemplate}
         onNameChange={handleNameChange}
         onShowConfirmClose={() => setShowConfirmClose(true)}
         projectName={projectName}
@@ -1196,7 +1107,6 @@ export function ImageEditor({
             onExport={onExport}
             onSave={handleSave}
             onSaveAsNew={handleSaveAsNew}
-            onSaveAsTemplate={handleSaveAsTemplate}
             onZoomFit={handleZoomFit}
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}

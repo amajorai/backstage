@@ -1,12 +1,4 @@
-import {
-  ChevronDown,
-  Copy,
-  LayoutTemplate,
-  Loader2,
-  Minus,
-  Plus,
-  Save,
-} from "lucide-react";
+import { ChevronDown, Copy, Loader2, Minus, Plus, Save } from "lucide-react";
 import { useState } from "react";
 import { CanvasSizeDialog } from "@/components/editor/CanvasSizeDialog";
 import { Button } from "@/components/ui/button";
@@ -26,7 +18,6 @@ interface EditorFooterProps {
   onExport: () => void;
   onSave: () => void;
   onSaveAsNew: () => void;
-  onSaveAsTemplate: () => void;
   isSaving: boolean;
   hasUnsavedChanges: boolean;
 }
@@ -41,7 +32,6 @@ export function EditorFooter({
   onExport,
   onSave,
   onSaveAsNew,
-  onSaveAsTemplate,
   isSaving,
   hasUnsavedChanges,
 }: EditorFooterProps) {
@@ -157,18 +147,6 @@ export function EditorFooter({
                 >
                   <Copy className="mr-2 size-4" />
                   Save as New
-                </Button>
-                <Button
-                  className="w-full justify-start"
-                  onClick={() => {
-                    setShowSaveMenu(false);
-                    onSaveAsTemplate();
-                  }}
-                  size="sm"
-                  variant="ghost"
-                >
-                  <LayoutTemplate className="mr-2 size-4" />
-                  Save as Template
                 </Button>
               </div>
             </>
