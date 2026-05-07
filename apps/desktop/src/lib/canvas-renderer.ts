@@ -1,4 +1,19 @@
-import type { Layer } from "@/stores/use-editor-store";
+import type { Layer, LayerAdjustments } from "@/stores/use-editor-store";
+
+function buildCSSFilter(adj: LayerAdjustments): string {
+  const parts: string[] = [];
+  if (adj.brightness !== 0)
+    parts.push(`brightness(${1 + adj.brightness / 100})`);
+  if (adj.contrast !== 0) parts.push(`contrast(${100 + adj.contrast}%)`);
+  if (adj.hue !== 0) parts.push(`hue-rotate(${adj.hue}deg)`);
+  if (adj.saturation !== 0)
+    parts.push(`saturate(${Math.max(0, 1 + adj.saturation / 100)})`);
+  if (adj.blur > 0) parts.push(`blur(${adj.blur}px)`);
+  if (adj.invert) parts.push("invert(1)");
+  if (adj.sepia) parts.push("sepia(1)");
+  if (adj.grayscale) parts.push("grayscale(1)");
+  return parts.join(" ");
+}
 
 export async function renderLayersToCanvas(
   layers: Layer[],
@@ -73,16 +88,21 @@ export async function renderLayersToCanvas(
 
       await new Promise((resolve) => {
         img.onload = () => {
-          if (layer.cornerRadius) {
+          const adj = (layer as { adjustments?: LayerAdjustments }).adjustments;
+          const filterStr = adj ? buildCSSFilter(adj) : "";
+          if (filterStr) ctx.filter = filterStr;
+          const cornerRadius = "cornerRadius" in layer ? layer.cornerRadius : 0;
+          if (cornerRadius) {
             ctx.save();
             ctx.beginPath();
-            ctx.roundRect(0, 0, layer.width, layer.height, layer.cornerRadius);
+            ctx.roundRect(0, 0, layer.width, layer.height, cornerRadius);
             ctx.clip();
             ctx.drawImage(img, 0, 0, layer.width, layer.height);
             ctx.restore();
           } else {
             ctx.drawImage(img, 0, 0, layer.width, layer.height);
           }
+          if (filterStr) ctx.filter = "none";
           resolve(null);
         };
         img.onerror = () => resolve(null);

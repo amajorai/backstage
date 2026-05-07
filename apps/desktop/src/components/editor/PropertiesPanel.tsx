@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { AdjustmentProperties } from "@/components/editor/adjustment-properties";
 import { ImageProperties } from "@/components/editor/image-properties";
 import { ShadowProperties } from "@/components/editor/shadow-properties";
 import { ShapeProperties } from "@/components/editor/shape-properties";
 import { TextProperties } from "@/components/editor/text-properties";
 import { Slider } from "@/components/ui/slider";
 import {
+  type AnimatedImageLayer,
+  DEFAULT_ADJUSTMENTS,
+  type DrawLayer,
   type ImageLayer,
   type Layer,
   type ShapeLayer,
@@ -157,6 +161,30 @@ export function PropertiesPanel() {
           <ImageProperties
             layer={activeLayer as ImageLayer}
             onUpdate={updateWithHistory}
+          />
+        )}
+
+        {/* Draw-specific */}
+        {activeLayer?.type === "draw" && (
+          <AdjustmentProperties
+            adjustments={
+              (activeLayer as DrawLayer).adjustments ?? {
+                ...DEFAULT_ADJUSTMENTS,
+              }
+            }
+            onUpdate={(adjustments) => updateWithHistory({ adjustments })}
+          />
+        )}
+
+        {/* Animated image-specific */}
+        {activeLayer?.type === "animated-image" && (
+          <AdjustmentProperties
+            adjustments={
+              (activeLayer as AnimatedImageLayer).adjustments ?? {
+                ...DEFAULT_ADJUSTMENTS,
+              }
+            }
+            onUpdate={(adjustments) => updateWithHistory({ adjustments })}
           />
         )}
       </div>

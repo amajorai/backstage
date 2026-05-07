@@ -13,6 +13,28 @@ interface BaseLayer {
   scaleY: number;
   opacity: number;
 }
+export interface LayerAdjustments {
+  brightness: number; // -100 to 100, default 0
+  contrast: number; // -100 to 100, default 0
+  hue: number; // -180 to 180, default 0
+  saturation: number; // -100 to 100, default 0
+  blur: number; // 0 to 20, default 0
+  invert: boolean;
+  sepia: boolean;
+  grayscale: boolean;
+}
+
+export const DEFAULT_ADJUSTMENTS: LayerAdjustments = {
+  brightness: 0,
+  contrast: 0,
+  hue: 0,
+  saturation: 0,
+  blur: 0,
+  invert: false,
+  sepia: false,
+  grayscale: false,
+};
+
 // Image layer
 export interface ImageLayer extends BaseLayer {
   type: "image";
@@ -20,6 +42,7 @@ export interface ImageLayer extends BaseLayer {
   width: number;
   height: number;
   cornerRadius: number | [number, number, number, number];
+  adjustments?: LayerAdjustments;
 }
 // Text layer with rich styling
 export interface TextLayer extends BaseLayer {
@@ -35,6 +58,15 @@ export interface TextLayer extends BaseLayer {
   shadowBlur: number;
   shadowOffsetX: number;
   shadowOffsetY: number;
+  textDecoration?: "" | "underline" | "line-through" | "underline line-through";
+  align?: "left" | "center" | "right";
+  lineHeight?: number;
+  letterSpacing?: number;
+  textTransform?: "none" | "uppercase" | "lowercase" | "capitalize";
+  glowColor?: string;
+  glowSize?: number;
+  backgroundColor?: string;
+  backgroundPadding?: number;
 }
 // Shape layer
 export interface ShapeLayer extends BaseLayer {
@@ -56,6 +88,7 @@ export interface AnimatedImageLayer extends BaseLayer {
   width: number;
   height: number;
   cornerRadius: number | [number, number, number, number];
+  adjustments?: LayerAdjustments;
 }
 // Draw layer: raster paint/draw strokes, always full-canvas or per-layer
 export interface DrawLayer extends BaseLayer {
@@ -63,6 +96,7 @@ export interface DrawLayer extends BaseLayer {
   dataUrl: string;
   width: number;
   height: number;
+  adjustments?: LayerAdjustments;
 }
 export type Layer =
   | ImageLayer
@@ -92,13 +126,15 @@ interface EditorState {
     | "brush"
     | "eraser"
     | "crop"
-    | "eyedropper";
+    | "eyedropper"
+    | "magic-select";
   canvasWidth: number;
   canvasHeight: number;
   // Brush settings
   brushSize: number;
   brushColor: string;
   brushOpacity: number;
+  magicSelectTolerance: number;
   // past[i].label = action that will move FROM past[i].pages TO next state
   historyPast: Array<{ pages: Page[]; label: string }>;
   historyFuture: Array<{ pages: Page[]; label: string }>;
@@ -148,11 +184,13 @@ interface EditorState {
       | "eraser"
       | "crop"
       | "eyedropper"
+      | "magic-select"
   ) => void;
   // Brush settings
   setBrushSize: (size: number) => void;
   setBrushColor: (color: string) => void;
   setBrushOpacity: (opacity: number) => void;
+  setMagicSelectTolerance: (tolerance: number) => void;
   // Ordering
   moveLayer: (id: string, direction: "up" | "down") => void;
   reorderLayers: (fromIndex: number, toIndex: number) => void;
@@ -181,6 +219,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   brushSize: 20,
   brushColor: "#000000",
   brushOpacity: 1,
+  magicSelectTolerance: 32,
   historyPast: [],
   historyFuture: [],
   historyIndex: -1,
@@ -607,6 +646,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setBrushSize: (size) => set({ brushSize: size }),
   setBrushColor: (color) => set({ brushColor: color }),
   setBrushOpacity: (opacity) => set({ brushOpacity: opacity }),
+  setMagicSelectTolerance: (tolerance) =>
+    set({ magicSelectTolerance: tolerance }),
 
   moveLayer: (id, direction) => {
     get().pushHistory("Reorder Layer");

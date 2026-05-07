@@ -1,4 +1,12 @@
 import type Konva from "konva";
+import { Blur } from "konva/lib/filters/Blur";
+import { Brighten } from "konva/lib/filters/Brighten";
+import { Contrast } from "konva/lib/filters/Contrast";
+import { Grayscale } from "konva/lib/filters/Grayscale";
+import { HSL } from "konva/lib/filters/HSL";
+import { Invert } from "konva/lib/filters/Invert";
+import { Sepia } from "konva/lib/filters/Sepia";
+import type { Filter } from "konva/lib/Node";
 import { useEffect, useRef, useState } from "react";
 import { Ellipse, Group, Image, Rect, Text } from "react-konva";
 import type {
@@ -6,6 +14,7 @@ import type {
   DrawLayer as DrawLayerType,
   Layer as EditorLayer,
   ImageLayer as ImageLayerType,
+  LayerAdjustments,
   ShapeLayer as ShapeLayerType,
   TextLayer as TextLayerType,
 } from "@/stores/use-editor-store";
@@ -58,7 +67,46 @@ function drawRoundedRectPath(
   ctx.closePath();
 }
 
-export function renderImageLayer(
+function hasNoAdjustments(adj: LayerAdjustments): boolean {
+  return (
+    adj.brightness === 0 &&
+    adj.contrast === 0 &&
+    adj.hue === 0 &&
+    adj.saturation === 0 &&
+    adj.blur === 0 &&
+    !adj.invert &&
+    !adj.sepia &&
+    !adj.grayscale
+  );
+}
+
+function applyKonvaFilters(
+  node: Konva.Image,
+  adj: LayerAdjustments | undefined
+) {
+  if (!adj || hasNoAdjustments(adj)) {
+    node.filters([]);
+    node.clearCache();
+    return;
+  }
+  const filters: Filter[] = [];
+  if (adj.brightness !== 0) filters.push(Brighten);
+  if (adj.contrast !== 0) filters.push(Contrast);
+  if (adj.hue !== 0 || adj.saturation !== 0) filters.push(HSL);
+  if (adj.blur > 0) filters.push(Blur);
+  if (adj.invert) filters.push(Invert);
+  if (adj.sepia) filters.push(Sepia);
+  if (adj.grayscale) filters.push(Grayscale);
+  node.filters(filters);
+  node.brightness(adj.brightness / 100);
+  node.contrast(adj.contrast);
+  node.hue(adj.hue);
+  node.saturation(adj.saturation / 100);
+  node.blurRadius(adj.blur);
+  node.cache();
+}
+
+function ImageLayerComponent(
   props: LayerRenderProps & { layer: ImageLayerType }
 ) {
   const {
@@ -71,8 +119,14 @@ export function renderImageLayer(
     onDragEnd,
     onTransformStart,
     onTransformEnd,
-    onSelect: _onSelect,
   } = props;
+  const nodeRef = useRef<Konva.Image>(null);
+
+  useEffect(() => {
+    const node = nodeRef.current;
+    if (!node) return;
+    applyKonvaFilters(node, layer.adjustments);
+  }, [layer.adjustments]);
 
   let image = imageCache.current.get(layer.dataUrl);
   if (!(image && image.crossOrigin)) {
@@ -87,7 +141,6 @@ export function renderImageLayer(
     (Array.isArray(layer.cornerRadius) &&
       layer.cornerRadius.some((r: number) => r > 0));
 
-  // If no corner radius, render the simple Image
   if (!hasCornerRadius) {
     return (
       <Image
@@ -102,6 +155,7 @@ export function renderImageLayer(
         onTransformEnd={(e) => onTransformEnd(e, layer)}
         onTransformStart={onTransformStart}
         opacity={layer.opacity}
+        ref={nodeRef}
         rotation={layer.rotation}
         scaleX={layer.scaleX}
         scaleY={layer.scaleY}
@@ -112,7 +166,6 @@ export function renderImageLayer(
     );
   }
 
-  // Use a Group with clipFunc for rounded corners
   return (
     <Group
       clipFunc={(ctx) => {
@@ -133,9 +186,20 @@ export function renderImageLayer(
       x={layer.x}
       y={layer.y}
     >
-      <Image height={layer.height} image={image} width={layer.width} />
+      <Image
+        height={layer.height}
+        image={image}
+        ref={nodeRef}
+        width={layer.width}
+      />
     </Group>
   );
+}
+
+export function renderImageLayer(
+  props: LayerRenderProps & { layer: ImageLayerType }
+) {
+  return <ImageLayerComponent {...props} />;
 }
 
 export function renderTextLayer(
@@ -261,6 +325,7 @@ function AnimatedImageLayerComponent({
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const animationRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef<number>(0);
+  const nodeRef = useRef<Konva.Image>(null);
 
   // Preload all frames into cache
   useEffect(() => {
@@ -306,6 +371,12 @@ function AnimatedImageLayerComponent({
     };
   }, [layer.frames.length, layer.delays, layer.visible, currentFrameIndex]);
 
+  useEffect(() => {
+    const node = nodeRef.current;
+    if (!node) return;
+    applyKonvaFilters(node, layer.adjustments);
+  }, [layer.adjustments]);
+
   const currentFrameUrl = layer.frames[currentFrameIndex];
   const image = imageCache.current.get(currentFrameUrl);
 
@@ -336,6 +407,7 @@ function AnimatedImageLayerComponent({
         onTransformEnd={(e) => onTransformEnd(e, layer)}
         onTransformStart={onTransformStart}
         opacity={layer.opacity}
+        ref={nodeRef}
         rotation={layer.rotation}
         scaleX={layer.scaleX}
         scaleY={layer.scaleY}
@@ -366,7 +438,12 @@ function AnimatedImageLayerComponent({
       x={layer.x}
       y={layer.y}
     >
-      <Image height={layer.height} image={image} width={layer.width} />
+      <Image
+        height={layer.height}
+        image={image}
+        ref={nodeRef}
+        width={layer.width}
+      />
     </Group>
   );
 }
@@ -377,7 +454,7 @@ export function renderAnimatedImageLayer(
   return <AnimatedImageLayerComponent {...props} key={props.layer.id} />;
 }
 
-export function renderDrawLayer(
+function DrawLayerComponent(
   props: LayerRenderProps & { layer: DrawLayerType }
 ) {
   const {
@@ -390,8 +467,14 @@ export function renderDrawLayer(
     onDragEnd,
     onTransformStart,
     onTransformEnd,
-    onSelect: _onSelect,
   } = props;
+  const nodeRef = useRef<Konva.Image>(null);
+
+  useEffect(() => {
+    const node = nodeRef.current;
+    if (!node) return;
+    applyKonvaFilters(node, layer.adjustments);
+  }, [layer.adjustments]);
 
   let image = imageCache.current.get(layer.dataUrl);
   if (!(image && image.crossOrigin)) {
@@ -414,6 +497,7 @@ export function renderDrawLayer(
       onTransformEnd={(e) => onTransformEnd(e, layer)}
       onTransformStart={onTransformStart}
       opacity={layer.opacity}
+      ref={nodeRef}
       rotation={layer.rotation}
       scaleX={layer.scaleX}
       scaleY={layer.scaleY}
@@ -422,4 +506,10 @@ export function renderDrawLayer(
       y={layer.y}
     />
   );
+}
+
+export function renderDrawLayer(
+  props: LayerRenderProps & { layer: DrawLayerType }
+) {
+  return <DrawLayerComponent {...props} />;
 }

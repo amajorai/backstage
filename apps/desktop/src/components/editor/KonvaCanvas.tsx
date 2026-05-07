@@ -17,6 +17,7 @@ import {
   renderShapeLayer,
   renderTextLayer,
 } from "@/components/editor/layer-renderers";
+import type { SelectionSegments } from "@/lib/magic-select";
 import {
   type AnimatedImageLayer as AnimatedImageLayerType,
   type DrawLayer as DrawLayerType,
@@ -26,6 +27,18 @@ import {
   type TextLayer as TextLayerType,
   useEditorStore,
 } from "@/stores/use-editor-store";
+
+interface MagicSelection {
+  mask: Uint8Array;
+  segments: SelectionSegments;
+  layerId: string;
+  imgW: number;
+  imgH: number;
+  layerX: number;
+  layerY: number;
+  layerScaleX: number;
+  layerScaleY: number;
+}
 
 interface ContextMenu {
   x: number;
@@ -156,6 +169,12 @@ export function KonvaCanvas({
   const [paintPreviewProps, setPaintPreviewProps] =
     useState<PaintPreviewProps | null>(null);
 
+  // Magic select state
+  const [magicSelection, setMagicSelection] = useState<MagicSelection | null>(
+    null
+  );
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+
   const {
     layers,
     activeLayerIds,
@@ -178,6 +197,7 @@ export function KonvaCanvas({
     brushSize,
     brushColor,
     brushOpacity,
+    magicSelectTolerance,
     toggleRulers,
     toggleGrid,
   } = useEditorStore();

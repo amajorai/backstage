@@ -11,6 +11,7 @@ const BG_REMOVAL_GEMINI_ENABLED_FIELD = "bg_removal_gemini_enabled";
 const BG_REMOVAL_GEMINI_MODEL_FIELD = "bg_removal_gemini_model";
 const BG_REMOVAL_GEMINI_COLOR_FIELD = "bg_removal_gemini_color";
 const BG_REMOVAL_GEMINI_AUTO_REMOVE_FIELD = "bg_removal_gemini_auto_remove";
+const AUTO_CHECK_FOR_UPDATES_FIELD = "auto_check_for_updates";
 
 export type AppTheme = "light" | "dark" | "system";
 export type BgRemovalQuality = "fast" | "balanced" | "best";
@@ -31,6 +32,7 @@ interface AppSettingsState {
   bgRemovalGeminiModel: string;
   bgRemovalGeminiColor: string;
   bgRemovalGeminiAutoRemove: boolean;
+  autoCheckForUpdates: boolean;
   isInitialLoadDone: boolean;
 
   // Actions
@@ -42,6 +44,7 @@ interface AppSettingsState {
   setBgRemovalGeminiModel: (model: string) => Promise<void>;
   setBgRemovalGeminiColor: (color: string) => Promise<void>;
   setBgRemovalGeminiAutoRemove: (autoRemove: boolean) => Promise<void>;
+  setAutoCheckForUpdates: (enabled: boolean) => Promise<void>;
   loadSettings: () => Promise<void>;
 }
 
@@ -54,6 +57,7 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
   bgRemovalGeminiModel: "gemini-2.5-flash-image",
   bgRemovalGeminiColor: "#00ff00",
   bgRemovalGeminiAutoRemove: true,
+  autoCheckForUpdates: true,
   isInitialLoadDone: false,
 
   setShowDecemberSnow: async (show: boolean) => {
@@ -197,6 +201,23 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
     }
   },
 
+  setAutoCheckForUpdates: async (enabled: boolean) => {
+    try {
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
+      await store.set(AUTO_CHECK_FOR_UPDATES_FIELD, enabled);
+      await store.save();
+      set({ autoCheckForUpdates: enabled });
+    } catch (error) {
+      logger.error(
+        { err: error },
+        "[Settings] Failed to save setting: autoCheckForUpdates"
+      );
+    }
+  },
+
   loadSettings: async () => {
     try {
       logger.info("[Settings] Loading app settings...");
@@ -224,6 +245,9 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
       const bgRemovalGeminiAutoRemove = await store.get<boolean>(
         BG_REMOVAL_GEMINI_AUTO_REMOVE_FIELD
       );
+      const autoCheckForUpdates = await store.get<boolean>(
+        AUTO_CHECK_FOR_UPDATES_FIELD
+      );
 
       const finalTheme = theme ?? "dark";
 
@@ -236,6 +260,7 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
         bgRemovalGeminiModel: bgRemovalGeminiModel ?? "gemini-2.5-flash-image",
         bgRemovalGeminiColor: bgRemovalGeminiColor ?? "#00ff00",
         bgRemovalGeminiAutoRemove: bgRemovalGeminiAutoRemove ?? true,
+        autoCheckForUpdates: autoCheckForUpdates ?? true,
         isInitialLoadDone: true,
       });
 

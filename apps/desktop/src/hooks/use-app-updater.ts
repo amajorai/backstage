@@ -1,120 +1,127 @@
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import { toast } from "sonner";
+import { create } from "zustand";
+import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 
-interface UpdateState {
+interface UpdateStore {
   checking: boolean;
   downloading: boolean;
   progress: number;
   available: Update | null;
+  setChecking: (v: boolean) => void;
+  setDownloading: (v: boolean) => void;
+  setProgress: (v: number) => void;
+  setAvailable: (v: Update | null) => void;
 }
 
-/**
- * Hook to check for app updates on mount and provide update functionality.
- * Shows sonner toasts for update notifications.
- */
-export function useAppUpdater() {
-  const [state, setState] = useState<UpdateState>({
-    checking: false,
-    downloading: false,
-    progress: 0,
-    available: null,
+export const useUpdateStore = create<UpdateStore>()((set) => ({
+  checking: false,
+  downloading: false,
+  progress: 0,
+  available: null,
+  setChecking: (v) => set({ checking: v }),
+  setDownloading: (v) => set({ downloading: v }),
+  setProgress: (v) => set({ progress: v }),
+  setAvailable: (v) => set({ available: v }),
+}));
+
+// Module-level guard: only auto-check once per process lifetime
+let sessionChecked = false;
+
+export async function downloadAndInstall(update: Update) {
+  const { setDownloading, setProgress } = useUpdateStore.getState();
+  setDownloading(true);
+  setProgress(0);
+
+  const toastId = toast.loading("Downloading update...", {
+    description: "0%",
   });
-  const hasChecked = useRef(false);
 
-  const checkForUpdate = async () => {
-    if (state.checking || state.downloading) {
-      return;
-    }
+  let totalBytes = 0;
+  let downloadedBytes = 0;
 
-    setState((s) => ({ ...s, checking: true }));
-
-    try {
-      const update = await check();
-
-      if (update) {
-        setState((s) => ({ ...s, checking: false, available: update }));
-
-        toast("Update Available", {
-          description: `Version ${update.version} is ready to install.`,
-          duration: 10_000,
-          action: {
-            label: "Install",
-            onClick: () => downloadAndInstall(update),
-          },
+  try {
+    await update.downloadAndInstall((event) => {
+      if (event.event === "Started" && event.data.contentLength) {
+        totalBytes = event.data.contentLength;
+      } else if (event.event === "Progress") {
+        downloadedBytes += event.data.chunkLength;
+        const progress =
+          totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : 0;
+        setProgress(progress);
+        toast.loading("Downloading update...", {
+          id: toastId,
+          description: `${progress}%`,
         });
-      } else {
-        setState((s) => ({ ...s, checking: false }));
+      } else if (event.event === "Finished") {
+        toast.success("Update downloaded", {
+          id: toastId,
+          description: "Restarting app...",
+        });
       }
-    } catch (error) {
-      console.error("Update check failed:", error);
-      setState((s) => ({ ...s, checking: false }));
-    }
-  };
-
-  const downloadAndInstall = async (update: Update) => {
-    setState((s) => ({ ...s, downloading: true, progress: 0 }));
-
-    const toastId = toast.loading("Downloading update...", {
-      description: "0%",
     });
 
-    let totalBytes = 0;
-    let downloadedBytes = 0;
+    await relaunch();
+  } catch (error) {
+    console.error("Update failed:", error);
+    toast.error("Update failed", {
+      id: toastId,
+      description: "Please try again later.",
+    });
+    setDownloading(false);
+  }
+}
 
-    try {
-      await update.downloadAndInstall((event) => {
-        if (event.event === "Started" && event.data.contentLength) {
-          totalBytes = event.data.contentLength;
-        } else if (event.event === "Progress") {
-          downloadedBytes += event.data.chunkLength;
-          const progress =
-            totalBytes > 0
-              ? Math.round((downloadedBytes / totalBytes) * 100)
-              : 0;
-          setState((s) => ({ ...s, progress }));
-          toast.loading("Downloading update...", {
-            id: toastId,
-            description: `${progress}%`,
-          });
-        } else if (event.event === "Finished") {
-          toast.success("Update downloaded", {
-            id: toastId,
-            description: "Restarting app...",
-          });
-        }
-      });
+export async function checkForUpdate() {
+  const { checking, downloading, setChecking, setAvailable } =
+    useUpdateStore.getState();
 
-      // Relaunch the app
-      await relaunch();
-    } catch (error) {
-      console.error("Update failed:", error);
-      toast.error("Update failed", {
-        id: toastId,
-        description: "Please try again later.",
+  if (checking || downloading) return;
+
+  setChecking(true);
+
+  try {
+    const update = await check();
+
+    if (update) {
+      setAvailable(update);
+      toast("Update Available", {
+        description: `Version ${update.version} is ready to install.`,
+        duration: 10_000,
+        action: {
+          label: "Install",
+          onClick: () => downloadAndInstall(update),
+        },
+        cancel: {
+          label: "Maybe later",
+          onClick: () => {},
+        },
       });
-      setState((s) => ({ ...s, downloading: false }));
     }
-  };
+  } catch (error) {
+    console.error("Update check failed:", error);
+  } finally {
+    setChecking(false);
+  }
+}
 
-  // Check for updates on mount (once)
+export function useAppUpdater() {
+  const isInitialLoadDone = useAppSettingsStore((s) => s.isInitialLoadDone);
+  const autoCheckForUpdates = useAppSettingsStore((s) => s.autoCheckForUpdates);
+
   useEffect(() => {
-    if (hasChecked.current) {
-      return;
-    }
-    hasChecked.current = true;
+    if (!isInitialLoadDone) return;
+    if (!autoCheckForUpdates) return;
+    if (sessionChecked) return;
 
-    // Delay initial check to not block app startup
+    sessionChecked = true;
+
     const timer = setTimeout(() => {
       checkForUpdate();
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [checkForUpdate]);
-
-  return {
-    ...state,
-    checkForUpdate,
-  };
+  }, [isInitialLoadDone, autoCheckForUpdates]);
 }

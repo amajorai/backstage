@@ -1,9 +1,14 @@
 import { Link, Unlink } from "lucide-react";
 import { useState } from "react";
+import { AdjustmentProperties } from "@/components/editor/adjustment-properties";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import type { ImageLayer, Layer } from "@/stores/use-editor-store";
+import {
+  DEFAULT_ADJUSTMENTS,
+  type ImageLayer,
+  type Layer,
+} from "@/stores/use-editor-store";
 
 interface ImagePropertiesProps {
   layer: ImageLayer;
@@ -109,6 +114,11 @@ export function ImageProperties({ layer, onUpdate }: ImagePropertiesProps) {
           ))}
         </div>
       )}
+      <div className="my-2 border-border border-t" />
+      <AdjustmentProperties
+        adjustments={layer.adjustments ?? { ...DEFAULT_ADJUSTMENTS }}
+        onUpdate={(adjustments) => onUpdate({ adjustments })}
+      />
     </div>
   );
 }

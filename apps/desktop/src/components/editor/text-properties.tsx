@@ -1,4 +1,15 @@
-import { Bold, Check, ChevronsUpDown, Italic, RefreshCw } from "lucide-react";
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  Bold,
+  Check,
+  ChevronsUpDown,
+  Italic,
+  RefreshCw,
+  Strikethrough,
+  Underline,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { Button } from "@/components/ui/button";
@@ -50,13 +61,9 @@ export function TextProperties({
     const isBold = current.includes("bold");
     const isItalic = current.includes("italic");
     let newStyle: TextLayer["fontStyle"] = "normal";
-    if (!isBold && isItalic) {
-      newStyle = "bold italic";
-    } else if (!isBold) {
-      newStyle = "bold";
-    } else if (isItalic) {
-      newStyle = "italic";
-    }
+    if (!isBold && isItalic) newStyle = "bold italic";
+    else if (!isBold) newStyle = "bold";
+    else if (isItalic) newStyle = "italic";
     onUpdate({ fontStyle: newStyle });
   };
 
@@ -65,18 +72,60 @@ export function TextProperties({
     const isBold = current.includes("bold");
     const isItalic = current.includes("italic");
     let newStyle: TextLayer["fontStyle"] = "normal";
-    if (isBold && !isItalic) {
-      newStyle = "bold italic";
-    } else if (!isItalic) {
-      newStyle = "italic";
-    } else if (isBold) {
-      newStyle = "bold";
-    }
+    if (isBold && !isItalic) newStyle = "bold italic";
+    else if (!isItalic) newStyle = "italic";
+    else if (isBold) newStyle = "bold";
     onUpdate({ fontStyle: newStyle });
   };
 
+  const toggleDecoration = (val: "underline" | "line-through") => {
+    const current = layer.textDecoration ?? "";
+    const hasUnderline = current.includes("underline");
+    const hasStrike = current.includes("line-through");
+    if (val === "underline") {
+      const next = hasUnderline
+        ? hasStrike
+          ? "line-through"
+          : ""
+        : hasStrike
+          ? "underline line-through"
+          : "underline";
+      onUpdate({ textDecoration: next as TextLayer["textDecoration"] });
+    } else {
+      const next = hasStrike
+        ? hasUnderline
+          ? "underline"
+          : ""
+        : hasUnderline
+          ? "underline line-through"
+          : "line-through";
+      onUpdate({ textDecoration: next as TextLayer["textDecoration"] });
+    }
+  };
+
+  const cases: { value: TextLayer["textTransform"]; label: string }[] = [
+    { value: "none", label: "Aa" },
+    { value: "uppercase", label: "AA" },
+    { value: "lowercase", label: "aa" },
+    { value: "capitalize", label: "A_" },
+  ];
+
+  const aligns: {
+    value: "left" | "center" | "right";
+    icon: React.ReactNode;
+  }[] = [
+    { value: "left", icon: <AlignLeft className="size-3.5" /> },
+    { value: "center", icon: <AlignCenter className="size-3.5" /> },
+    { value: "right", icon: <AlignRight className="size-3.5" /> },
+  ];
+
+  const currentDecoration = layer.textDecoration ?? "";
+  const currentTransform = layer.textTransform ?? "none";
+  const currentAlign = layer.align ?? "left";
+
   return (
     <>
+      {/* Text content */}
       <div>
         <label className="mb-1 block text-muted-foreground text-xs">Text</label>
         <Input
@@ -85,6 +134,8 @@ export function TextProperties({
           value={layer.text}
         />
       </div>
+
+      {/* Font family */}
       <div>
         <div className="flex items-center justify-between">
           <label className="mb-1 block text-muted-foreground text-xs">
@@ -184,6 +235,8 @@ export function TextProperties({
           </PopoverContent>
         </Popover>
       </div>
+
+      {/* Size + style toggles */}
       <div className="flex gap-2">
         <div className="flex-1">
           <label className="mb-1 block text-muted-foreground text-xs">
@@ -211,8 +264,66 @@ export function TextProperties({
           >
             <Italic className="size-4" />
           </Button>
+          <Button
+            className="h-8 w-8 p-0"
+            onClick={() => toggleDecoration("underline")}
+            variant={
+              currentDecoration.includes("underline") ? "secondary" : "ghost"
+            }
+          >
+            <Underline className="size-4" />
+          </Button>
+          <Button
+            className="h-8 w-8 p-0"
+            onClick={() => toggleDecoration("line-through")}
+            variant={
+              currentDecoration.includes("line-through") ? "secondary" : "ghost"
+            }
+          >
+            <Strikethrough className="size-4" />
+          </Button>
         </div>
       </div>
+
+      {/* Alignment + Case */}
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <label className="mb-1 block text-muted-foreground text-xs">
+            Align
+          </label>
+          <div className="flex gap-1">
+            {aligns.map(({ value, icon }) => (
+              <Button
+                className="h-8 flex-1 p-0"
+                key={value}
+                onClick={() => onUpdate({ align: value })}
+                variant={currentAlign === value ? "secondary" : "ghost"}
+              >
+                {icon}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <div className="flex-1">
+          <label className="mb-1 block text-muted-foreground text-xs">
+            Case
+          </label>
+          <div className="flex gap-1">
+            {cases.map(({ value, label }) => (
+              <Button
+                className="h-8 flex-1 p-0 text-xs"
+                key={value}
+                onClick={() => onUpdate({ textTransform: value })}
+                variant={currentTransform === value ? "secondary" : "ghost"}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Color + Stroke */}
       <div className="flex gap-2">
         <div className="flex-1">
           <label className="mb-1 block text-muted-foreground text-xs">
@@ -247,7 +358,7 @@ export function TextProperties({
         </div>
         <div className="flex-1">
           <label className="mb-1 block text-muted-foreground text-xs">
-            Stroke
+            Border
           </label>
           <ColorPicker
             onValueChange={(stroke) => onUpdate({ stroke })}
@@ -277,9 +388,11 @@ export function TextProperties({
           </ColorPicker>
         </div>
       </div>
+
+      {/* Border width */}
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <label className="text-muted-foreground text-xs">Stroke Width</label>
+          <label className="text-muted-foreground text-xs">Border Width</label>
           <span className="text-muted-foreground text-xs">
             {layer.strokeWidth}px
           </span>
@@ -291,6 +404,102 @@ export function TextProperties({
           step={1}
           value={[layer.strokeWidth || 0]}
         />
+      </div>
+
+      {/* Letter spacing */}
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <label className="text-muted-foreground text-xs">
+            Letter Spacing
+          </label>
+          <span className="text-muted-foreground text-xs">
+            {layer.letterSpacing ?? 0}px
+          </span>
+        </div>
+        <Slider
+          max={50}
+          min={-10}
+          onValueChange={(value) => onUpdate({ letterSpacing: value[0] })}
+          step={0.5}
+          value={[layer.letterSpacing ?? 0]}
+        />
+      </div>
+
+      {/* Line spacing */}
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <label className="text-muted-foreground text-xs">Line Spacing</label>
+          <span className="text-muted-foreground text-xs">
+            {layer.lineHeight ?? 1}×
+          </span>
+        </div>
+        <Slider
+          max={4}
+          min={0.5}
+          onValueChange={(value) => onUpdate({ lineHeight: value[0] })}
+          step={0.05}
+          value={[layer.lineHeight ?? 1]}
+        />
+      </div>
+
+      {/* Background */}
+      <div>
+        <label className="mb-2 block text-muted-foreground text-xs">
+          Background
+        </label>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <ColorPicker
+              onValueChange={(backgroundColor) => onUpdate({ backgroundColor })}
+              value={layer.backgroundColor || "#00000000"}
+            >
+              <ColorPickerTrigger
+                className="w-full justify-start gap-2 px-2 text-left font-normal"
+                variant="outline"
+              >
+                <div
+                  className="size-4 rounded border border-border"
+                  style={{
+                    backgroundColor: layer.backgroundColor || "transparent",
+                  }}
+                />
+                <span className="truncate">
+                  {layer.backgroundColor || "None"}
+                </span>
+              </ColorPickerTrigger>
+              <ColorPickerContent>
+                <ColorPickerArea className="h-40 w-full rounded-md border" />
+                <div className="mt-4 flex flex-col gap-2">
+                  <ColorPickerHueSlider />
+                  <ColorPickerAlphaSlider />
+                </div>
+                <div className="mt-4 flex items-center gap-2">
+                  <ColorPickerInput />
+                  <ColorPickerEyeDropper />
+                </div>
+              </ColorPickerContent>
+            </ColorPicker>
+          </div>
+          {layer.backgroundColor && (
+            <div className="flex-1">
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-muted-foreground text-xs">Padding</label>
+                <span className="text-muted-foreground text-xs">
+                  {layer.backgroundPadding ?? 4}px
+                </span>
+              </div>
+              <Slider
+                max={40}
+                min={0}
+                onValueChange={(value) =>
+                  onUpdate({ backgroundPadding: value[0] })
+                }
+                step={1}
+                value={[layer.backgroundPadding ?? 4]}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </>
   );

@@ -64,15 +64,15 @@ export function AddMenu({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-max" side="top">
           <DropdownMenuItem onClick={handleNewProject}>
-            <LayoutTemplate className="mr-2 size-4" />
+            <LayoutTemplate className="size-4" />
             New Project
           </DropdownMenuItem>
           <DropdownMenuItem onClick={handleAddImage}>
-            <Image className="mr-2 size-4" />
+            <Image className="size-4" />
             Add Image
           </DropdownMenuItem>
           <DropdownMenuItem onClick={handleAddVideo}>
-            <Video className="mr-2 size-4" />
+            <Video className="size-4" />
             Upload Video
           </DropdownMenuItem>
         </DropdownMenuContent>

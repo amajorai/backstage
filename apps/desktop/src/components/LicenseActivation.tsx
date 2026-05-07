@@ -81,17 +81,29 @@ export function LicenseActivation() {
         </div>
 
         {/* Purchase link */}
-        <div className="flex flex-col items-center text-center">
-          <p className="text-muted-foreground text-sm">
-            Don't have a license key?
-          </p>
-          <button
-            className="inline-flex cursor-pointer items-center gap-1 bg-transparent p-0 text-primary text-sm hover:underline"
-            onClick={() => openUrl(POLAR_CONFIG.purchaseUrl)}
-            type="button"
-          >
-            Purchase a license
-          </button>
+        <div className="flex flex-col items-center gap-3 text-center">
+          <div className="flex flex-col items-center">
+            <p className="text-muted-foreground text-sm">
+              Don't have a license key?
+            </p>
+            <button
+              className="inline-flex cursor-pointer items-center gap-1 bg-transparent p-0 text-primary text-sm hover:underline"
+              onClick={() => openUrl(POLAR_CONFIG.purchaseUrl)}
+              type="button"
+            >
+              Purchase a license
+            </button>
+          </div>
+          <div className="flex flex-col items-center">
+            <p className="text-muted-foreground text-sm">Already have a key?</p>
+            <button
+              className="inline-flex cursor-pointer items-center gap-1 bg-transparent p-0 text-primary text-sm hover:underline"
+              onClick={() => openUrl(POLAR_CONFIG.customerPortalUrl)}
+              type="button"
+            >
+              Retrieve it from your account
+            </button>
+          </div>
         </div>
       </div>
     </div>
