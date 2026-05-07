@@ -1,6 +1,16 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
+  ColorPicker,
+  ColorPickerAlphaSlider,
+  ColorPickerArea,
+  ColorPickerContent,
+  ColorPickerEyeDropper,
+  ColorPickerHueSlider,
+  ColorPickerInput,
+  ColorPickerTrigger,
+} from "@/components/ui/color-picker";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -35,7 +45,6 @@ export function AddColorBackgroundDialog({
   open,
   onOpenChange,
   onConfirm,
-  isProcessing,
 }: AddColorBackgroundDialogProps) {
   const [color, setColor] = useState("#ffffff");
   const [extraPrompt, setExtraPrompt] = useState("");
@@ -77,24 +86,26 @@ export function AddColorBackgroundDialog({
 
           <div className="space-y-2">
             <p className="font-medium text-xs">Custom color</p>
-            <div className="flex items-center gap-3">
-              <input
-                className="h-9 w-12 cursor-pointer rounded border border-input bg-transparent p-0.5"
-                onChange={(e) => setColor(e.target.value)}
-                title="Pick background color"
-                type="color"
-                value={color}
-              />
-              <span
-                className="rounded px-2 py-1 font-mono text-xs"
-                style={{
-                  background: color,
-                  color: isLight(color) ? "#000" : "#fff",
-                }}
-              >
-                {color}
-              </span>
-            </div>
+            <ColorPicker onValueChange={setColor} value={color}>
+              <ColorPickerTrigger className="w-full justify-start gap-2 px-2 font-normal">
+                <div
+                  className="size-4 shrink-0 rounded border border-border"
+                  style={{ backgroundColor: color }}
+                />
+                <span className="truncate font-mono text-xs">{color}</span>
+              </ColorPickerTrigger>
+              <ColorPickerContent>
+                <ColorPickerArea className="h-40 w-full rounded-md border" />
+                <div className="mt-4 flex flex-col gap-2">
+                  <ColorPickerHueSlider />
+                  <ColorPickerAlphaSlider />
+                </div>
+                <div className="mt-4 flex items-center gap-2">
+                  <ColorPickerInput />
+                  <ColorPickerEyeDropper />
+                </div>
+              </ColorPickerContent>
+            </ColorPicker>
           </div>
 
           <div className="space-y-2">
@@ -122,11 +133,4 @@ export function AddColorBackgroundDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-function isLight(hex: string): boolean {
-  const r = Number.parseInt(hex.slice(1, 3), 16);
-  const g = Number.parseInt(hex.slice(3, 5), 16);
-  const b = Number.parseInt(hex.slice(5, 7), 16);
-  return r * 0.299 + g * 0.587 + b * 0.114 > 128;
 }

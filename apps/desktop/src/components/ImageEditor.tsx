@@ -661,8 +661,8 @@ export function ImageEditor({
           }
         } else if (e.key.toLowerCase() === "i") {
           e.preventDefault();
-          setShowGalleryPicker(true);
-          toast.info("Add Image (I)");
+          store.setActiveTool("eyedropper");
+          toast.info("Eyedropper (I)");
         } else if (e.key.toLowerCase() === "k") {
           e.preventDefault();
           setShowIconPicker(true);

@@ -9,6 +9,7 @@ import {
   MousePointer,
   PaintBucket,
   Paintbrush,
+  Pipette,
   RectangleHorizontal,
   Redo2,
   Smile,
@@ -18,6 +19,16 @@ import {
   Wand2,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  ColorPicker,
+  ColorPickerAlphaSlider,
+  ColorPickerArea,
+  ColorPickerContent,
+  ColorPickerEyeDropper,
+  ColorPickerHueSlider,
+  ColorPickerInput,
+  ColorPickerTrigger,
+} from "@/components/ui/color-picker";
 import {
   Popover,
   PopoverContent,
@@ -114,6 +125,7 @@ export function EditorToolbar({
   const isBrushActive = activeTool === "brush";
   const isEraserActive = activeTool === "eraser";
   const isCropActive = activeTool === "crop";
+  const isEyeDropperActive = activeTool === "eyedropper";
   const canCrop = activeLayer?.type === "image" && !isProcessing;
 
   return (
@@ -165,6 +177,20 @@ export function EditorToolbar({
         <TooltipContent side="right">Add Ellipse (O)</TooltipContent>
       </Tooltip>
 
+      <Tooltip>
+        <TooltipTrigger
+          aria-label="Eyedropper Tool"
+          className={buttonVariants({
+            size: "icon-sm",
+            variant: isEyeDropperActive ? "secondary" : "ghost",
+          })}
+          onClick={() => setActiveTool("eyedropper")}
+        >
+          <Pipette className="size-4" />
+        </TooltipTrigger>
+        <TooltipContent side="right">Eyedropper (I)</TooltipContent>
+      </Tooltip>
+
       {/* Brush tool */}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -190,12 +216,31 @@ export function EditorToolbar({
                     <label className="mb-1 block text-muted-foreground text-xs">
                       Color
                     </label>
-                    <input
-                      className="h-8 w-full cursor-pointer rounded border border-border bg-transparent"
-                      onChange={(e) => setBrushColor(e.target.value)}
-                      type="color"
+                    <ColorPicker
+                      onValueChange={setBrushColor}
                       value={brushColor}
-                    />
+                    >
+                      <ColorPickerTrigger className="w-full justify-start gap-2 px-2 font-normal">
+                        <div
+                          className="size-4 rounded border border-border"
+                          style={{ backgroundColor: brushColor }}
+                        />
+                        <span className="truncate font-mono text-xs">
+                          {brushColor}
+                        </span>
+                      </ColorPickerTrigger>
+                      <ColorPickerContent>
+                        <ColorPickerArea className="h-40 w-full rounded-md border" />
+                        <div className="mt-4 flex flex-col gap-2">
+                          <ColorPickerHueSlider />
+                          <ColorPickerAlphaSlider />
+                        </div>
+                        <div className="mt-4 flex items-center gap-2">
+                          <ColorPickerInput />
+                          <ColorPickerEyeDropper />
+                        </div>
+                      </ColorPickerContent>
+                    </ColorPicker>
                   </div>
                   <div>
                     <label className="mb-1 block text-muted-foreground text-xs">
@@ -318,7 +363,7 @@ export function EditorToolbar({
         >
           <ImagePlus className="size-4" />
         </TooltipTrigger>
-        <TooltipContent side="right">Add Image (I)</TooltipContent>
+        <TooltipContent side="right">Add Image</TooltipContent>
       </Tooltip>
 
       <Tooltip>

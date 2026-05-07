@@ -631,6 +631,8 @@ export function KonvaCanvas({
     if (!container) return;
     if (activeTool === "brush" || activeTool === "eraser") {
       container.style.cursor = "none";
+    } else if (activeTool === "eyedropper") {
+      container.style.cursor = "crosshair";
     } else {
       container.style.cursor = "";
     }
@@ -1226,6 +1228,50 @@ export function KonvaCanvas({
 
   const handleStageClick = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+      if (activeTool === "eyedropper") {
+        const stage = e.target.getStage();
+        const pos = stage?.getPointerPosition();
+        if (!(pos && stage)) return;
+        const dataUrl = stage.toDataURL({ pixelRatio: 1 });
+        const img = new Image();
+        img.onload = () => {
+          const temp = document.createElement("canvas");
+          temp.width = stage.width();
+          temp.height = stage.height();
+          const ctx = temp.getContext("2d");
+          if (!ctx) return;
+          ctx.drawImage(img, 0, 0);
+          const pixel = ctx.getImageData(
+            Math.round(pos.x),
+            Math.round(pos.y),
+            1,
+            1
+          ).data;
+          const r = pixel[0].toString(16).padStart(2, "0");
+          const g = pixel[1].toString(16).padStart(2, "0");
+          const b = pixel[2].toString(16).padStart(2, "0");
+          const hex = `#${r}${g}${b}`;
+          const {
+            setBrushColor: sbc,
+            updateLayer: ul,
+            activeLayerIds: aids,
+            layers: ls,
+            setActiveTool: sat,
+          } = useEditorStore.getState();
+          sbc(hex);
+          const activeLayer = ls.find((l) => aids.includes(l.id));
+          if (
+            activeLayer &&
+            (activeLayer.type === "text" || activeLayer.type === "shape")
+          ) {
+            ul(activeLayer.id, { fill: hex });
+          }
+          sat("select");
+          toast.success(`Sampled: ${hex}`, { duration: 2000 });
+        };
+        img.src = dataUrl;
+        return;
+      }
       if (
         activeTool === "brush" ||
         activeTool === "eraser" ||

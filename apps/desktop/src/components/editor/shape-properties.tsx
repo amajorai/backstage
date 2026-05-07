@@ -6,6 +6,7 @@ import {
   ColorPickerAlphaSlider,
   ColorPickerArea,
   ColorPickerContent,
+  ColorPickerEyeDropper,
   ColorPickerHueSlider,
   ColorPickerInput,
   ColorPickerTrigger,
@@ -95,8 +96,9 @@ export function ShapeProperties({ layer, onUpdate }: ShapePropertiesProps) {
                 <ColorPickerHueSlider />
                 <ColorPickerAlphaSlider />
               </div>
-              <div className="mt-4">
+              <div className="mt-4 flex items-center gap-2">
                 <ColorPickerInput />
+                <ColorPickerEyeDropper />
               </div>
             </ColorPickerContent>
           </ColorPicker>
@@ -125,8 +127,9 @@ export function ShapeProperties({ layer, onUpdate }: ShapePropertiesProps) {
                 <ColorPickerHueSlider />
                 <ColorPickerAlphaSlider />
               </div>
-              <div className="mt-4">
+              <div className="mt-4 flex items-center gap-2">
                 <ColorPickerInput />
+                <ColorPickerEyeDropper />
               </div>
             </ColorPickerContent>
           </ColorPicker>

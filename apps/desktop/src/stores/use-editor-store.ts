@@ -91,7 +91,8 @@ interface EditorState {
     | "ellipse"
     | "brush"
     | "eraser"
-    | "crop";
+    | "crop"
+    | "eyedropper";
   canvasWidth: number;
   canvasHeight: number;
   // Brush settings
@@ -138,7 +139,15 @@ interface EditorState {
   setActiveLayers: (ids: string[]) => void;
   toggleLayerSelection: (id: string) => void;
   setActiveTool: (
-    tool: "select" | "text" | "rect" | "ellipse" | "brush" | "eraser" | "crop"
+    tool:
+      | "select"
+      | "text"
+      | "rect"
+      | "ellipse"
+      | "brush"
+      | "eraser"
+      | "crop"
+      | "eyedropper"
   ) => void;
   // Brush settings
   setBrushSize: (size: number) => void;
