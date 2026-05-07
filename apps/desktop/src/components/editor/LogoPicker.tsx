@@ -1,10 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Moon, Search, Sun } from "lucide-react";
 import {
   forwardRef,
   type HTMLAttributes,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -26,17 +27,21 @@ import {
   getRecentLogos,
   type RecentLogo,
 } from "@/lib/recently-used";
-import {
-  fetchAllLogos,
-  getLogoRoute,
-  type SvglLogo,
-  searchLogos,
-} from "@/lib/svgl";
+import { fetchAllLogos, type SvglLogo, searchLogos } from "@/lib/svgl";
 import { useEditorStore } from "@/stores/use-editor-store";
 
 interface LogoPickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+interface DisplayLogo {
+  id: number;
+  title: string;
+  resolvedRoute: string;
+  variantKey: string;
+  variant?: "light" | "dark";
+  originalRoute: string | { dark: string; light: string };
 }
 
 const LogoGridList = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
@@ -64,6 +69,74 @@ LogoGridItem.displayName = "LogoGridItem";
 
 const logoGridComponents = { List: LogoGridList, Item: LogoGridItem };
 
+function flattenLogos(logos: SvglLogo[]): DisplayLogo[] {
+  return logos.flatMap((logo) => {
+    if (typeof logo.route === "string") {
+      return [
+        {
+          id: logo.id,
+          title: logo.title,
+          resolvedRoute: logo.route,
+          variantKey: `${logo.id}`,
+          originalRoute: logo.route,
+        },
+      ];
+    }
+    return [
+      {
+        id: logo.id,
+        title: logo.title,
+        resolvedRoute: logo.route.light,
+        variantKey: `${logo.id}-light`,
+        variant: "light" as const,
+        originalRoute: logo.route,
+      },
+      {
+        id: logo.id,
+        title: logo.title,
+        resolvedRoute: logo.route.dark,
+        variantKey: `${logo.id}-dark`,
+        variant: "dark" as const,
+        originalRoute: logo.route,
+      },
+    ];
+  });
+}
+
+function flattenRecentLogos(logos: RecentLogo[]): DisplayLogo[] {
+  return logos.flatMap((logo) => {
+    if (typeof logo.route === "string") {
+      return [
+        {
+          id: logo.id,
+          title: logo.title,
+          resolvedRoute: logo.route,
+          variantKey: `recent-${logo.id}`,
+          originalRoute: logo.route,
+        },
+      ];
+    }
+    return [
+      {
+        id: logo.id,
+        title: logo.title,
+        resolvedRoute: logo.route.light,
+        variantKey: `recent-${logo.id}-light`,
+        variant: "light" as const,
+        originalRoute: logo.route,
+      },
+      {
+        id: logo.id,
+        title: logo.title,
+        resolvedRoute: logo.route.dark,
+        variantKey: `recent-${logo.id}-dark`,
+        variant: "dark" as const,
+        originalRoute: logo.route,
+      },
+    ];
+  });
+}
+
 function loadImageDimensions(
   src: string
 ): Promise<{ width: number; height: number }> {
@@ -85,7 +158,7 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
   const [searchResults, setSearchResults] = useState<SvglLogo[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [loadingLogoId, setLoadingLogoId] = useState<number | null>(null);
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
   const [recentLogos, setRecentLogos] = useState<RecentLogo[]>([]);
   const searchTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -120,12 +193,11 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
   }, [searchTerm]);
 
   const handleSelect = useCallback(
-    async (logo: Pick<SvglLogo, "id" | "title" | "route">) => {
-      setLoadingLogoId(logo.id);
+    async (entry: DisplayLogo) => {
+      setLoadingKey(entry.variantKey);
       try {
-        const url = getLogoRoute(logo as SvglLogo);
+        const url = entry.resolvedRoute;
 
-        // Fetch via Tauri native HTTP to bypass CORS, convert to data URL
         const b64 = await invoke<string>("fetch_as_base64", { url });
         const mimeType = url.toLowerCase().endsWith(".svg")
           ? "image/svg+xml"
@@ -136,100 +208,95 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
         useEditorStore.getState().addImageLayer(dataUrl, width, height);
         const id = useEditorStore.getState().activeLayerIds[0];
         if (id) {
-          useEditorStore.getState().updateLayer(id, { name: logo.title });
+          const name = entry.variant
+            ? `${entry.title} (${entry.variant === "light" ? "Light" : "Dark"})`
+            : entry.title;
+          useEditorStore.getState().updateLayer(id, { name });
         }
 
-        addRecentLogo({ id: logo.id, title: logo.title, route: logo.route });
+        addRecentLogo({
+          id: entry.id,
+          title: entry.title,
+          route: entry.originalRoute,
+        });
         setRecentLogos(getRecentLogos());
         onOpenChange(false);
       } catch (e) {
         console.error("Failed to load logo", e);
       } finally {
-        setLoadingLogoId(null);
+        setLoadingKey(null);
       }
     },
     [onOpenChange]
   );
 
-  const renderLogoButton = (logo: SvglLogo) => {
-    const isLoading = loadingLogoId === logo.id;
-    const url = getLogoRoute(logo);
+  const renderLogoButton = (entry: DisplayLogo) => {
+    const isLoading = loadingKey === entry.variantKey;
+    const tooltipLabel = entry.variant
+      ? `${entry.title} (${entry.variant === "light" ? "Light" : "Dark"})`
+      : entry.title;
 
     return (
-      <Tooltip key={logo.id}>
+      <Tooltip key={entry.variantKey}>
         <TooltipTrigger asChild>
           <button
-            className="flex items-center justify-center rounded border border-transparent p-2 transition-colors hover:border-border hover:bg-muted disabled:opacity-50"
-            disabled={loadingLogoId !== null}
-            onClick={() => handleSelect(logo)}
+            className="relative flex w-full items-center justify-center rounded border border-transparent p-2 transition-colors hover:border-border hover:bg-muted disabled:opacity-50"
+            disabled={loadingKey !== null}
+            onClick={() => handleSelect(entry)}
             type="button"
           >
             {isLoading ? (
               <Loader2 className="size-7 animate-spin" />
             ) : (
-              <img
-                alt={logo.title}
-                className="size-7 object-contain"
-                loading="lazy"
-                src={url}
-              />
+              <>
+                <img
+                  alt={tooltipLabel}
+                  className="size-7 object-contain"
+                  loading="lazy"
+                  src={entry.resolvedRoute}
+                />
+                {entry.variant && (
+                  <span className="absolute right-0.5 bottom-0.5 text-muted-foreground">
+                    {entry.variant === "light" ? (
+                      <Sun className="size-2.5" />
+                    ) : (
+                      <Moon className="size-2.5" />
+                    )}
+                  </span>
+                )}
+              </>
             )}
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          <p>{logo.title}</p>
+          <p>{tooltipLabel}</p>
         </TooltipContent>
       </Tooltip>
     );
   };
 
-  const renderRecentButton = (recent: RecentLogo) => {
-    const isLoading = loadingLogoId === recent.id;
-    const url =
-      typeof recent.route === "string" ? recent.route : recent.route.light;
-
-    return (
-      <Tooltip key={`recent-${recent.id}`}>
-        <TooltipTrigger asChild>
-          <button
-            className="flex items-center justify-center rounded border border-transparent p-2 transition-colors hover:border-border hover:bg-muted disabled:opacity-50"
-            disabled={loadingLogoId !== null}
-            onClick={() => handleSelect(recent)}
-            type="button"
-          >
-            {isLoading ? (
-              <Loader2 className="size-7 animate-spin" />
-            ) : (
-              <img
-                alt={recent.title}
-                className="size-7 object-contain"
-                loading="lazy"
-                src={url}
-              />
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p>{recent.title}</p>
-        </TooltipContent>
-      </Tooltip>
-    );
-  };
-
-  const displayList = searchResults ?? allLogos;
+  const rawDisplayList = searchResults ?? allLogos;
+  const displayList = useMemo(
+    () => flattenLogos(rawDisplayList),
+    [rawDisplayList]
+  );
+  const flatRecentLogos = useMemo(
+    () => flattenRecentLogos(recentLogos),
+    [recentLogos]
+  );
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="flex h-[80vh] max-w-3xl flex-col gap-3">
+      <DialogContent className="flex h-[80vh] max-w-5xl flex-col gap-3">
         <DialogHeader>
           <DialogTitle>Logo Picker</DialogTitle>
         </DialogHeader>
 
-        {recentLogos.length > 0 && (
+        {flatRecentLogos.length > 0 && (
           <div>
             <p className="mb-1 text-muted-foreground text-xs">Recently Used</p>
             <div className="flex flex-wrap gap-1">
-              {recentLogos.map(renderRecentButton)}
+              {flatRecentLogos.map(renderLogoButton)}
             </div>
           </div>
         )}

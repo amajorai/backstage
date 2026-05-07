@@ -343,7 +343,7 @@ export function IconPicker({ open, onOpenChange, onSelect }: IconPickerProps) {
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="flex h-[80vh] max-w-3xl flex-col gap-3">
+      <DialogContent className="flex h-[80vh] max-w-5xl flex-col gap-3">
         <DialogHeader>
           <DialogTitle>Icon Picker</DialogTitle>
         </DialogHeader>
