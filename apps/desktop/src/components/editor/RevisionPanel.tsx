@@ -1,6 +1,7 @@
 import { Clock, RotateCcw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { ScrollFadeEffect } from "@/components/scroll-fade-effect";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,7 +70,7 @@ export function RevisionPanel({ projectId, onRestored }: RevisionPanelProps) {
 
   return (
     <>
-      <div className="flex flex-1 flex-col overflow-y-auto">
+      <ScrollFadeEffect className="flex flex-1 flex-col">
         {revisions.map((rev) => (
           <div
             className="group flex items-center gap-2 px-3 py-2 text-xs hover:bg-neutral-700/50"
@@ -103,7 +104,7 @@ export function RevisionPanel({ projectId, onRestored }: RevisionPanelProps) {
             </div>
           </div>
         ))}
-      </div>
+      </ScrollFadeEffect>
 
       <AlertDialog
         onOpenChange={(open) => !open && setConfirmRestoreId(null)}

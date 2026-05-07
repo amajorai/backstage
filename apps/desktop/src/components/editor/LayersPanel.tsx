@@ -1,5 +1,6 @@
 import { Eye, EyeOff, Lock, Plus, Unlock } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ScrollFadeEffect } from "@/components/scroll-fade-effect";
 import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
@@ -153,8 +154,8 @@ export function LayersPanel() {
           <Plus className="size-3" />
         </Button>
       </div>
-      <div
-        className="flex-1 overflow-y-auto"
+      <ScrollFadeEffect
+        className="flex-1"
         onContextMenu={(e) => {
           const target = e.target as HTMLElement;
           if (!target.closest("[data-layer-item]")) {
@@ -298,7 +299,7 @@ export function LayersPanel() {
             </ContextMenu>
           );
         })}
-      </div>
+      </ScrollFadeEffect>
 
       {/* Panel-level paste menu for right-clicking empty space */}
       {pasteMenuPos && (

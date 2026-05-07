@@ -73,6 +73,14 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
   const titleRef = useRef<HTMLButtonElement>(null);
   const [isTitleTruncated, setIsTitleTruncated] = useState(false);
   const [isTitleHovered, setIsTitleHovered] = useState(false);
+  const [contextMenuSize, setContextMenuSize] = useState<number | null>(null);
+
+  const handleContextMenuOpen = useCallback(() => {
+    setContextMenuSize(null);
+    import("@/lib/revision-storage").then(({ getProjectStorageSize }) => {
+      getProjectStorageSize(thumbnail.id).then(setContextMenuSize);
+    });
+  }, [thumbnail.id]);
 
   useEffect(() => {
     const el = titleRef.current;
@@ -132,7 +140,7 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
   const isSelected = selectedIds.has(thumbnail.id);
 
   return (
-    <ContextMenu>
+    <ContextMenu onOpenChange={(open) => open && handleContextMenuOpen()}>
       <ContextMenuTrigger>
         <div
           className={cn(
@@ -203,7 +211,29 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
           </div>
         </div>
       </ContextMenuTrigger>
-      <ContextMenuContent>
+      <ContextMenuContent className="w-48">
+        <div className="px-2 py-1.5">
+          <p className="break-words font-medium text-sm">{thumbnail.name}</p>
+          {thumbnail.canvasWidth && thumbnail.canvasHeight && (
+            <p className="text-muted-foreground text-xs">
+              {thumbnail.canvasWidth} × {thumbnail.canvasHeight}
+            </p>
+          )}
+          <p className="text-muted-foreground text-xs">
+            Updated {new Date(thumbnail.updatedAt).toLocaleDateString()}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            Created {new Date(thumbnail.createdAt).toLocaleDateString()}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            {contextMenuSize === null
+              ? "Calculating size…"
+              : contextMenuSize === 0
+                ? "No data stored"
+                : `${(contextMenuSize / (1024 * 1024)).toFixed(1)} MB on disk`}
+          </p>
+        </div>
+        <ContextMenuSeparator />
         <ContextMenuItem
           onClick={async () => {
             await duplicateThumbnail(thumbnail.id);

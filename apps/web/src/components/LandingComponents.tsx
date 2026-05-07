@@ -85,22 +85,27 @@ export function FeatureGrid() {
             <span className="text-neutral-500">Nothing you don't.</span>
           </h2>
         </div>
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-          {features.map((feature, i) => (
-            <div
-              className="group relative overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-8 transition-colors hover:border-white/10 hover:bg-white/[0.04]"
-              key={feature.title}
-            >
-              <div className="mb-4 inline-flex items-center justify-center rounded-lg bg-white/5 p-3 text-white">
-                <feature.icon className="h-6 w-6" />
+        <ScrollFadeEffect
+          className="md:overflow-x-visible md:[mask-image:none]"
+          orientation="horizontal"
+        >
+          <div className="flex gap-8 md:grid md:grid-cols-2 lg:grid-cols-4">
+            {features.map((feature) => (
+              <div
+                className="group relative w-72 shrink-0 overflow-hidden rounded-2xl border border-white/5 bg-white/[0.02] p-8 transition-colors hover:border-white/10 hover:bg-white/[0.04] md:w-auto md:shrink"
+                key={feature.title}
+              >
+                <div className="mb-4 inline-flex items-center justify-center rounded-lg bg-white/5 p-3 text-white">
+                  <feature.icon className="h-6 w-6" />
+                </div>
+                <h3 className="mb-2 font-semibold text-white text-xl">
+                  {feature.title}
+                </h3>
+                <p className="text-neutral-400">{feature.description}</p>
               </div>
-              <h3 className="mb-2 font-semibold text-white text-xl">
-                {feature.title}
-              </h3>
-              <p className="text-neutral-400">{feature.description}</p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </ScrollFadeEffect>
       </div>
     </section>
   );

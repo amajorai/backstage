@@ -1,5 +1,6 @@
 import { Clock, CornerDownLeft } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { ScrollFadeEffect } from "@/components/scroll-fade-effect";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/stores/use-editor-store";
 
@@ -34,7 +35,7 @@ export function HistoryPanel() {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto">
+    <ScrollFadeEffect className="flex flex-1 flex-col">
       {Array.from({ length: totalEntries }, (_, i) => {
         const isCurrent = i === currentPos;
         const isPast = i < currentPos;
@@ -70,6 +71,6 @@ export function HistoryPanel() {
           </div>
         );
       })}
-    </div>
+    </ScrollFadeEffect>
   );
 }

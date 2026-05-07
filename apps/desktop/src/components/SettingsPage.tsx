@@ -783,6 +783,17 @@ function ProcessingSettings() {
 
 function StorageSettings() {
   const [isPurging, setIsPurging] = useState(false);
+  const [storageSize, setStorageSize] = useState<number | null>(null);
+
+  const loadSize = useCallback(async () => {
+    const { getRevisionStorageSize } = await import("@/lib/revision-storage");
+    const size = await getRevisionStorageSize();
+    setStorageSize(size);
+  }, []);
+
+  useEffect(() => {
+    loadSize();
+  }, [loadSize]);
 
   const handlePurge = async () => {
     setIsPurging(true);
@@ -791,6 +802,7 @@ function StorageSettings() {
         "@/stores/use-revision-store"
       ).then((m) => m.useRevisionStore.getState());
       await purgeAllRevisions();
+      setStorageSize(0);
       toast.success("All revision history deleted");
     } catch {
       toast.error("Failed to purge revision history");
@@ -799,11 +811,18 @@ function StorageSettings() {
     }
   };
 
+  const sizeLabel =
+    storageSize === null
+      ? "Calculating…"
+      : storageSize === 0
+        ? "No data stored"
+        : formatBytes(storageSize);
+
   return (
     <div className="space-y-3 pt-4">
       <p className="pl-2 font-medium text-muted-foreground text-xs">Storage</p>
       <SettingRow
-        description="Remove all saved revision checkpoints to free up disk space (up to ~50 MB per project)."
+        description={`${sizeLabel} · Remove all saved revision checkpoints to free up disk space.`}
         title="Revision History"
       >
         <Button

@@ -8,7 +8,7 @@ import {
   Trash2,
   Wand2,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -42,7 +42,15 @@ export function ThumbnailActionButtons({
   onAddColorBackground,
 }: ThumbnailActionButtonsProps) {
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [projectSize, setProjectSize] = useState<number | null>(null);
   const duplicateThumbnail = useGalleryStore((s) => s.duplicateThumbnail);
+
+  useEffect(() => {
+    if (menuOpenId !== thumbnail.id) return;
+    import("@/lib/revision-storage").then(({ getProjectStorageSize }) => {
+      getProjectStorageSize(thumbnail.id).then(setProjectSize);
+    });
+  }, [menuOpenId, thumbnail.id]);
 
   return (
     <div
@@ -130,6 +138,13 @@ export function ThumbnailActionButtons({
                 </p>
                 <p className="text-muted-foreground text-xs">
                   Created {new Date(thumbnail.createdAt).toLocaleDateString()}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  {projectSize === null
+                    ? "Calculating size…"
+                    : projectSize === 0
+                      ? "No data stored"
+                      : `${(projectSize / (1024 * 1024)).toFixed(1)} MB on disk`}
                 </p>
               </div>
               <div className="my-1 h-px bg-border" />

@@ -1,6 +1,7 @@
 import { appDataDir, join } from "@tauri-apps/api/path";
 import {
   exists,
+  size as fsSize,
   mkdir,
   readFile,
   remove,
@@ -140,4 +141,42 @@ export async function deleteAllRevisionData(): Promise<void> {
       "[Revisions] Failed to purge all revision data"
     );
   }
+}
+
+export async function getRevisionStorageSize(): Promise<number> {
+  try {
+    const base = await getRevisionsBaseDir();
+    if (!(await exists(base))) return 0;
+    return await fsSize(base);
+  } catch {
+    return 0;
+  }
+}
+
+export async function getProjectStorageSize(
+  projectId: string
+): Promise<number> {
+  const appData = await appDataDir();
+  const paths = [
+    await join(appData, "thumbnails", projectId),
+    await join(appData, "revisions", projectId),
+    await join(appData, "recovery", `${projectId}.json`),
+  ];
+  let total = 0;
+  for (const p of paths) {
+    try {
+      const e = await exists(p);
+      // eslint-disable-next-line no-console
+      console.log("[StorageSize]", p, "exists:", e);
+      if (e) {
+        const s = await fsSize(p);
+        console.log("[StorageSize]", p, "size:", s);
+        total += s;
+      }
+    } catch (err) {
+      console.log("[StorageSize] error for", p, err);
+    }
+  }
+  console.log("[StorageSize] total:", total);
+  return total;
 }

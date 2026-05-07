@@ -278,8 +278,16 @@ impl SecureStorageManager {
             SecureStorageError::InvalidFormat(format!("JSON deserialization failed: {}", e))
         })?;
 
-        // Decrypt
-        let decrypted = self.decrypt(&encrypted)?;
+        // Decrypt — if decryption fails the stored data is unreadable (e.g. key
+        // rotated after reinstall), so delete the corrupted file and return None.
+        let decrypted = match self.decrypt(&encrypted) {
+            Ok(v) => v,
+            Err(SecureStorageError::DecryptionFailed(_)) => {
+                let _ = fs::remove_file(&file_path);
+                return Ok(None);
+            }
+            Err(e) => return Err(e),
+        };
 
         Ok(Some(decrypted))
     }

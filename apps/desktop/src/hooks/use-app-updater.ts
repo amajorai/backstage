@@ -100,8 +100,8 @@ export async function checkForUpdate() {
         },
       });
     }
-  } catch (error) {
-    console.error("Update check failed:", error);
+  } catch {
+    // No release published yet or network unavailable — not an error
   } finally {
     setChecking(false);
   }

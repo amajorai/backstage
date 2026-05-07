@@ -26,6 +26,7 @@
     "fs:allow-app-write",
     "fs:allow-app-read-recursive",
     "fs:allow-app-write-recursive",
+    "fs:allow-size",
     {
       "identifier": "fs:scope",
       "allow": [{ "path": "$APPDATA/**" }]
