@@ -185,6 +185,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VITE_POLAR_ORGANIZATION_ID: ${{ secrets.VITE_POLAR_ORGANIZATION_ID }}
+          VITE_POLAR_ORG_SLUG: ${{ secrets.VITE_POLAR_ORG_SLUG }}
+          VITE_POLAR_PURCHASE_URL: ${{ secrets.VITE_POLAR_PURCHASE_URL }}
+          VITE_POLAR_CUSTOMER_PORTAL_URL: ${{ secrets.VITE_POLAR_CUSTOMER_PORTAL_URL }}
         with:
           projectPath: apps/desktop
           tauriScript: bunx tauri
