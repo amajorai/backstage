@@ -5,10 +5,15 @@ const { withUniwindConfig } = require("uniwind/metro");
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
 
-// Exclude Rust/Tauri build artifacts from Metro's file watcher
-config.watchFolders = (config.watchFolders ?? []).filter(
-  (f) => !f.includes("src-tauri")
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const desktopTargetDir = path.resolve(
+  __dirname,
+  "../../apps/desktop/src-tauri/target"
 );
+
 config.resolver = {
   ...config.resolver,
   blockList: [
@@ -17,11 +22,7 @@ config.resolver = {
       : config.resolver?.blockList
         ? [config.resolver.blockList]
         : []),
-    new RegExp(
-      path
-        .resolve(__dirname, "../../apps/desktop/src-tauri/target")
-        .replace(/\\/g, "\\\\")
-    ),
+    new RegExp(`^${escapeRegex(desktopTargetDir)}(/.*)?$`),
   ],
 };
 

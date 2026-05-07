@@ -16,7 +16,6 @@ A desktop app for extracting video frames, editing with layers, removing backgro
 [![macOS](https://img.shields.io/badge/macOS-Download-white?logo=apple)](https://github.com/jiaweing/Backstage/releases/latest)
 [![Linux](https://img.shields.io/badge/Linux-Download-orange?logo=linux)](https://github.com/jiaweing/Backstage/releases/latest)
 
----
 
 ## Features
 
@@ -82,7 +81,6 @@ This engine uses the [BRIA RMBG-1.4](https://huggingface.co/briaai/RMBG-1.4) mod
 - Custom resolution and quality settings
 - Preview before export
 
----
 
 ## Builds and Distribution
 
@@ -125,7 +123,6 @@ bunx tauri build -- --features bria
 
 On macOS and Linux, ONNX Runtime is linked statically into the binary. No additional libraries need to be bundled.
 
----
 
 ## Getting Started
 
@@ -165,7 +162,6 @@ bun run desktop:build
 
 Installers are output to `apps/desktop/src-tauri/target/release/bundle/`.
 
----
 
 ## Tech Stack
 
@@ -181,7 +177,6 @@ Installers are output to `apps/desktop/src-tauri/target/release/bundle/`.
 | AI generation | [Google Gemini API](https://ai.google.dev) |
 | Secure storage | AES-256-GCM encrypted key/value store |
 
----
 
 ## Project Structure
 
@@ -212,7 +207,6 @@ apps/desktop/
 └── package.json
 ```
 
----
 
 ## Data Storage
 
@@ -220,13 +214,12 @@ All app data is stored in the OS-specific app data directory. This includes the 
 
 | OS | Path |
 |----|------|
-| Windows | `C:\Users\<user>\AppData\Roaming\pub.youtube.desktop` |
-| macOS | `~/Library/Application Support/pub.youtube.desktop` |
-| Linux | `~/.local/share/pub.youtube.desktop` |
+| Windows | `C:\Users\<user>\AppData\Roaming\com.backstage.desktop` |
+| macOS | `~/Library/Application Support/com.backstage.desktop` |
+| Linux | `~/.local/share/com.backstage.desktop` |
 
 The BRIA model, when downloaded, is stored at `<app data>/models/rmbg/model.onnx`.
 
----
 
 ## License
 
