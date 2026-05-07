@@ -1,4 +1,4 @@
-import "@youtube.pub/env/web";
+import "@backstage/env/web";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {

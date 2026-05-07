@@ -1,5 +1,5 @@
 {
-  "extends": "@youtube.pub/config/tsconfig.base.json",
+  "extends": "@backstage/config/tsconfig.base.json",
   "compilerOptions": {
     "strictNullChecks": true
   }

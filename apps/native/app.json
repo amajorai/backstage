@@ -1,13 +1,13 @@
 {
   "expo": {
-    "scheme": "youtube.pub",
+    "scheme": "backstage",
     "userInterfaceStyle": "automatic",
     "orientation": "default",
     "web": {
       "bundler": "metro"
     },
-    "name": "youtube.pub",
-    "slug": "youtube.pub",
+    "name": "Backstage",
+    "slug": "backstage",
     "plugins": ["expo-font"],
     "experiments": {
       "typedRoutes": true,

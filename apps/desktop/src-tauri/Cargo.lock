@@ -387,6 +387,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "backstage"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "base64 0.22.1",
+ "futures-util",
+ "image",
+ "once_cell",
+ "ort",
+ "rand 0.8.5",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-decorum",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-opener",
+ "tauri-plugin-process",
+ "tauri-plugin-sql",
+ "tauri-plugin-store",
+ "tauri-plugin-updater",
+ "tokio",
+]
+
+[[package]]
 name = "base64"
 version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7444,34 +7472,6 @@ dependencies = [
  "quote",
  "syn 2.0.111",
  "synstructure",
-]
-
-[[package]]
-name = "youtube-pub"
-version = "0.1.0"
-dependencies = [
- "aes-gcm",
- "base64 0.22.1",
- "futures-util",
- "image",
- "once_cell",
- "ort",
- "rand 0.8.5",
- "reqwest",
- "serde",
- "serde_json",
- "sha2",
- "tauri",
- "tauri-build",
- "tauri-plugin-decorum",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-opener",
- "tauri-plugin-process",
- "tauri-plugin-sql",
- "tauri-plugin-store",
- "tauri-plugin-updater",
- "tokio",
 ]
 
 [[package]]

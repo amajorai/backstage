@@ -18,8 +18,8 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@tanstack/react-form": "^1.27.3",
     "@tanstack/react-query": "catalog:",
-    "@youtube.pub/auth": "workspace:*",
-    "@youtube.pub/env": "workspace:*",
+    "@backstage/auth": "workspace:*",
+    "@backstage/env": "workspace:*",
     "babel-plugin-react-compiler": "^1.0.0",
     "better-auth": "catalog:",
     "class-variance-authority": "^0.7.1",
@@ -45,6 +45,6 @@
     "typescript": "^5",
     "@tanstack/react-query-devtools": "^5.91.1",
     "@tauri-apps/cli": "^2.4.0",
-    "@youtube.pub/config": "workspace:*"
+    "@backstage/config": "workspace:*"
   }
 }

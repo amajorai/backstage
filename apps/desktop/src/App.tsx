@@ -56,6 +56,7 @@ export default function App() {
   const loadSettings = useAppSettingsStore((s) => s.loadSettings);
 
   useEffect(() => {
+    void runMigrations();
     loadStoredLicense();
     loadSettings();
   }, [loadStoredLicense, loadSettings]);

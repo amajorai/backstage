@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "youtube.pub",
-  description: "youtube.pub",
+  title: "Backstage",
+  description: "Backstage",
 };
 
 export default function RootLayout({

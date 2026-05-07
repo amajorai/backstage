@@ -186,7 +186,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   historyIndex: -1,
   clipboard: (() => {
     try {
-      const stored = localStorage.getItem("youtube.pub:clipboard:v1");
+      const stored = localStorage.getItem("backstage:clipboard:v1");
       return stored ? (JSON.parse(stored) as Layer[]) : [];
     } catch {
       return [];
@@ -482,10 +482,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const clipped: Layer[] = JSON.parse(JSON.stringify(layersToCopy));
       set({ clipboard: clipped });
       try {
-        localStorage.setItem(
-          "youtube.pub:clipboard:v1",
-          JSON.stringify(clipped)
-        );
+        localStorage.setItem("backstage:clipboard:v1", JSON.stringify(clipped));
       } catch {}
     }
   },
@@ -495,7 +492,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     if (!clipboard || clipboard.length === 0) {
       try {
-        const stored = localStorage.getItem("youtube.pub:clipboard:v1");
+        const stored = localStorage.getItem("backstage:clipboard:v1");
         if (stored) clipboard = JSON.parse(stored) as Layer[];
       } catch {}
     }

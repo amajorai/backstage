@@ -1,5 +1,5 @@
 {
-  "name": "@youtube.pub/env",
+  "name": "@backstage/env",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -17,6 +17,6 @@
   "devDependencies": {
     "typescript": "^5",
     "@types/bun": "catalog:",
-    "@youtube.pub/config": "workspace:*"
+    "@backstage/config": "workspace:*"
   }
 }

@@ -1,5 +1,5 @@
 {
-  "name": "@youtube.pub/db",
+  "name": "@backstage/db",
   "type": "module",
   "exports": {
     ".": {
@@ -12,12 +12,12 @@
   "scripts": {},
   "devDependencies": {
     "typescript": "^5",
-    "@youtube.pub/config": "workspace:*"
+    "@backstage/config": "workspace:*"
   },
   "dependencies": {
     "mongoose": "^8.14.0",
     "dotenv": "catalog:",
     "zod": "catalog:",
-    "@youtube.pub/env": "workspace:*"
+    "@backstage/env": "workspace:*"
   }
 }

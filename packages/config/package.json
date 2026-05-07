@@ -1,5 +1,5 @@
 {
-  "name": "@youtube.pub/config",
+  "name": "@backstage/config",
   "version": "0.0.0",
   "private": true
 }

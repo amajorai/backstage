@@ -1,12 +1,12 @@
 [package]
-name = "youtube-pub"
+name = "backstage"
 version = "0.1.0"
 description = "YouTube Thumbnail Studio"
 authors = ["you"]
 edition = "2021"
 
 [lib]
-name = "youtube_pub_lib"
+name = "backstage_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [build-dependencies]

@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "youtube.pub",
-    short_name: "youtube.pub",
+    name: "Backstage",
+    short_name: "Backstage",
     description: "my pwa app",
     start_url: "/new",
     display: "standalone",

@@ -1,5 +1,5 @@
-import { auth } from "@youtube.pub/auth";
-import { env } from "@youtube.pub/env/server";
+import { auth } from "@backstage/auth";
+import { env } from "@backstage/env/server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";

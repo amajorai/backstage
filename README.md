@@ -4,7 +4,7 @@
       <img src="apps/desktop/app-icon.png" alt="Logo" width="100" style="border-radius: 20%;"/>
     </td>
     <td align="right">
-      <h1>youtube.pub</h1>
+      <h1>Backstage</h1>
       <h3 style="margin-top: -10px;">Everything you need to make great YouTube thumbnails</h3>
     </td>
   </tr>
@@ -12,9 +12,9 @@
 
 A desktop app for extracting video frames, editing with layers, removing backgrounds with AI, and generating images with Gemini. Built with Tauri and React.
 
-[![Windows](https://img.shields.io/badge/Windows-Download-blue?logo=windows)](https://github.com/jiaweing/youtube.pub/releases/latest)
-[![macOS](https://img.shields.io/badge/macOS-Download-white?logo=apple)](https://github.com/jiaweing/youtube.pub/releases/latest)
-[![Linux](https://img.shields.io/badge/Linux-Download-orange?logo=linux)](https://github.com/jiaweing/youtube.pub/releases/latest)
+[![Windows](https://img.shields.io/badge/Windows-Download-blue?logo=windows)](https://github.com/jiaweing/Backstage/releases/latest)
+[![macOS](https://img.shields.io/badge/macOS-Download-white?logo=apple)](https://github.com/jiaweing/Backstage/releases/latest)
+[![Linux](https://img.shields.io/badge/Linux-Download-orange?logo=linux)](https://github.com/jiaweing/Backstage/releases/latest)
 
 ---
 

@@ -181,7 +181,7 @@ export function Footer() {
   return (
     <footer className="border-white/5 border-t px-4 py-12 text-center">
       <p className="text-neutral-500 text-sm">
-        &copy; {new Date().getFullYear()} youtube.pub. All rights reserved.
+        &copy; {new Date().getFullYear()} Backstage. All rights reserved.
       </p>
     </footer>
   );

@@ -47,12 +47,12 @@
     "@better-auth/expo": "catalog:",
     "dotenv": "catalog:",
     "zod": "catalog:",
-    "@youtube.pub/env": "workspace:*"
+    "@backstage/env": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
     "@types/react": "~19.1.0",
     "typescript": "^5",
-    "@youtube.pub/config": "workspace:*"
+    "@backstage/config": "workspace:*"
   }
 }

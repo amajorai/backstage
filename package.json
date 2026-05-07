@@ -1,5 +1,5 @@
 {
-  "name": "youtube.pub",
+  "name": "backstage",
   "private": true,
   "workspaces": {
     "packages": [
@@ -33,12 +33,12 @@
   "dependencies": {
     "dotenv": "catalog:",
     "zod": "catalog:",
-    "@youtube.pub/env": "workspace:*"
+    "@backstage/env": "workspace:*"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.11",
     "@types/bun": "catalog:",
-    "@youtube.pub/config": "workspace:*",
+    "@backstage/config": "workspace:*",
     "husky": "^9.1.7",
     "lefthook": "^2.0.13",
     "lint-staged": "^16.2.7",
