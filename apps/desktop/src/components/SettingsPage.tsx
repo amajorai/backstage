@@ -130,6 +130,12 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
             >
               Updates
             </TabsTrigger>
+            <TabsTrigger
+              className="justify-start border-none px-3 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none"
+              value="privacy"
+            >
+              Privacy
+            </TabsTrigger>
           </TabsList>
 
           {/* Content area */}
@@ -157,6 +163,10 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
 
               <TabsContent className="mt-0" value="updates">
                 <UpdateSettings />
+              </TabsContent>
+
+              <TabsContent className="mt-0" value="privacy">
+                <PrivacySettings />
               </TabsContent>
             </div>
           </div>
@@ -293,8 +303,14 @@ function ApiKeySettings() {
 }
 
 function AppearanceSettings() {
-  const { showDecemberSnow, setShowDecemberSnow, theme, setTheme } =
-    useAppSettingsStore();
+  const {
+    showDecemberSnow,
+    setShowDecemberSnow,
+    theme,
+    setTheme,
+    persistTabs,
+    setPersistTabs,
+  } = useAppSettingsStore();
 
   return (
     <div className="space-y-6">
@@ -349,6 +365,12 @@ function AppearanceSettings() {
           <p className="mb-4 pl-2 font-medium text-muted-foreground text-xs">
             Miscellaneous
           </p>
+          <SettingRow
+            description="Reopen your last open projects when launching the app."
+            title="Restore tabs on startup"
+          >
+            <Switch checked={persistTabs} onCheckedChange={setPersistTabs} />
+          </SettingRow>
           <SettingRow title="December Snowfall">
             <Switch
               checked={showDecemberSnow}
@@ -873,6 +895,51 @@ function BillingSettings() {
           To transfer your license to another device, deactivate it here first.
           You can reactivate it anytime by logging into the portal with your
           email.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function PrivacySettings() {
+  const {
+    analyticsEnabled,
+    setAnalyticsEnabled,
+    loggingEnabled,
+    setLoggingEnabled,
+  } = useAppSettingsStore();
+
+  return (
+    <div className="space-y-6">
+      <h2 className="pl-2 font-semibold text-lg">Privacy</h2>
+
+      <div className="space-y-4">
+        <p className="pl-2 font-medium text-muted-foreground text-xs">
+          Analytics &amp; Telemetry
+        </p>
+
+        <SettingRow
+          description="Helps us understand how you use the app so we can improve it. No personal data is collected."
+          title="Product Analytics"
+        >
+          <Switch
+            checked={analyticsEnabled}
+            onCheckedChange={setAnalyticsEnabled}
+          />
+        </SettingRow>
+
+        <SettingRow
+          description="Sends app logs and error reports to help diagnose issues."
+          title="Diagnostic Logging"
+        >
+          <Switch
+            checked={loggingEnabled}
+            onCheckedChange={setLoggingEnabled}
+          />
+        </SettingRow>
+
+        <p className="pl-2 text-muted-foreground text-xs">
+          Both are enabled by default. Changes take effect immediately.
         </p>
       </div>
     </div>

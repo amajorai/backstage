@@ -15,13 +15,14 @@
     "@backstage/config": "workspace:*"
   },
   "dependencies": {
-    "better-auth": "catalog:",
+    "@backstage/db": "workspace:*",
+    "@backstage/env": "workspace:*",
     "@better-auth/expo": "catalog:",
     "@polar-sh/better-auth": "catalog:",
     "@polar-sh/sdk": "^0.34.16",
+    "better-auth": "catalog:",
     "dotenv": "catalog:",
-    "zod": "catalog:",
-    "@backstage/env": "workspace:*",
-    "@backstage/db": "workspace:*"
+    "posthog-node": "^5.33.4",
+    "zod": "catalog:"
   }
 }

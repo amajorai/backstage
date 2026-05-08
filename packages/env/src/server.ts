@@ -12,6 +12,12 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),
+    AXIOM_TOKEN: z.string().optional(),
+    AXIOM_DATASET: z.string().optional(),
+    AXIOM_DOMAIN: z.string().optional(),
+    AXIOM_LOGS_DATASET: z.string().optional(),
+    POSTHOG_API_KEY: z.string().optional(),
+    POSTHOG_HOST: z.string().optional(),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

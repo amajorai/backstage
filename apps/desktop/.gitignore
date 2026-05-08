@@ -27,3 +27,4 @@ src-tauri/target/
 # OS
 .DS_Store
 Thumbs.db
+.env

@@ -1,6 +1,7 @@
 import {
   Copy,
   Download,
+  ExternalLink,
   Loader2,
   PaintBucket,
   Pencil,
@@ -33,6 +34,7 @@ import { useSelectionStore } from "@/stores/use-selection-store";
 interface ThumbnailGridItemProps {
   thumbnail: ThumbnailItem;
   onThumbnailClick: (thumbnail: ThumbnailItem) => void;
+  onOpenInNewTab: (thumbnail: ThumbnailItem) => void;
   onExportClick: (thumbnail: ThumbnailItem) => void;
   isProcessing: boolean;
   onRemoveBackground: (
@@ -48,6 +50,7 @@ interface ThumbnailGridItemProps {
 export const ThumbnailGridItem = memo(function ThumbnailGridItem({
   thumbnail,
   onThumbnailClick,
+  onOpenInNewTab,
   onExportClick,
   isProcessing,
   onRemoveBackground,
@@ -150,6 +153,14 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
           data-thumbnail-id={thumbnail.id}
           onClick={handleClick}
           onKeyDown={() => {}}
+          onMouseDown={(e) => {
+            if (e.button === 1) {
+              e.preventDefault();
+              import("@/stores/use-tabs-store").then(({ useTabsStore }) => {
+                useTabsStore.getState().openTabBackground(thumbnail);
+              });
+            }
+          }}
         >
           {isLoadingPreview ? (
             <div className="flex h-full w-full items-center justify-center bg-muted">
@@ -233,6 +244,11 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
                 : `${(contextMenuSize / (1024 * 1024)).toFixed(1)} MB on disk`}
           </p>
         </div>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => onOpenInNewTab(thumbnail)}>
+          <ExternalLink className="mr-2 size-4" />
+          Open in New Tab
+        </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
           onClick={async () => {

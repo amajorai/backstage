@@ -8,7 +8,7 @@ import {
   Plus,
   Search,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { VirtuosoGrid } from "react-virtuoso";
 import { toast } from "sonner";
 import type { ViewMode } from "@/App";
@@ -28,7 +28,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
@@ -56,6 +55,7 @@ import {
 } from "@/stores/use-gallery-store";
 import { useGalleryUIStore } from "@/stores/use-gallery-ui-store";
 import { useSelectionStore } from "@/stores/use-selection-store";
+import { useTabsStore } from "@/stores/use-tabs-store";
 
 interface GalleryProps {
   viewMode: ViewMode;
@@ -90,15 +90,16 @@ export function Gallery({
   const rawThumbnails = useGalleryStore((s) => s.thumbnails);
   const isLoaded = useGalleryStore((s) => s.isLoaded);
 
-  const [searchQuery, setSearchQuery] = useState("");
-
   const isSelectionMode = useSelectionStore((s) => s.isSelectionMode);
   const selectAll = useSelectionStore((s) => s.selectAll);
   const toggleSelectionMode = useSelectionStore((s) => s.toggleSelectionMode);
   const exitSelectionMode = useSelectionStore((s) => s.exitSelectionMode);
 
   const lastClickedIndex = useGalleryUIStore((s) => s.lastClickedIndex);
+  const hasTabs = useTabsStore((s) => s.tabs.length > 0);
   const setLastClickedIndex = useGalleryUIStore((s) => s.setLastClickedIndex);
+  const searchQuery = useGalleryUIStore((s) => s.searchQuery);
+  const setFilteredCount = useGalleryUIStore((s) => s.setFilteredCount);
 
   const filteredThumbnails = useMemo(() => {
     let filtered = rawThumbnails;
@@ -118,6 +119,10 @@ export function Gallery({
   }, [rawThumbnails, sortField, sortOrder, searchQuery]);
 
   const projects = filteredThumbnails;
+
+  useEffect(() => {
+    setFilteredCount(projects.length);
+  }, [projects.length, setFilteredCount]);
 
   const gridColClass = useMemo(() => {
     const gridClasses: Record<ViewMode, string> = {
@@ -257,6 +262,7 @@ export function Gallery({
           onAutoRename={handleAutoRename}
           onDelete={handleDelete}
           onExportClick={onExportClick}
+          onOpenInNewTab={(t) => useTabsStore.getState().openTab(t)}
           onRemoveBackground={handleRemoveBackground}
           onRename={handleRename}
           onThumbnailClick={(t) => {
@@ -293,28 +299,7 @@ export function Gallery({
 
   return (
     <div className="relative flex flex-1 select-none flex-col">
-      <TitleBar
-        center={
-          <div className="relative z-[50]">
-            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/50" />
-            <Input
-              className="h-8 w-64 border-none bg-muted/30 pr-8 pl-9 transition-all focus-visible:w-96 focus-visible:ring-1 focus-visible:ring-primary/20"
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search projects..."
-              type="text"
-              value={searchQuery}
-            />
-            {projects.length > 0 && (
-              <Badge
-                className="absolute top-1/2 right-2 h-5 -translate-y-1/2 border-none bg-primary/10 px-1.5 font-bold text-[10px] text-primary"
-                variant="outline"
-              >
-                {projects.length}
-              </Badge>
-            )}
-          </div>
-        }
-      />
+      {!hasTabs && <TitleBar />}
 
       <div className="relative flex-1 select-none overflow-hidden">
         <div className="pointer-events-none absolute top-0 right-0 left-0 z-10 h-8 bg-gradient-to-b from-background to-transparent" />

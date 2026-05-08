@@ -7,6 +7,7 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
+import { ScrollFadeEffect } from "./scroll-fade-effect";
 
 export function HeroSection() {
   return (

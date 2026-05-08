@@ -2103,45 +2103,58 @@ export function KonvaCanvas({
             x={-offsetX / scale}
             y={-offsetY / scale}
           />
-          <Rect
-            fill="#262626"
-            height={height}
-            listening={false}
-            width={width}
-            x={0}
-            y={0}
-          />
+          <Group
+            clipFunc={(ctx) => {
+              const r = 8 / scale;
+              ctx.beginPath();
+              ctx.moveTo(r, 0);
+              ctx.lineTo(width - r, 0);
+              ctx.quadraticCurveTo(width, 0, width, r);
+              ctx.lineTo(width, height);
+              ctx.lineTo(0, height);
+              ctx.lineTo(0, r);
+              ctx.quadraticCurveTo(0, 0, r, 0);
+              ctx.closePath();
+            }}
+          >
+            <Rect
+              fill="#262626"
+              height={height}
+              listening={false}
+              width={width}
+              x={0}
+              y={0}
+            />
 
-          {showGrid &&
-            (() => {
-              const step = 50;
-              const lines = [];
-              for (let x = step; x < width; x += step) {
-                lines.push(
-                  <Line
-                    key={`grid-v-${x}`}
-                    listening={false}
-                    points={[x, 0, x, height]}
-                    stroke="rgba(255,255,255,0.08)"
-                    strokeWidth={inv}
-                  />
-                );
-              }
-              for (let y = step; y < height; y += step) {
-                lines.push(
-                  <Line
-                    key={`grid-h-${y}`}
-                    listening={false}
-                    points={[0, y, width, y]}
-                    stroke="rgba(255,255,255,0.08)"
-                    strokeWidth={inv}
-                  />
-                );
-              }
-              return lines;
-            })()}
+            {showGrid &&
+              (() => {
+                const step = 50;
+                const lines = [];
+                for (let x = step; x < width; x += step) {
+                  lines.push(
+                    <Line
+                      key={`grid-v-${x}`}
+                      listening={false}
+                      points={[x, 0, x, height]}
+                      stroke="rgba(255,255,255,0.08)"
+                      strokeWidth={inv}
+                    />
+                  );
+                }
+                for (let y = step; y < height; y += step) {
+                  lines.push(
+                    <Line
+                      key={`grid-h-${y}`}
+                      listening={false}
+                      points={[0, y, width, y]}
+                      stroke="rgba(255,255,255,0.08)"
+                      strokeWidth={inv}
+                    />
+                  );
+                }
+                return lines;
+              })()}
 
-          <Group clipHeight={height} clipWidth={width} clipX={0} clipY={0}>
             {layers.map(renderLayer)}
 
             {/* Live paint preview during brush/eraser strokes */}

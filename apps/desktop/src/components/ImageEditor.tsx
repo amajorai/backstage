@@ -48,7 +48,11 @@ import {
   loadRecovery,
   saveRecovery,
 } from "@/lib/revision-storage";
-import type { ImageLayer, Page } from "@/stores/use-editor-store";
+import type {
+  EditorSnapshot,
+  ImageLayer,
+  Page,
+} from "@/stores/use-editor-store";
 import { useEditorStore } from "@/stores/use-editor-store";
 import {
   type Layer as GalleryLayer,
@@ -56,8 +60,11 @@ import {
   useGalleryStore,
 } from "@/stores/use-gallery-store";
 import { useRevisionStore } from "@/stores/use-revision-store";
+import { useTabsStore } from "@/stores/use-tabs-store";
 
 interface ImageEditorProps {
+  tabId: string;
+  snapshot: EditorSnapshot | null;
   thumbnail: ThumbnailItem;
   onClose: () => void;
   onExport: () => void;
@@ -65,6 +72,8 @@ interface ImageEditorProps {
 }
 
 export function ImageEditor({
+  tabId,
+  snapshot,
   thumbnail,
   onClose,
   onExport,
@@ -136,12 +145,41 @@ export function ImageEditor({
 
   const [, setIsLoadingEditor] = useState(true);
 
-  // Initialize - load from files
+  // Initialize - restore from snapshot or load from files
   useEffect(() => {
     if (initializedRef.current) {
       return;
     }
     initializedRef.current = true;
+
+    if (snapshot) {
+      useEditorStore.setState({
+        pages: snapshot.pages,
+        activePageIndex: snapshot.activePageIndex,
+        layers: snapshot.layers,
+        activeLayerIds: snapshot.activeLayerIds,
+        activeTool: snapshot.activeTool,
+        canvasWidth: snapshot.canvasWidth,
+        canvasHeight: snapshot.canvasHeight,
+        brushSize: snapshot.brushSize,
+        brushColor: snapshot.brushColor,
+        brushOpacity: snapshot.brushOpacity,
+        magicSelectTolerance: snapshot.magicSelectTolerance,
+        historyPast: snapshot.historyPast,
+        historyFuture: snapshot.historyFuture,
+        historyIndex: snapshot.historyIndex,
+        showRulers: snapshot.showRulers,
+        showGrid: snapshot.showGrid,
+      });
+      setCanvasSize({
+        width: snapshot.canvasWidth,
+        height: snapshot.canvasHeight,
+      });
+      setSavedHistoryIndex(snapshot.savedHistoryIndex);
+      setIsLoadingEditor(false);
+      return;
+    }
+
     reset();
     setSavedHistoryIndex(-1);
     setIsLoadingEditor(true);
@@ -219,6 +257,7 @@ export function ImageEditor({
 
     loadProject();
   }, [
+    snapshot,
     thumbnail.id,
     thumbnail.updatedAt,
     thumbnail.canvasWidth,
@@ -548,7 +587,9 @@ export function ImageEditor({
         { pages }
       );
       toast.success("Project saved");
-      setSavedHistoryIndex(useEditorStore.getState().historyIndex);
+      const newHistoryIndex = useEditorStore.getState().historyIndex;
+      setSavedHistoryIndex(newHistoryIndex);
+      useTabsStore.getState().markTabSaved(tabId, newHistoryIndex);
       await createRevision(savedId, pages);
       if (savedId) await deleteRecovery(savedId);
     } catch (error) {
@@ -772,11 +813,12 @@ export function ImageEditor({
   const handleNameChange = useCallback(
     (name: string) => {
       setProjectName(name);
+      useTabsStore.getState().updateTabName(tabId, name);
       if (projectId) {
         updateThumbnailName(projectId, name);
       }
     },
-    [projectId, updateThumbnailName]
+    [tabId, projectId, updateThumbnailName]
   );
 
   const handleCanvasSizeChange = useCallback(

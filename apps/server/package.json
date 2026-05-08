@@ -10,13 +10,23 @@
     "start": "bun run dist/index.js"
   },
   "dependencies": {
-    "hono": "^4.8.2",
+    "@backstage/auth": "workspace:*",
+    "@backstage/db": "workspace:*",
+    "@backstage/env": "workspace:*",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/api-logs": "^0.217.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.217.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.217.0",
+    "@opentelemetry/resources": "^2.7.1",
+    "@opentelemetry/sdk-logs": "^0.217.0",
+    "@opentelemetry/sdk-node": "^0.217.0",
+    "@opentelemetry/sdk-trace-node": "^2.7.1",
+    "@opentelemetry/semantic-conventions": "^1.40.0",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
-    "zod": "catalog:",
-    "@backstage/env": "workspace:*",
-    "@backstage/auth": "workspace:*",
-    "@backstage/db": "workspace:*"
+    "hono": "^4.8.2",
+    "posthog-node": "^5.33.4",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "catalog:",

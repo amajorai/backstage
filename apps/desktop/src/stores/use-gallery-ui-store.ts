@@ -1,12 +1,14 @@
 import { create } from "zustand";
 
 interface GalleryUIState {
-  // Last clicked item index for scroll restoration
   lastClickedIndex: number | null;
   setLastClickedIndex: (index: number | null) => void;
-  // Scroll offset for restoration when navigating back
   scrollOffset: number;
   setScrollOffset: (offset: number) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  filteredCount: number;
+  setFilteredCount: (count: number) => void;
 }
 
 export const useGalleryUIStore = create<GalleryUIState>()((set) => ({
@@ -14,4 +16,8 @@ export const useGalleryUIStore = create<GalleryUIState>()((set) => ({
   setLastClickedIndex: (index) => set({ lastClickedIndex: index }),
   scrollOffset: 0,
   setScrollOffset: (offset) => set({ scrollOffset: offset }),
+  searchQuery: "",
+  setSearchQuery: (query) => set({ searchQuery: query }),
+  filteredCount: 0,
+  setFilteredCount: (count) => set({ filteredCount: count }),
 }));

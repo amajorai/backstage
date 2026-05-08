@@ -1,4 +1,4 @@
-import { Loader2, Settings, Sparkles, Trash2 } from "lucide-react";
+import { Loader2, Search, Settings, Sparkles, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { ViewMode } from "@/App";
@@ -17,10 +17,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAutoRenameQueue } from "@/stores/use-auto-rename-queue";
 import { useBackgroundRemovalQueue } from "@/stores/use-background-removal-queue";
 import { useGalleryStore } from "@/stores/use-gallery-store";
+import { useGalleryUIStore } from "@/stores/use-gallery-ui-store";
 import { useSelectionStore } from "@/stores/use-selection-store";
 import { useTrashStore } from "@/stores/use-trash-store";
 
@@ -189,6 +192,10 @@ export function BottomToolbar({
     exitSelectionMode,
   ]);
 
+  const searchQuery = useGalleryUIStore((s) => s.searchQuery);
+  const setSearchQuery = useGalleryUIStore((s) => s.setSearchQuery);
+  const filteredCount = useGalleryUIStore((s) => s.filteredCount);
+
   const showDefaultToolbar = !isSelectionMode || selectedIds.size === 0;
 
   return (
@@ -212,6 +219,30 @@ export function BottomToolbar({
             viewMode={viewMode}
           />
           <SortMenu />
+        </div>
+      )}
+
+      {/* Search — center */}
+      {showDefaultToolbar && (
+        <div className="absolute left-1/2 -translate-x-1/2">
+          <div className="relative">
+            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/50" />
+            <Input
+              className="h-8 w-52 border-none bg-muted/30 pr-8 pl-9 transition-all focus-visible:w-80 focus-visible:ring-1 focus-visible:ring-primary/20"
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search projects..."
+              type="text"
+              value={searchQuery}
+            />
+            {filteredCount > 0 && searchQuery.trim() && (
+              <Badge
+                className="absolute top-1/2 right-2 h-5 -translate-y-1/2 border-none bg-primary/10 px-1.5 font-bold text-[10px] text-primary"
+                variant="outline"
+              >
+                {filteredCount}
+              </Badge>
+            )}
+          </div>
         </div>
       )}
 

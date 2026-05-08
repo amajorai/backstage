@@ -111,6 +111,35 @@ export type Layer =
   | AnimatedImageLayer
   | DrawLayer;
 
+export interface EditorSnapshot {
+  pages: Page[];
+  activePageIndex: number;
+  layers: Layer[];
+  activeLayerIds: string[];
+  activeTool:
+    | "select"
+    | "text"
+    | "rect"
+    | "ellipse"
+    | "brush"
+    | "eraser"
+    | "crop"
+    | "eyedropper"
+    | "magic-select";
+  canvasWidth: number;
+  canvasHeight: number;
+  brushSize: number;
+  brushColor: string;
+  brushOpacity: number;
+  magicSelectTolerance: number;
+  historyPast: Array<{ pages: Page[]; label: string }>;
+  historyFuture: Array<{ pages: Page[]; label: string }>;
+  historyIndex: number;
+  showRulers: boolean;
+  showGrid: boolean;
+  savedHistoryIndex: number;
+}
+
 export interface Page {
   id: string;
   layers: Layer[];
