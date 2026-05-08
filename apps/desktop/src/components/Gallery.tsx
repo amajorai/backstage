@@ -16,7 +16,6 @@ import { AddColorBackgroundDialog } from "@/components/editor/AddColorBackground
 import { EmptyState } from "@/components/gallery/EmptyState";
 import { gridComponents } from "@/components/gallery/VirtuosoGridComponents";
 import { ThumbnailGridItem } from "@/components/ThumbnailGridItem";
-import { TitleBar } from "@/components/TitleBar";
 import { AddMenu } from "@/components/toolbar/add-menu";
 import {
   AlertDialog,
@@ -55,7 +54,6 @@ import {
 } from "@/stores/use-gallery-store";
 import { useGalleryUIStore } from "@/stores/use-gallery-ui-store";
 import { useSelectionStore } from "@/stores/use-selection-store";
-import { useTabsStore } from "@/stores/use-tabs-store";
 
 interface GalleryProps {
   viewMode: ViewMode;
@@ -96,7 +94,6 @@ export function Gallery({
   const exitSelectionMode = useSelectionStore((s) => s.exitSelectionMode);
 
   const lastClickedIndex = useGalleryUIStore((s) => s.lastClickedIndex);
-  const hasTabs = useTabsStore((s) => s.tabs.length > 0);
   const setLastClickedIndex = useGalleryUIStore((s) => s.setLastClickedIndex);
   const searchQuery = useGalleryUIStore((s) => s.searchQuery);
   const setFilteredCount = useGalleryUIStore((s) => s.setFilteredCount);
@@ -262,7 +259,6 @@ export function Gallery({
           onAutoRename={handleAutoRename}
           onDelete={handleDelete}
           onExportClick={onExportClick}
-          onOpenInNewTab={(t) => useTabsStore.getState().openTab(t)}
           onRemoveBackground={handleRemoveBackground}
           onRename={handleRename}
           onThumbnailClick={(t) => {
@@ -299,8 +295,6 @@ export function Gallery({
 
   return (
     <div className="relative flex flex-1 select-none flex-col">
-      {!hasTabs && <TitleBar />}
-
       <div className="relative flex-1 select-none overflow-hidden">
         <div className="pointer-events-none absolute top-0 right-0 left-0 z-10 h-8 bg-gradient-to-b from-background to-transparent" />
         <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 h-16 bg-gradient-to-t from-background to-transparent" />

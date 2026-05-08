@@ -154,6 +154,9 @@ export const useTabsStore = create<TabsState>()((set, get) => ({
         });
       } else {
         const newActive = newTabs[Math.max(0, tabIndex - 1)];
+        useEditorStore
+          .getState()
+          .resetHistoryIndex(newActive.savedHistoryIndex);
         set({
           tabs: newTabs,
           activeTabId: newActive.id,

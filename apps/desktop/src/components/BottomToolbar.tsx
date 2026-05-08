@@ -234,7 +234,7 @@ export function BottomToolbar({
               type="text"
               value={searchQuery}
             />
-            {filteredCount > 0 && searchQuery.trim() && (
+            {filteredCount > 0 && (
               <Badge
                 className="absolute top-1/2 right-2 h-5 -translate-y-1/2 border-none bg-primary/10 px-1.5 font-bold text-[10px] text-primary"
                 variant="outline"

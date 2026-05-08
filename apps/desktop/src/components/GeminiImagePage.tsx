@@ -256,23 +256,16 @@ export function GeminiImagePage({
   return (
     <div className="flex h-full flex-col bg-background">
       {/* Header */}
-      <div
-        className="flex shrink-0 items-center gap-3 px-3 py-2"
-        data-tauri-drag-region
-      >
+      <div className="flex h-12 shrink-0 items-center px-4">
         <Tooltip>
           <TooltipTrigger
-            className={`${buttonVariants({
-              size: "icon-sm",
-              variant: "ghost",
-            })} relative z-101`}
+            className={`${buttonVariants({ size: "icon-sm", variant: "ghost" })}`}
             onClick={onClose}
           >
             <ArrowLeft className="size-4" />
           </TooltipTrigger>
-          <TooltipContent>Back to Editor</TooltipContent>
+          <TooltipContent>Back</TooltipContent>
         </Tooltip>
-        <span className="font-medium text-sm">Generate Images</span>
         {isGenerating && progress.total > 1 && (
           <span className="text-muted-foreground text-xs">
             {progress.current}/{progress.total} generated

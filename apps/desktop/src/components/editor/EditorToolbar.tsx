@@ -143,6 +143,7 @@ export function EditorToolbar({
     !isProcessing;
   const canCrop = activeLayer?.type === "image" && !isProcessing;
   const canMagicSelect = activeLayer?.type === "image" && !isProcessing;
+  const canSaveLayer = activeLayer?.type === "image";
 
   return (
     <div className="flex w-12 shrink-0 flex-col items-center gap-1 border-border border-r bg-background py-2">
@@ -501,10 +502,13 @@ export function EditorToolbar({
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <span>
+          <span
+            className={
+              canSaveLayer ? undefined : "pointer-events-none opacity-40"
+            }
+          >
             <Button
-              className="disabled:opacity-100"
-              disabled={!activeLayer || activeLayer.type !== "image"}
+              disabled={!canSaveLayer}
               onClick={onSaveLayerAsImage}
               size="icon-sm"
               variant="ghost"
@@ -514,9 +518,9 @@ export function EditorToolbar({
           </span>
         </TooltipTrigger>
         <TooltipContent side="right">
-          Save Layer as Image (Ctrl+Shift+S){" "}
-          {(!activeLayer || activeLayer.type !== "image") &&
-            "(Select an image layer)"}
+          {canSaveLayer
+            ? "Save Layer as Image (Ctrl+Shift+S)"
+            : "Select an image layer to save (Ctrl+Shift+S)"}
         </TooltipContent>
       </Tooltip>
 
@@ -534,9 +538,12 @@ export function EditorToolbar({
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <span>
+          <span
+            className={
+              canRemoveBg ? undefined : "pointer-events-none opacity-40"
+            }
+          >
             <Button
-              className="disabled:opacity-100"
               disabled={!canRemoveBg}
               onClick={onRemoveBackground}
               size="icon-sm"
@@ -555,9 +562,12 @@ export function EditorToolbar({
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <span>
+          <span
+            className={
+              canRemoveBg ? undefined : "pointer-events-none opacity-40"
+            }
+          >
             <Button
-              className="disabled:opacity-100"
               disabled={!canRemoveBg}
               onClick={onAddColorBackground}
               size="icon-sm"
@@ -576,9 +586,12 @@ export function EditorToolbar({
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <span>
+          <span
+            className={
+              canAiGenerate ? undefined : "pointer-events-none opacity-40"
+            }
+          >
             <Button
-              className="disabled:opacity-100"
               disabled={!canAiGenerate}
               onClick={onAiGenerate}
               size="icon-sm"

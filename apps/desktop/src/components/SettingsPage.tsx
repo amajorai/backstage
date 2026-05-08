@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { TitleBar } from "@/components/TitleBar";
 import { Button } from "@/components/ui/button";
 import {
   ColorPicker,
@@ -65,25 +64,13 @@ interface SettingsPageProps {
 
 export function SettingsPage({ onClose }: SettingsPageProps) {
   return (
-    <div className="flex h-screen flex-col bg-background">
+    <div className="flex h-full flex-col bg-background">
       {/* Header */}
-      <TitleBar
-        showIcon={false}
-        title={
-          <div className="flex items-center gap-3">
-            <Button
-              className="relative z-[110]"
-              onClick={onClose}
-              size="icon-sm"
-              type="button"
-              variant="ghost"
-            >
-              <ArrowLeft className="size-4" />
-            </Button>
-            <span className="font-medium text-sm">Settings</span>
-          </div>
-        }
-      />
+      <div className="flex h-12 shrink-0 items-center px-4">
+        <Button onClick={onClose} size="icon-sm" type="button" variant="ghost">
+          <ArrowLeft className="size-4" />
+        </Button>
+      </div>
 
       {/* Content */}
       <div className="flex flex-1 overflow-hidden">

@@ -63,7 +63,7 @@ interface KonvaCanvasProps {
 }
 
 const SNAP_THRESHOLD = 20;
-const UI_COLOR = "#7dd3fc";
+const UI_COLOR = "oklch(0.685 0.169 237.323)";
 
 /** Returns the effective width/height of a layer (TextLayer has none, so returns 0). */
 function getLayerDimensions(l: EditorLayer): { w: number; h: number } {
@@ -2263,7 +2263,7 @@ export function KonvaCanvas({
           {/* Selection Box */}
           {selectionBox && (
             <Rect
-              fill="rgba(125, 211, 252, 0.15)"
+              fill="oklch(0.685 0.169 237.323 / 0.15)"
               height={Math.abs(selectionBox.height)}
               listening={false}
               stroke={UI_COLOR}

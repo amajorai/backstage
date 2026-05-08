@@ -202,7 +202,7 @@ export default function App() {
   if (page === "ai-generate") {
     return (
       <div className="flex h-screen flex-col bg-neutral-950">
-        {tabs.length > 0 && <TabBar activePage={page} />}
+        <TabBar activePage={page} />
         <div className={contentClass}>
           <GeminiImagePage
             inputImageDataUrl={aiInputImage}
@@ -222,7 +222,7 @@ export default function App() {
   if (page === "trash") {
     return (
       <div className="flex h-screen flex-col bg-neutral-950">
-        {tabs.length > 0 && <TabBar activePage={page} />}
+        <TabBar activePage={page} />
         <div className={contentClass}>
           <TrashPage onClose={() => setPage("gallery")} />
         </div>
@@ -235,7 +235,7 @@ export default function App() {
   if (page === "settings") {
     return (
       <div className="flex h-screen flex-col bg-neutral-950">
-        {tabs.length > 0 && <TabBar activePage={page} />}
+        <TabBar activePage={page} />
         <div className={contentClass}>
           <SettingsPage onClose={() => setPage("gallery")} />
         </div>
@@ -282,7 +282,7 @@ export default function App() {
   // Gallery (default or when tabs exist but editor hidden)
   return (
     <div className="flex h-screen flex-col bg-neutral-950">
-      {tabs.length > 0 && <TabBar activePage="gallery" />}
+      <TabBar activePage="gallery" />
       <div className={contentClass}>
         <Gallery
           onAddVideoClick={() => setShowExtractor(true)}

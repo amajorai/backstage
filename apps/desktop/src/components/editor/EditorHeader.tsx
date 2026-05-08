@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronDown, Grid2X2, Ruler } from "lucide-react";
+import { ChevronDown, Grid2X2, Ruler } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { TitleBar } from "@/components/TitleBar";
 import { buttonVariants } from "@/components/ui/button";
@@ -8,11 +8,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/stores/use-editor-store";
 
@@ -57,19 +52,6 @@ export function EditorHeader({
       showIcon={false}
       title={
         <div className="flex items-center gap-3">
-          <Tooltip>
-            <TooltipTrigger
-              className={buttonVariants({
-                size: "icon-sm",
-                variant: "ghost",
-              })}
-              onClick={handleBack}
-            >
-              <ArrowLeft className="size-4" />
-            </TooltipTrigger>
-            <TooltipContent>Back to Gallery</TooltipContent>
-          </Tooltip>
-
           {/* hidden span to measure text width */}
           <span
             aria-hidden

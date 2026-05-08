@@ -249,6 +249,7 @@ interface EditorState {
   jumpToHistory: (panelIndex: number) => void;
   // Internal helper to sync state
   _syncLayers: (pages: Page[], activeIndex: number) => void;
+  resetHistoryIndex: (index: number) => void;
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
@@ -286,6 +287,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       activePageIndex: activeIndex,
       layers: pages[activeIndex]?.layers || [],
     });
+  },
+
+  resetHistoryIndex: (index) => {
+    set({ historyIndex: index });
   },
 
   addImageLayer: (dataUrl, width, height) => {
