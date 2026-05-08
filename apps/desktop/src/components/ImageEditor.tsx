@@ -68,7 +68,7 @@ interface ImageEditorProps {
   thumbnail: ThumbnailItem;
   onClose: () => void;
   onExport: () => void;
-  onAiGenerate: (imageDataUrl: string) => void;
+  onAiGenerate: () => void;
 }
 
 export function ImageEditor({
@@ -781,14 +781,7 @@ export function ImageEditor({
           else toast.info("Select an image layer first");
         } else if (e.key.toLowerCase() === "a") {
           e.preventDefault();
-          const { activeLayerIds: ids, layers: ls } = useEditorStore.getState();
-          const al = ls.find((l) => l.id === ids[0]);
-          if (al?.type === "image") {
-            const imgLayer = al as ImageLayer;
-            onAiGenerate(imgLayer.dataUrl);
-          } else {
-            toast.info("Select an image layer first");
-          }
+          onAiGenerate();
         } else if (e.key.toLowerCase() === "p") {
           e.preventDefault();
           const { activeLayerIds: ids, layers: ls } = useEditorStore.getState();
@@ -1043,13 +1036,7 @@ export function ImageEditor({
           onAddColorBackground={() => setShowColorBgDialog(true)}
           onAddIcon={handleAddIcon}
           onAddImage={() => setShowGalleryPicker(true)}
-          onAiGenerate={() => {
-            const activeLayer = layers.find((l) => l.id === activeLayerId);
-            if (activeLayer?.type === "image") {
-              const imgLayer = activeLayer as ImageLayer;
-              onAiGenerate(imgLayer.dataUrl);
-            }
-          }}
+          onAiGenerate={onAiGenerate}
           onGenerateCarousel={() => setShowCarouselGenerator(true)}
           onRemoveBackground={handleRemoveBackground}
           onSaveLayerAsImage={() => {

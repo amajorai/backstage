@@ -30,7 +30,7 @@ export async function generateImageWithGemini(
   apiKey: string,
   model: GeminiImageModel,
   prompt: string,
-  inputImageBase64?: string,
+  inputImages?: string[],
   inputMimeType = "image/png"
 ): Promise<GenerateImageResult> {
   const ai = new GoogleGenAI({ apiKey });
@@ -40,13 +40,13 @@ export async function generateImageWithGemini(
     text?: string;
   }[] = [];
 
-  if (inputImageBase64) {
-    const base64Data = inputImageBase64.includes(",")
-      ? inputImageBase64.split(",")[1]
-      : inputImageBase64;
-    contentParts.push({
-      inlineData: { mimeType: inputMimeType, data: base64Data },
-    });
+  if (inputImages && inputImages.length > 0) {
+    for (const img of inputImages) {
+      const base64Data = img.includes(",") ? img.split(",")[1] : img;
+      contentParts.push({
+        inlineData: { mimeType: inputMimeType, data: base64Data },
+      });
+    }
   }
 
   contentParts.push({ text: prompt });

@@ -41,6 +41,8 @@ export const DEFAULT_ADJUSTMENTS: LayerAdjustments = {
 export interface ImageLayer extends BaseLayer {
   type: "image";
   dataUrl: string;
+  baseDataUrl?: string;
+  imageColorMap?: Record<string, string>;
   width: number;
   height: number;
   cornerRadius: number | [number, number, number, number];
@@ -104,12 +106,21 @@ export interface DrawLayer extends BaseLayer {
   height: number;
   adjustments?: LayerAdjustments;
 }
+// SVG layer: stores raw SVG string with editable color map
+export interface SvgLayer extends BaseLayer {
+  type: "svg";
+  svgString: string;
+  colorMap: Record<string, string>;
+  width: number;
+  height: number;
+}
 export type Layer =
   | ImageLayer
   | TextLayer
   | ShapeLayer
   | AnimatedImageLayer
-  | DrawLayer;
+  | DrawLayer
+  | SvgLayer;
 
 export interface EditorSnapshot {
   pages: Page[];
@@ -132,11 +143,24 @@ export interface EditorSnapshot {
   brushColor: string;
   brushOpacity: number;
   magicSelectTolerance: number;
-  historyPast: Array<{ pages: Page[]; label: string }>;
-  historyFuture: Array<{ pages: Page[]; label: string }>;
+  historyPast: Array<{
+    pages: Page[];
+    label: string;
+    userGuides: { h: number[]; v: number[] };
+    canvasWidth: number;
+    canvasHeight: number;
+  }>;
+  historyFuture: Array<{
+    pages: Page[];
+    label: string;
+    userGuides: { h: number[]; v: number[] };
+    canvasWidth: number;
+    canvasHeight: number;
+  }>;
   historyIndex: number;
   showRulers: boolean;
   showGrid: boolean;
+  userGuides: { h: number[]; v: number[] };
   savedHistoryIndex: number;
 }
 
@@ -171,15 +195,31 @@ interface EditorState {
   brushOpacity: number;
   magicSelectTolerance: number;
   // past[i].label = action that will move FROM past[i].pages TO next state
-  historyPast: Array<{ pages: Page[]; label: string }>;
-  historyFuture: Array<{ pages: Page[]; label: string }>;
+  historyPast: Array<{
+    pages: Page[];
+    label: string;
+    userGuides: { h: number[]; v: number[] };
+    canvasWidth: number;
+    canvasHeight: number;
+  }>;
+  historyFuture: Array<{
+    pages: Page[];
+    label: string;
+    userGuides: { h: number[]; v: number[] };
+    canvasWidth: number;
+    canvasHeight: number;
+  }>;
   historyIndex: number; // absolute counter for unsaved-changes tracking
   clipboard: Layer[];
   // View toggles
   showRulers: boolean;
   showGrid: boolean;
+  userGuides: { h: number[]; v: number[] };
   toggleRulers: () => void;
   toggleGrid: () => void;
+  addGuide: (type: "h" | "v", position: number) => void;
+  moveGuide: (type: "h" | "v", index: number, position: number) => void;
+  removeGuide: (type: "h" | "v", index: number) => void;
   // Layer CRUD
   addImageLayer: (dataUrl: string, width: number, height: number) => void;
   addAnimatedImageLayer: (
@@ -200,6 +240,7 @@ interface EditorState {
   ) => void;
   addEmptyLayer: () => void;
   addDrawLayer: (dataUrl: string, width: number, height: number) => void;
+  addSvgLayer: (svgString: string, width: number, height: number) => void;
   removeLayer: (id: string) => void;
   removeLayers: (ids: string[]) => void;
   copyLayers: () => void;
@@ -277,9 +318,40 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   })(),
   showRulers: true,
   showGrid: true,
+  userGuides: { h: [], v: [] },
 
   toggleRulers: () => set((s) => ({ showRulers: !s.showRulers })),
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
+
+  addGuide: (type, position) => {
+    get().pushHistory(type === "h" ? "Add H Guide" : "Add V Guide");
+    set((s) => ({
+      userGuides: {
+        ...s.userGuides,
+        [type]: [...s.userGuides[type], position],
+      },
+    }));
+  },
+
+  moveGuide: (type, index, position) => {
+    get().pushHistory(type === "h" ? "Move H Guide" : "Move V Guide");
+    set((s) => ({
+      userGuides: {
+        ...s.userGuides,
+        [type]: s.userGuides[type].map((v, i) => (i === index ? position : v)),
+      },
+    }));
+  },
+
+  removeGuide: (type, index) => {
+    get().pushHistory(type === "h" ? "Remove H Guide" : "Remove V Guide");
+    set((s) => ({
+      userGuides: {
+        ...s.userGuides,
+        [type]: s.userGuides[type].filter((_, i) => i !== index),
+      },
+    }));
+  },
 
   _syncLayers: (pages, activeIndex) => {
     set({
@@ -419,6 +491,40 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       scaleY: 1,
       opacity: 1,
       dataUrl,
+      width,
+      height,
+    };
+
+    const { pages, activePageIndex } = get();
+    const newPages = [...pages];
+    newPages[activePageIndex] = {
+      ...newPages[activePageIndex],
+      layers: [...newPages[activePageIndex].layers, newLayer],
+    };
+
+    set(() => ({
+      pages: newPages,
+      layers: newPages[activePageIndex].layers,
+      activeLayerIds: [newLayer.id],
+    }));
+  },
+
+  addSvgLayer: (svgString, width, height) => {
+    get().pushHistory("Add SVG");
+    const newLayer: SvgLayer = {
+      id: crypto.randomUUID(),
+      type: "svg",
+      name: "SVG",
+      visible: true,
+      locked: false,
+      x: 0,
+      y: 0,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1,
+      opacity: 1,
+      svgString,
+      colorMap: {},
       width,
       height,
     };
@@ -902,6 +1008,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   setCanvasSize: (width, height) => {
+    get().pushHistory("Resize Canvas");
     const { pages, activePageIndex } = get();
     const newPages = pages.map((page) => ({
       ...page,
@@ -958,14 +1065,21 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       historyPast: [],
       historyFuture: [],
       historyIndex: -1,
+      userGuides: { h: [], v: [] },
     });
   },
 
   pushHistory: (label = "Edit") => {
-    const { pages, historyPast } = get();
+    const { pages, historyPast, userGuides, canvasWidth, canvasHeight } = get();
     const newPast = [
       ...historyPast,
-      { pages: JSON.parse(JSON.stringify(pages)), label },
+      {
+        pages: JSON.parse(JSON.stringify(pages)),
+        label,
+        userGuides: JSON.parse(JSON.stringify(userGuides)),
+        canvasWidth,
+        canvasHeight,
+      },
     ];
     if (newPast.length > 50) {
       newPast.shift();
@@ -978,14 +1092,28 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   undo: () => {
-    const { historyPast, historyFuture, pages, activePageIndex, historyIndex } =
-      get();
+    const {
+      historyPast,
+      historyFuture,
+      pages,
+      activePageIndex,
+      historyIndex,
+      userGuides,
+      canvasWidth,
+      canvasHeight,
+    } = get();
     if (historyPast.length === 0) return;
 
     const prev = historyPast[historyPast.length - 1];
     const newPast = historyPast.slice(0, -1);
     const newFuture = [
-      { pages: JSON.parse(JSON.stringify(pages)), label: prev.label },
+      {
+        pages: JSON.parse(JSON.stringify(pages)),
+        label: prev.label,
+        userGuides: JSON.parse(JSON.stringify(userGuides)),
+        canvasWidth,
+        canvasHeight,
+      },
       ...historyFuture,
     ];
     const validIndex = Math.min(activePageIndex, prev.pages.length - 1);
@@ -997,12 +1125,23 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       historyIndex: historyIndex - 1,
       activePageIndex: validIndex,
       layers: prev.pages[validIndex].layers,
+      userGuides: JSON.parse(JSON.stringify(prev.userGuides)),
+      canvasWidth: prev.canvasWidth,
+      canvasHeight: prev.canvasHeight,
     });
   },
 
   redo: () => {
-    const { historyPast, historyFuture, pages, activePageIndex, historyIndex } =
-      get();
+    const {
+      historyPast,
+      historyFuture,
+      pages,
+      activePageIndex,
+      historyIndex,
+      userGuides,
+      canvasWidth,
+      canvasHeight,
+    } = get();
     if (historyFuture.length === 0) return;
 
     const [next, ...remainingFuture] = historyFuture;
@@ -1011,23 +1150,46 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({
       historyPast: [
         ...historyPast,
-        { pages: JSON.parse(JSON.stringify(pages)), label: next.label },
+        {
+          pages: JSON.parse(JSON.stringify(pages)),
+          label: next.label,
+          userGuides: JSON.parse(JSON.stringify(userGuides)),
+          canvasWidth,
+          canvasHeight,
+        },
       ],
       historyFuture: remainingFuture,
       pages: JSON.parse(JSON.stringify(next.pages)),
       historyIndex: historyIndex + 1,
       activePageIndex: validIndex,
       layers: next.pages[validIndex].layers,
+      userGuides: JSON.parse(JSON.stringify(next.userGuides)),
+      canvasWidth: next.canvasWidth,
+      canvasHeight: next.canvasHeight,
     });
   },
 
   jumpToHistory: (panelIndex: number) => {
-    const { historyPast, historyFuture, pages, activePageIndex, historyIndex } =
-      get();
+    const {
+      historyPast,
+      historyFuture,
+      pages,
+      activePageIndex,
+      historyIndex,
+      userGuides,
+      canvasWidth,
+      canvasHeight,
+    } = get();
     // Full timeline: [past[0], ..., past[N-1], current, future[0], ...]
     const allEntries = [
       ...historyPast,
-      { pages: JSON.parse(JSON.stringify(pages)), label: "_current" },
+      {
+        pages: JSON.parse(JSON.stringify(pages)),
+        label: "_current",
+        userGuides: JSON.parse(JSON.stringify(userGuides)),
+        canvasWidth,
+        canvasHeight,
+      },
       ...historyFuture,
     ];
     const currentPos = historyPast.length;
@@ -1050,6 +1212,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       historyIndex: historyIndex + (panelIndex - currentPos),
       activePageIndex: validIndex,
       layers: target.pages[validIndex].layers,
+      userGuides: JSON.parse(JSON.stringify(target.userGuides)),
+      canvasWidth: target.canvasWidth,
+      canvasHeight: target.canvasHeight,
     });
   },
 

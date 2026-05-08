@@ -18,7 +18,7 @@ import { setAxiomLoggingEnabled } from "@/lib/logger";
 import { runMigrations } from "@/lib/migration";
 import { initPostHog, trackPage } from "@/lib/posthog";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
-import { useEditorStore } from "@/stores/use-editor-store";
+import { type Layer, useEditorStore } from "@/stores/use-editor-store";
 import {
   type ThumbnailItem,
   useGalleryStore,
@@ -45,7 +45,9 @@ export default function App() {
   const [exportingThumbnails, setExportingThumbnails] = useState<
     ThumbnailItem[]
   >([]);
-  const [aiInputImage, setAiInputImage] = useState<string | null>(null);
+  const [aiEditorLayers, setAiEditorLayers] = useState<Layer[] | null>(null);
+  const [aiCanvasWidth, setAiCanvasWidth] = useState(1280);
+  const [aiCanvasHeight, setAiCanvasHeight] = useState(720);
   const [aiGenerateSource, setAiGenerateSource] = useState<
     "editor" | "gallery"
   >("editor");
@@ -117,20 +119,23 @@ export default function App() {
     openTab(thumbnail);
   };
 
-  const handleOpenAiGenerate = (imageDataUrl: string) => {
-    setAiInputImage(imageDataUrl);
+  const handleOpenAiGenerate = () => {
+    const { layers, canvasWidth, canvasHeight } = useEditorStore.getState();
+    setAiEditorLayers(layers);
+    setAiCanvasWidth(canvasWidth);
+    setAiCanvasHeight(canvasHeight);
     setAiGenerateSource("editor");
     setPage("ai-generate");
   };
 
   const handleOpenAiGenerateFromGallery = () => {
-    setAiInputImage(null);
+    setAiEditorLayers(null);
     setAiGenerateSource("gallery");
     setPage("ai-generate");
   };
 
   const handleCloseAiGenerate = () => {
-    setAiInputImage(null);
+    setAiEditorLayers(null);
     setPage("gallery");
   };
 
@@ -205,7 +210,9 @@ export default function App() {
         <TabBar activePage={page} />
         <div className={contentClass}>
           <GeminiImagePage
-            inputImageDataUrl={aiInputImage}
+            canvasHeight={aiCanvasHeight}
+            canvasWidth={aiCanvasWidth}
+            editorLayers={aiEditorLayers}
             onClose={handleCloseAiGenerate}
             onSaveAsImage={handleSaveAiImage}
             onSaveAsLayer={

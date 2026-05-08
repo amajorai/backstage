@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AdjustmentProperties } from "@/components/editor/adjustment-properties";
+import { ImageColorProperties } from "@/components/editor/image-color-properties";
 import { ImageProperties } from "@/components/editor/image-properties";
 import { ShadowProperties } from "@/components/editor/shadow-properties";
 import { ShapeProperties } from "@/components/editor/shape-properties";
+import { SvgProperties } from "@/components/editor/svg-properties";
 import { TextProperties } from "@/components/editor/text-properties";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -13,6 +15,7 @@ import {
   type ImageLayer,
   type Layer,
   type ShapeLayer,
+  type SvgLayer,
   type TextLayer,
   useEditorStore,
 } from "@/stores/use-editor-store";
@@ -158,9 +161,26 @@ export function PropertiesPanel() {
 
         {/* Image-specific */}
         {activeLayer?.type === "image" && (
-          <ImageProperties
-            layer={activeLayer as ImageLayer}
-            onUpdate={updateWithHistory}
+          <>
+            <ImageColorProperties
+              layer={activeLayer as ImageLayer}
+              onUpdate={(updates) =>
+                updateWithHistory(updates as Partial<Layer>)
+              }
+            />
+            <div className="border-border border-t" />
+            <ImageProperties
+              layer={activeLayer as ImageLayer}
+              onUpdate={updateWithHistory}
+            />
+          </>
+        )}
+
+        {/* SVG-specific */}
+        {activeLayer?.type === "svg" && (
+          <SvgProperties
+            layer={activeLayer as SvgLayer}
+            onUpdate={(updates) => updateWithHistory(updates as Partial<Layer>)}
           />
         )}
 

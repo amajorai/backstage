@@ -15,6 +15,7 @@ import {
   renderDrawLayer,
   renderImageLayer,
   renderShapeLayer,
+  renderSvgLayer,
   renderTextLayer,
 } from "@/components/editor/layer-renderers";
 import type { SelectionSegments } from "@/lib/magic-select";
@@ -24,6 +25,7 @@ import {
   type Layer as EditorLayer,
   type ImageLayer as ImageLayerType,
   type ShapeLayer as ShapeLayerType,
+  type SvgLayer as SvgLayerType,
   type TextLayer as TextLayerType,
   useEditorStore,
 } from "@/stores/use-editor-store";
@@ -130,10 +132,6 @@ export function KonvaCanvas({
     vertical: [],
     horizontal: [],
   });
-  const [userGuides, setUserGuides] = useState<{ h: number[]; v: number[] }>({
-    h: [],
-    v: [],
-  });
   const [pendingGuideType, setPendingGuideType] = useState<"h" | "v" | null>(
     null
   );
@@ -220,6 +218,10 @@ export function KonvaCanvas({
     brushOpacity,
     toggleRulers,
     toggleGrid,
+    userGuides,
+    addGuide,
+    moveGuide,
+    removeGuide,
   } = useEditorStore();
 
   // ── Crop tool logic ────────────────────────────────────────────────────────
@@ -636,10 +638,7 @@ export function KonvaCanvas({
             const canvasY = (rawPos - offsetY) / scale;
             const snappedY = snapToNearest(canvasY, buildHSnapPoints());
             if (snappedY >= -height && snappedY <= height * 2)
-              setUserGuides((prev) => ({
-                ...prev,
-                h: [...prev.h, snappedY],
-              }));
+              addGuide("h", snappedY);
           }
           if (pendingGuideHRef.current)
             pendingGuideHRef.current.style.display = "none";
@@ -649,10 +648,7 @@ export function KonvaCanvas({
             const canvasX = (rawPos - offsetX) / scale;
             const snappedX = snapToNearest(canvasX, buildVSnapPoints());
             if (snappedX >= -width && snappedX <= width * 2)
-              setUserGuides((prev) => ({
-                ...prev,
-                v: [...prev.v, snappedX],
-              }));
+              addGuide("v", snappedX);
           }
           if (pendingGuideVRef.current)
             pendingGuideVRef.current.style.display = "none";
@@ -679,6 +675,7 @@ export function KonvaCanvas({
     layers,
     activeLayerIds,
     userGuides,
+    addGuide,
   ]);
 
   const editingLayer = layers.find((l) => l.id === editingId) as
@@ -1578,12 +1575,21 @@ export function KonvaCanvas({
       height: Math.abs(sb.height),
     };
 
+    // Convert canvas-coords boxRect to stage pixel coords for correct intersection
+    const stagePxBox = {
+      x: boxRect.x * scale + offsetX,
+      y: boxRect.y * scale + offsetY,
+      width: boxRect.width * scale,
+      height: boxRect.height * scale,
+    };
+
     const selectedIds: string[] = [];
     layers.forEach((layer) => {
+      if (!layer.visible) return;
       const node = stage.findOne(`#${layer.id}`);
       if (node) {
-        const nodeRect = node.getClientRect();
-        if (Konva.Util.haveIntersection(boxRect, nodeRect)) {
+        const nodeRect = node.getClientRect({ relativeTo: stage });
+        if (Konva.Util.haveIntersection(stagePxBox, nodeRect)) {
           selectedIds.push(layer.id);
         }
       }
@@ -2022,6 +2028,11 @@ export function KonvaCanvas({
           ...commonProps,
           layer: layer as DrawLayerType,
         });
+      case "svg":
+        return renderSvgLayer({
+          ...commonProps,
+          layer: layer as SvgLayerType,
+        });
       default:
         return null;
     }
@@ -2174,6 +2185,32 @@ export function KonvaCanvas({
             )}
           </Group>
 
+          {/* Individual layer selection outlines (multi-select) */}
+          {activeTool === "select" &&
+            !editingId &&
+            activeLayerIds.length > 1 &&
+            activeLayerIds.map((id) => {
+              const layer = layers.find((l) => l.id === id);
+              if (!layer?.visible) return null;
+              return (
+                <Rect
+                  fill="transparent"
+                  height={layer.height}
+                  key={`sel-outline-${id}`}
+                  listening={false}
+                  rotation={layer.rotation}
+                  scaleX={layer.scaleX}
+                  scaleY={layer.scaleY}
+                  stroke={UI_COLOR}
+                  strokeScaleEnabled={false}
+                  strokeWidth={inv * 1.5}
+                  width={layer.width}
+                  x={layer.x}
+                  y={layer.y}
+                />
+              );
+            })}
+
           {/* User-created guide lines */}
           {userGuides.h.map((y, i) => (
             <Line
@@ -2189,15 +2226,9 @@ export function KonvaCanvas({
                   ?.container()
                   .style.setProperty("cursor", "default");
                 if (newY < -20 || newY > height + 20) {
-                  setUserGuides((prev) => ({
-                    ...prev,
-                    h: prev.h.filter((_, idx) => idx !== i),
-                  }));
+                  removeGuide("h", i);
                 } else {
-                  setUserGuides((prev) => ({
-                    ...prev,
-                    h: prev.h.map((v, idx) => (idx === i ? newY : v)),
-                  }));
+                  moveGuide("h", i, newY);
                 }
               }}
               onMouseEnter={() =>
@@ -2231,15 +2262,9 @@ export function KonvaCanvas({
                   ?.container()
                   .style.setProperty("cursor", "default");
                 if (newX < -20 || newX > width + 20) {
-                  setUserGuides((prev) => ({
-                    ...prev,
-                    v: prev.v.filter((_, idx) => idx !== i),
-                  }));
+                  removeGuide("v", i);
                 } else {
-                  setUserGuides((prev) => ({
-                    ...prev,
-                    v: prev.v.map((v, idx) => (idx === i ? newX : v)),
-                  }));
+                  moveGuide("v", i, newX);
                 }
               }}
               onMouseEnter={() =>

@@ -18,6 +18,7 @@ import {
   Star,
   Text,
 } from "react-konva";
+import { applySvgColorMap } from "@/components/editor/svg-properties";
 import type {
   AnimatedImageLayer as AnimatedImageLayerType,
   DrawLayer as DrawLayerType,
@@ -25,6 +26,7 @@ import type {
   ImageLayer as ImageLayerType,
   LayerAdjustments,
   ShapeLayer as ShapeLayerType,
+  SvgLayer as SvgLayerType,
   TextLayer as TextLayerType,
 } from "@/stores/use-editor-store";
 
@@ -666,4 +668,77 @@ export function renderDrawLayer(
   props: LayerRenderProps & { layer: DrawLayerType }
 ) {
   return <DrawLayerComponent {...props} />;
+}
+
+// ---- SVG Layer ----
+
+function svgToDataUrl(svgString: string): string {
+  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgString)))}`;
+}
+
+function SvgLayerComponent(props: LayerRenderProps & { layer: SvgLayerType }) {
+  const {
+    layer,
+    activeTool,
+    isActive,
+    imageCache,
+    onDragStart,
+    onDragMove,
+    onDragEnd,
+    onTransformStart,
+    onTransformEnd,
+  } = props;
+
+  const nodeRef = useRef<Konva.Image>(null);
+  const [image, setImage] = useState<HTMLImageElement | null>(null);
+
+  const cacheKey = `svg:${layer.id}:${JSON.stringify(layer.colorMap)}`;
+
+  useEffect(() => {
+    const cached = imageCache.current.get(cacheKey);
+    if (cached) {
+      setImage(cached);
+      return;
+    }
+    const modified = applySvgColorMap(layer.svgString, layer.colorMap);
+    const dataUrl = svgToDataUrl(modified);
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      imageCache.current.set(cacheKey, img);
+      setImage(img);
+    };
+    img.src = dataUrl;
+  }, [cacheKey, layer.svgString, layer.colorMap, imageCache]);
+
+  if (!image) return null;
+
+  return (
+    <Image
+      draggable={!layer.locked && activeTool === "select" && isActive}
+      height={layer.height}
+      id={layer.id}
+      image={image}
+      key={layer.id}
+      onDragEnd={(e) => onDragEnd(e, layer.id)}
+      onDragMove={onDragMove}
+      onDragStart={onDragStart}
+      onTransformEnd={(e) => onTransformEnd(e, layer)}
+      onTransformStart={onTransformStart}
+      opacity={layer.opacity}
+      ref={nodeRef}
+      rotation={layer.rotation}
+      scaleX={layer.scaleX}
+      scaleY={layer.scaleY}
+      width={layer.width}
+      x={layer.x}
+      y={layer.y}
+    />
+  );
+}
+
+export function renderSvgLayer(
+  props: LayerRenderProps & { layer: SvgLayerType }
+) {
+  return <SvgLayerComponent {...props} />;
 }

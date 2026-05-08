@@ -26,6 +26,7 @@ export function LayersPanel() {
     duplicateLayer,
     copyLayers,
     pasteLayers,
+    pushHistory,
   } = useEditorStore();
 
   const [draggingRealIdx, setDraggingRealIdx] = useState<number | null>(null);
@@ -208,6 +209,7 @@ export function LayersPanel() {
                     className="size-6 shrink-0"
                     onClick={(e) => {
                       e.stopPropagation();
+                      pushHistory(layer.visible ? "Hide Layer" : "Show Layer");
                       updateLayer(layer.id, { visible: !layer.visible });
                     }}
                     size="icon-sm"
@@ -225,6 +227,7 @@ export function LayersPanel() {
                     className="size-6 shrink-0"
                     onClick={(e) => {
                       e.stopPropagation();
+                      pushHistory(layer.locked ? "Unlock Layer" : "Lock Layer");
                       updateLayer(layer.id, { locked: !layer.locked });
                     }}
                     size="icon-sm"

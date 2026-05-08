@@ -104,7 +104,7 @@ export function EditorToolbar({
 
   const activeLayer = layers.find((l) => activeLayerIds.includes(l.id));
   const canRemoveBg = activeLayer?.type === "image" && !isProcessing;
-  const canAiGenerate = activeLayer?.type === "image" && !isProcessing;
+  const canAiGenerate = !isProcessing;
 
   const handleAddText = () => {
     addTextLayer("Your Text");

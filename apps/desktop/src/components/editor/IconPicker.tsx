@@ -189,12 +189,13 @@ export function IconPicker({ open, onOpenChange, onSelect }: IconPickerProps) {
         );
       }
 
-      const dataUrl = `data:image/svg+xml;base64,${btoa(
-        unescape(encodeURIComponent(finalSvg))
-      )}`;
+      useEditorStore.getState().addSvgLayer(finalSvg, 128, 128);
+      const id = useEditorStore.getState().activeLayerIds[0];
+      if (id) {
+        useEditorStore.getState().updateLayer(id, { name });
+      }
       addRecentIcon({ name, library });
       setRecentIcons(getRecentIcons());
-      onSelect(dataUrl);
       onOpenChange(false);
     } catch (e) {
       console.error("Icon render error", e);

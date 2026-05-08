@@ -4,6 +4,12 @@
 
 @custom-variant dark (&:is(.dark *));
 
+html[data-tauri][data-tauri-platform="macos"]
+  header[data-tauri-drag-region]
+  > div {
+  padding-left: 5rem;
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);

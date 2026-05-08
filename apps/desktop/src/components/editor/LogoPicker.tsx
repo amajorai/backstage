@@ -199,13 +199,16 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
         const url = entry.resolvedRoute;
 
         const b64 = await invoke<string>("fetch_as_base64", { url });
-        const mimeType = url.toLowerCase().endsWith(".svg")
-          ? "image/svg+xml"
-          : "image/png";
-        const dataUrl = `data:${mimeType};base64,${b64}`;
+        const isSvg = url.toLowerCase().endsWith(".svg");
 
-        const { width, height } = await loadImageDimensions(dataUrl);
-        useEditorStore.getState().addImageLayer(dataUrl, width, height);
+        if (isSvg) {
+          const svgString = atob(b64);
+          useEditorStore.getState().addSvgLayer(svgString, 128, 128);
+        } else {
+          const dataUrl = `data:image/png;base64,${b64}`;
+          const { width, height } = await loadImageDimensions(dataUrl);
+          useEditorStore.getState().addImageLayer(dataUrl, width, height);
+        }
         const id = useEditorStore.getState().activeLayerIds[0];
         if (id) {
           const name = entry.variant

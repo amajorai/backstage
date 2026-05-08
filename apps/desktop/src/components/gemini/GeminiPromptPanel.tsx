@@ -1,4 +1,5 @@
 import { AlertCircle, Loader2 } from "lucide-react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -30,9 +31,8 @@ interface GeminiPromptPanelProps {
   selectedCount: number;
   useSelectedAsInput: boolean;
   onUseSelectedAsInputChange: (value: boolean) => void;
-  hasCanvasInput: boolean;
-  useCanvasAsInput: boolean;
-  onUseCanvasAsInputChange: (value: boolean) => void;
+  /** Rendered above the prompt textarea — for input image selection UI */
+  inputSection?: ReactNode;
   onGenerate: () => void;
 }
 
@@ -52,13 +52,11 @@ export function GeminiPromptPanel({
   selectedCount,
   useSelectedAsInput,
   onUseSelectedAsInputChange,
-  hasCanvasInput,
-  useCanvasAsInput,
-  onUseCanvasAsInputChange,
+  inputSection,
   onGenerate,
 }: GeminiPromptPanelProps) {
   return (
-    <div className="flex w-80 shrink-0 flex-col gap-4 overflow-y-auto p-4">
+    <div className="flex h-full flex-col gap-4 overflow-y-auto p-4">
       {!hasApiKey && (
         <div className="flex items-start gap-2 rounded-md border border-yellow-500/50 bg-yellow-500/10 p-3 text-sm text-yellow-600">
           <AlertCircle className="mt-0.5 size-4 shrink-0" />
@@ -67,6 +65,9 @@ export function GeminiPromptPanel({
           </span>
         </div>
       )}
+
+      {/* Input images section (injected by parent) */}
+      {inputSection}
 
       {/* Prompt Input */}
       <div className="flex flex-1 flex-col gap-2">
@@ -78,11 +79,7 @@ export function GeminiPromptPanel({
           disabled={!hasApiKey || isGenerating}
           id="prompt"
           onChange={(e) => onPromptChange(e.target.value)}
-          placeholder={
-            hasCanvasInput && useCanvasAsInput
-              ? "Describe how you want to transform the image..."
-              : "Describe the image you want to generate..."
-          }
+          placeholder="Describe the image you want to generate..."
           value={prompt}
         />
       </div>
@@ -97,20 +94,7 @@ export function GeminiPromptPanel({
         </div>
       )}
 
-      {/* Canvas as input toggle */}
-      {hasCanvasInput && (
-        <label className="flex cursor-pointer items-center gap-1.5 text-muted-foreground text-xs hover:text-foreground">
-          <Checkbox
-            checked={useCanvasAsInput}
-            onCheckedChange={(checked) =>
-              onUseCanvasAsInputChange(checked === true)
-            }
-          />
-          <span>Use canvas as input</span>
-        </label>
-      )}
-
-      {/* Use selected as input checkbox */}
+      {/* Use selected generated images as input */}
       {hasGeneratedImages && hasSelection && (
         <label className="flex cursor-pointer items-center gap-1.5 text-muted-foreground text-xs hover:text-foreground">
           <Checkbox
