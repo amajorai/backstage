@@ -4,10 +4,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
-html[data-tauri][data-tauri-platform="macos"]
-  header[data-tauri-drag-region]
-  > div {
-  padding-left: 5rem;
+/* Tauri drag spacer — only the explicit spacer drags, nothing else */
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+  app-region: drag;
+  cursor: default;
 }
 
 :root {

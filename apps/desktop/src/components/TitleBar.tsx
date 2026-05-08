@@ -110,7 +110,7 @@ export function TitleBar({
           </div>
         )}
 
-        <div className="relative z-[1001] mr-[160px] flex items-center gap-2">
+        <div className="relative z-[1001] flex items-center gap-2">
           {actions}
         </div>
       </div>

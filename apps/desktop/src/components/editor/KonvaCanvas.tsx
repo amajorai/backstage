@@ -1,6 +1,7 @@
 import Konva from "konva";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Circle,
   Group,
   Image as KonvaImage,
   Layer,
@@ -67,9 +68,9 @@ interface KonvaCanvasProps {
 const SNAP_THRESHOLD = 20;
 const UI_COLOR = "oklch(0.685 0.169 237.323)";
 
-/** Returns the effective width/height of a layer (TextLayer has none, so returns 0). */
+/** Returns the effective width/height of a layer. */
 function getLayerDimensions(l: EditorLayer): { w: number; h: number } {
-  if (l.type === "text") return { w: 0, h: 0 };
+  if (l.type === "text") return { w: l.width ?? 300, h: 0 };
   return { w: l.width, h: l.height };
 }
 
@@ -126,6 +127,7 @@ export function KonvaCanvas({
   });
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
+  const cornerHandlesGroupRef = useRef<Konva.Group>(null);
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
   const stageContainerRef = useRef<HTMLDivElement>(null);
   const [snapGuides, setSnapGuides] = useState<SnapGuides>({
@@ -689,6 +691,7 @@ export function KonvaCanvas({
           throw new Error("Canvas not ready");
         }
         transformerRef.current?.hide();
+        cornerHandlesGroupRef.current?.hide();
         const dataUrl = stageRef.current.toDataURL({
           pixelRatio: 1 / scale,
           x: offsetX,
@@ -697,6 +700,7 @@ export function KonvaCanvas({
           height: height * scale,
         });
         transformerRef.current?.show();
+        cornerHandlesGroupRef.current?.show();
         return dataUrl;
       };
     }
@@ -722,6 +726,34 @@ export function KonvaCanvas({
     }
     transformerRef.current.getLayer()?.batchDraw();
   }, [activeLayerIds, activeTool, editingId]);
+
+  // Keep corner-radius handle Group in sync with its target layer node.
+  // We do this imperatively (like Konva's Transformer) so position stays
+  // correct even during drag, without needing React state updates.
+  useEffect(() => {
+    const stage = stageRef.current;
+    const handlesGroup = cornerHandlesGroupRef.current;
+    if (!(stage && handlesGroup) || activeLayerIds.length !== 1) return;
+
+    const layerId = activeLayerIds[0];
+    const targetNode = stage.findOne<Konva.Node>(`#${layerId}`);
+    if (!targetNode) return;
+
+    const sync = () => {
+      handlesGroup.x(targetNode.x());
+      handlesGroup.y(targetNode.y());
+      handlesGroup.rotation(targetNode.rotation());
+      handlesGroup.scaleX(targetNode.scaleX());
+      handlesGroup.scaleY(targetNode.scaleY());
+      handlesGroup.getLayer()?.batchDraw();
+    };
+
+    sync();
+    targetNode.on("dragmove.ch transform.ch", sync);
+    return () => {
+      targetNode.off("dragmove.ch transform.ch");
+    };
+  });
 
   // Update canvas cursor for brush/eraser/magic-select tools
   useEffect(() => {
@@ -1910,16 +1942,31 @@ export function KonvaCanvas({
 
       if (layer.type === "text") {
         const scaleX = node.scaleX();
+        const scaleY = node.scaleY();
         node.scaleX(1);
         node.scaleY(1);
-        if (scaleX !== 1) {
+        const textLayer = layer as TextLayerType;
+        const currentWidth = textLayer.width ?? 300;
+        const proportional = Math.abs(scaleX - scaleY) < 0.02;
+        if (proportional && Math.abs(scaleX - 1) > 0.001) {
+          // Corner drag: scale both font size and box width proportionally
           updateLayer(layer.id, {
             x: node.x(),
             y: node.y(),
             rotation: node.rotation(),
-            fontSize: Math.round((layer as TextLayerType).fontSize * scaleX),
+            fontSize: Math.max(1, Math.round(textLayer.fontSize * scaleX)),
+            width: Math.max(10, Math.round(currentWidth * scaleX)),
+          });
+        } else if (Math.abs(scaleX - 1) > 0.001) {
+          // Horizontal edge drag: resize box width, keep font size
+          updateLayer(layer.id, {
+            x: node.x(),
+            y: node.y(),
+            rotation: node.rotation(),
+            width: Math.max(10, Math.round(currentWidth * scaleX)),
           });
         } else {
+          // Rotation only or vertical edge (vertical ignored — height is auto)
           updateLayer(layer.id, {
             x: node.x(),
             y: node.y(),
@@ -1951,12 +1998,35 @@ export function KonvaCanvas({
 
         const layerState = layers.find((l) => l.id === node.id());
         if (layerState?.type === "text") {
-          updateLayer(node.id(), {
-            x: node.x(),
-            y: node.y(),
-            rotation: node.rotation(),
-            fontSize: Math.round(layerState.fontSize * scaleX),
-          });
+          // handleTransformEnd already ran and reset scale to 1 — skip to avoid overwrite
+          if (Math.abs(scaleX - 1) < 0.001 && Math.abs(scaleY - 1) < 0.001) {
+            // already handled
+          } else {
+            const currentWidth = (layerState as TextLayerType).width ?? 300;
+            const proportional = Math.abs(scaleX - scaleY) < 0.02;
+            if (proportional && Math.abs(scaleX - 1) > 0.001) {
+              updateLayer(node.id(), {
+                x: node.x(),
+                y: node.y(),
+                rotation: node.rotation(),
+                fontSize: Math.max(1, Math.round(layerState.fontSize * scaleX)),
+                width: Math.max(10, Math.round(currentWidth * scaleX)),
+              });
+            } else if (Math.abs(scaleX - 1) > 0.001) {
+              updateLayer(node.id(), {
+                x: node.x(),
+                y: node.y(),
+                rotation: node.rotation(),
+                width: Math.max(10, Math.round(currentWidth * scaleX)),
+              });
+            } else {
+              updateLayer(node.id(), {
+                x: node.x(),
+                y: node.y(),
+                rotation: node.rotation(),
+              });
+            }
+          }
         } else if (layerState) {
           node.scaleX(scaleX);
           node.scaleY(scaleY);
@@ -2195,7 +2265,7 @@ export function KonvaCanvas({
               return (
                 <Rect
                   fill="transparent"
-                  height={layer.height}
+                  height={"height" in layer ? layer.height : 0}
                   key={`sel-outline-${id}`}
                   listening={false}
                   rotation={layer.rotation}
@@ -2204,7 +2274,7 @@ export function KonvaCanvas({
                   stroke={UI_COLOR}
                   strokeScaleEnabled={false}
                   strokeWidth={inv * 1.5}
-                  width={layer.width}
+                  width={"width" in layer ? layer.width : 0}
                   x={layer.x}
                   y={layer.y}
                 />
@@ -2214,7 +2284,7 @@ export function KonvaCanvas({
           {/* User-created guide lines */}
           {userGuides.h.map((y, i) => (
             <Line
-              dragBoundFunc={(pos) => ({ x: 0, y: pos.y })}
+              dragBoundFunc={(pos) => ({ x: offsetX, y: pos.y })}
               draggable={activeTool === "select"}
               hitStrokeWidth={8 * inv}
               key={`user-guide-h-${i}`}
@@ -2250,7 +2320,7 @@ export function KonvaCanvas({
           ))}
           {userGuides.v.map((x, i) => (
             <Line
-              dragBoundFunc={(pos) => ({ x: pos.x, y: 0 })}
+              dragBoundFunc={(pos) => ({ x: pos.x, y: offsetY })}
               draggable={activeTool === "select"}
               hitStrokeWidth={8 * inv}
               key={`user-guide-v-${i}`}
@@ -2439,15 +2509,150 @@ export function KonvaCanvas({
             </>
           )}
 
+          {/* Corner radius drag handles — position kept in sync imperatively */}
+          {activeTool === "select" &&
+            activeLayerIds.length === 1 &&
+            (() => {
+              const handleLayer = layers.find(
+                (l) => l.id === activeLayerIds[0]
+              );
+              if (
+                !handleLayer?.visible ||
+                (handleLayer.type !== "image" &&
+                  handleLayer.type !== "animated-image")
+              )
+                return null;
+
+              const cr = handleLayer.cornerRadius;
+              const isLinked = typeof cr === "number";
+              const radii: [number, number, number, number] = isLinked
+                ? [cr, cr, cr, cr]
+                : cr;
+              const maxR = Math.min(handleLayer.width, handleLayer.height) / 2;
+              const handleRadius = 5 / scale;
+              // Always keep handles MIN_OFFSET local-units inside the corner so
+              // they're visible even when cornerRadius === 0.
+              const MIN_OFFSET = 14 / scale;
+              const cornerCursors = [
+                "nwse-resize",
+                "nesw-resize",
+                "nwse-resize",
+                "nesw-resize",
+              ] as const;
+
+              const cx = [
+                (r: number) => Math.max(r, MIN_OFFSET),
+                (r: number) => handleLayer.width - Math.max(r, MIN_OFFSET),
+                (r: number) => handleLayer.width - Math.max(r, MIN_OFFSET),
+                (r: number) => Math.max(r, MIN_OFFSET),
+              ];
+              const cy = [
+                (r: number) => Math.max(r, MIN_OFFSET),
+                (r: number) => Math.max(r, MIN_OFFSET),
+                (r: number) => handleLayer.height - Math.max(r, MIN_OFFSET),
+                (r: number) => handleLayer.height - Math.max(r, MIN_OFFSET),
+              ];
+
+              return (
+                // No position props — synced imperatively via useEffect below
+                <Group ref={cornerHandlesGroupRef}>
+                  {([0, 1, 2, 3] as const).map((idx) => {
+                    const r = Math.min(radii[idx], maxR);
+                    return (
+                      <Circle
+                        draggable
+                        fill="#fff"
+                        hitStrokeWidth={0}
+                        key={idx}
+                        onDragMove={(e: Konva.KonvaEventObject<DragEvent>) => {
+                          const node = e.target as Konva.Circle;
+                          const lx = node.x();
+                          const ly = node.y();
+                          let newR: number;
+                          if (idx === 0)
+                            newR = Math.max(0, Math.min(lx, ly, maxR));
+                          else if (idx === 1)
+                            newR = Math.max(
+                              0,
+                              Math.min(handleLayer.width - lx, ly, maxR)
+                            );
+                          else if (idx === 2)
+                            newR = Math.max(
+                              0,
+                              Math.min(
+                                handleLayer.width - lx,
+                                handleLayer.height - ly,
+                                maxR
+                              )
+                            );
+                          else
+                            newR = Math.max(
+                              0,
+                              Math.min(lx, handleLayer.height - ly, maxR)
+                            );
+                          node.x(cx[idx](newR));
+                          node.y(cy[idx](newR));
+                          if (isLinked) {
+                            updateLayer(handleLayer.id, {
+                              cornerRadius: newR,
+                            });
+                          } else {
+                            const next: [number, number, number, number] = [
+                              ...radii,
+                            ];
+                            next[idx] = newR;
+                            updateLayer(handleLayer.id, {
+                              cornerRadius: next,
+                            });
+                          }
+                        }}
+                        onMouseEnter={() => {
+                          const container = stageRef.current?.container();
+                          if (container)
+                            container.style.cursor = cornerCursors[idx];
+                        }}
+                        onMouseLeave={() => {
+                          const container = stageRef.current?.container();
+                          if (container) container.style.cursor = "default";
+                        }}
+                        radius={handleRadius}
+                        stroke={UI_COLOR}
+                        strokeScaleEnabled={false}
+                        strokeWidth={1.5}
+                        x={cx[idx](r)}
+                        y={cy[idx](r)}
+                      />
+                    );
+                  })}
+                </Group>
+              );
+            })()}
+
           <Transformer
             anchorCornerRadius={2}
             anchorFill="#fff"
             anchorSize={10}
             anchorStroke={UI_COLOR}
             anchorStrokeWidth={1.5}
+            borderEnabled={activeLayerIds.length <= 1}
             borderStroke={UI_COLOR}
             borderStrokeWidth={1.5}
             boundBoxFunc={snapBoundBoxFunc}
+            enabledAnchors={
+              activeLayerIds.length > 0 &&
+              activeLayerIds.every(
+                (id) => layers.find((l) => l.id === id)?.type === "text"
+              )
+                ? [
+                    "top-left",
+                    "top-right",
+                    "bottom-left",
+                    "bottom-right",
+                    "middle-left",
+                    "middle-right",
+                  ]
+                : undefined
+            }
             onTransform={handleTransformerTransform}
             onTransformEnd={onTransformerEnd}
             ref={transformerRef}
@@ -2466,13 +2671,11 @@ export function KonvaCanvas({
             : null;
           return (
             <textarea
-              className="absolute m-0 resize-none overflow-hidden border-none bg-transparent p-0 outline-1 focus:outline-blue-500"
+              className="absolute m-0 resize-none border-none bg-transparent p-0 outline-1 focus:outline-blue-500"
               onBlur={handleTextBlur}
               onChange={(e) => {
                 updateLayer(editingId, { text: e.target.value });
-                e.target.style.width = "0px";
                 e.target.style.height = "0px";
-                e.target.style.width = `${e.target.scrollWidth + 10}px`;
                 e.target.style.height = `${e.target.scrollHeight}px`;
               }}
               onKeyDown={(e) => {
@@ -2488,17 +2691,15 @@ export function KonvaCanvas({
               style={{
                 left: nodeRect ? nodeRect.x : offsetX + editingLayer.x * scale,
                 top: nodeRect ? nodeRect.y : offsetY + editingLayer.y * scale,
-                width: Math.max(
-                  100,
-                  nodeRect
-                    ? nodeRect.width + 20
-                    : (editingLayer.text.length + 1) *
-                        editingLayer.fontSize *
-                        0.6 *
-                        scale
-                ),
-                minHeight: nodeRect ? nodeRect.height : undefined,
+                width: (editingLayer.width ?? 300) * scale,
                 height: "auto",
+                minHeight:
+                  editingLayer.fontSize *
+                  (editingLayer.lineHeight ?? 1) *
+                  scale,
+                overflow: "hidden",
+                overflowWrap: "break-word",
+                whiteSpace: "pre-wrap",
                 fontSize: editingLayer.fontSize * scale,
                 fontFamily: editingLayer.fontFamily,
                 fontWeight: editingLayer.fontStyle.includes("bold")
@@ -2512,6 +2713,7 @@ export function KonvaCanvas({
                 letterSpacing: `${editingLayer.letterSpacing ?? 0}px`,
                 transform: `rotate(${editingLayer.rotation}deg)`,
                 transformOrigin: "top left",
+                textAlign: editingLayer.align ?? "left",
               }}
               value={editingLayer.text}
             />

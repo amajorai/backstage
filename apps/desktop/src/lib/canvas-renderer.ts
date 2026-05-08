@@ -1,5 +1,34 @@
 import type { Layer, LayerAdjustments } from "@/stores/use-editor-store";
 
+function wordWrapLines(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number | undefined
+): string[] {
+  const paragraphs = text.split("\n");
+  if (!maxWidth) return paragraphs;
+  const result: string[] = [];
+  for (const paragraph of paragraphs) {
+    if (paragraph === "") {
+      result.push("");
+      continue;
+    }
+    const words = paragraph.split(" ");
+    let current = "";
+    for (const word of words) {
+      const test = current ? `${current} ${word}` : word;
+      if (ctx.measureText(test).width > maxWidth && current) {
+        result.push(current);
+        current = word;
+      } else {
+        current = test;
+      }
+    }
+    result.push(current);
+  }
+  return result;
+}
+
 function buildCSSFilter(adj: LayerAdjustments): string {
   const parts: string[] = [];
   if (adj.brightness !== 0)
@@ -199,7 +228,7 @@ export async function renderLayersToCanvas(
       }
 
       const lineH = layer.lineHeight ?? 1;
-      const lines = displayText.split("\n");
+      const lines = wordWrapLines(ctx, displayText, layer.width);
       const lineHeightPx = layer.fontSize * lineH;
 
       // Background

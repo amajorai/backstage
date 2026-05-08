@@ -209,6 +209,11 @@
   animation-fill-mode: both;
 }
 
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

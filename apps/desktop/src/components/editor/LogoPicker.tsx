@@ -202,7 +202,8 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
         const isSvg = url.toLowerCase().endsWith(".svg");
 
         if (isSvg) {
-          const svgString = atob(b64);
+          const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+          const svgString = new TextDecoder("utf-8").decode(bytes);
           useEditorStore.getState().addSvgLayer(svgString, 128, 128);
         } else {
           const dataUrl = `data:image/png;base64,${b64}`;
@@ -243,7 +244,7 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
       <Tooltip key={entry.variantKey}>
         <TooltipTrigger asChild>
           <button
-            className="relative flex w-full items-center justify-center rounded border border-transparent p-2 transition-colors hover:border-border hover:bg-muted disabled:opacity-50"
+            className="relative flex items-center justify-center rounded border border-transparent p-2 transition-colors hover:border-border hover:bg-muted disabled:opacity-50"
             disabled={loadingKey !== null}
             onClick={() => handleSelect(entry)}
             type="button"

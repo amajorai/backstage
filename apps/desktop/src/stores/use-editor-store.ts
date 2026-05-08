@@ -47,11 +47,22 @@ export interface ImageLayer extends BaseLayer {
   height: number;
   cornerRadius: number | [number, number, number, number];
   adjustments?: LayerAdjustments;
+  shadowColor?: string;
+  shadowBlur?: number;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  glowColor?: string;
+  glowSize?: number;
+  flipHorizontal?: boolean;
+  flipVertical?: boolean;
+  lockAspectRatio?: boolean;
+  fillMode?: "fit" | "fill" | "stretch";
 }
 // Text layer with rich styling
 export interface TextLayer extends BaseLayer {
   type: "text";
   text: string;
+  width: number;
   fontSize: number;
   fontFamily: string;
   fontStyle: "normal" | "bold" | "italic" | "bold italic";
@@ -450,6 +461,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       scaleY: 1,
       opacity: 1,
       text,
+      width: 300,
       fontSize: 48,
       fontFamily: "Inter",
       fontStyle: "normal",

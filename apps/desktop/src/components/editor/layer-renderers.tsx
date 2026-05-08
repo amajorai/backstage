@@ -155,57 +155,124 @@ function ImageLayerComponent(
     (Array.isArray(layer.cornerRadius) &&
       layer.cornerRadius.some((r: number) => r > 0));
 
-  if (!hasCornerRadius) {
-    return (
-      <Image
-        draggable={!layer.locked && activeTool === "select" && isActive}
-        height={layer.height}
-        id={layer.id}
-        image={image}
-        key={layer.id}
-        onDragEnd={(e) => onDragEnd(e, layer.id)}
-        onDragMove={onDragMove}
-        onDragStart={onDragStart}
-        onTransformEnd={(e) => onTransformEnd(e, layer)}
-        onTransformStart={onTransformStart}
-        opacity={layer.opacity}
-        ref={nodeRef}
-        rotation={layer.rotation}
-        scaleX={layer.scaleX}
-        scaleY={layer.scaleY}
-        width={layer.width}
-        x={layer.x}
-        y={layer.y}
-      />
-    );
+  const hasGlow = (layer.glowSize ?? 0) > 0 && layer.glowColor;
+  const shadowColor = hasGlow
+    ? (layer.glowColor ?? layer.shadowColor)
+    : layer.shadowColor;
+  const shadowBlur = hasGlow ? (layer.glowSize ?? 0) : (layer.shadowBlur ?? 0);
+  const shadowOffsetX = hasGlow ? 0 : (layer.shadowOffsetX ?? 0);
+  const shadowOffsetY = hasGlow ? 0 : (layer.shadowOffsetY ?? 0);
+  const hasShadow =
+    !!shadowColor &&
+    (shadowBlur > 0 || shadowOffsetX !== 0 || shadowOffsetY !== 0);
+
+  const flipH = layer.flipHorizontal ?? false;
+  const flipV = layer.flipVertical ?? false;
+
+  // Fill mode: compute crop or fit offset
+  const fillMode = layer.fillMode ?? "stretch";
+  let cropProp:
+    | { x: number; y: number; width: number; height: number }
+    | undefined;
+  let fitOffsetX = 0;
+  let fitOffsetY = 0;
+  let renderWidth = layer.width;
+  let renderHeight = layer.height;
+
+  if (fillMode !== "stretch" && image && image.naturalWidth) {
+    const nw = image.naturalWidth;
+    const nh = image.naturalHeight;
+    const containerAspect = layer.width / layer.height;
+    const imageAspect = nw / nh;
+
+    if (fillMode === "fill") {
+      if (imageAspect > containerAspect) {
+        const srcH = nh;
+        const srcW = nh * containerAspect;
+        cropProp = { x: (nw - srcW) / 2, y: 0, width: srcW, height: srcH };
+      } else {
+        const srcW = nw;
+        const srcH = nw / containerAspect;
+        cropProp = { x: 0, y: (nh - srcH) / 2, width: srcW, height: srcH };
+      }
+    } else if (fillMode === "fit") {
+      if (imageAspect > containerAspect) {
+        renderWidth = layer.width;
+        renderHeight = layer.width / imageAspect;
+        fitOffsetY = (layer.height - renderHeight) / 2;
+      } else {
+        renderHeight = layer.height;
+        renderWidth = layer.height * imageAspect;
+        fitOffsetX = (layer.width - renderWidth) / 2;
+      }
+    }
   }
 
+  const draggable = !layer.locked && activeTool === "select" && isActive;
+  const commonGroupProps = {
+    id: layer.id,
+    key: layer.id,
+    x: layer.x,
+    y: layer.y,
+    rotation: layer.rotation,
+    scaleX: layer.scaleX,
+    scaleY: layer.scaleY,
+    opacity: layer.opacity,
+    draggable,
+    onDragStart,
+    onDragMove,
+    onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => onDragEnd(e, layer.id),
+    onTransformStart,
+    onTransformEnd: (e: Konva.KonvaEventObject<Event>) =>
+      onTransformEnd(e, layer),
+    shadowColor: hasShadow ? shadowColor : undefined,
+    shadowBlur: hasShadow ? shadowBlur : undefined,
+    shadowOffsetX: hasShadow ? shadowOffsetX : undefined,
+    shadowOffsetY: hasShadow ? shadowOffsetY : undefined,
+    shadowEnabled: hasShadow,
+  };
+
+  const innerGroupProps = {
+    clipFunc: hasCornerRadius
+      ? (ctx: {
+          beginPath(): void;
+          moveTo(x: number, y: number): void;
+          lineTo(x: number, y: number): void;
+          arcTo(
+            x1: number,
+            y1: number,
+            x2: number,
+            y2: number,
+            r: number
+          ): void;
+          closePath(): void;
+        }) =>
+          drawRoundedRectPath(
+            ctx,
+            layer.width,
+            layer.height,
+            layer.cornerRadius
+          )
+      : undefined,
+    scaleX: flipH ? -1 : 1,
+    scaleY: flipV ? -1 : 1,
+    offsetX: flipH ? layer.width : 0,
+    offsetY: flipV ? layer.height : 0,
+  };
+
   return (
-    <Group
-      clipFunc={(ctx) => {
-        drawRoundedRectPath(ctx, layer.width, layer.height, layer.cornerRadius);
-      }}
-      draggable={!layer.locked && activeTool === "select" && isActive}
-      id={layer.id}
-      key={layer.id}
-      onDragEnd={(e) => onDragEnd(e, layer.id)}
-      onDragMove={onDragMove}
-      onDragStart={onDragStart}
-      onTransformEnd={(e) => onTransformEnd(e, layer)}
-      onTransformStart={onTransformStart}
-      opacity={layer.opacity}
-      rotation={layer.rotation}
-      scaleX={layer.scaleX}
-      scaleY={layer.scaleY}
-      x={layer.x}
-      y={layer.y}
-    >
-      <Image
-        height={layer.height}
-        image={image}
-        ref={nodeRef}
-        width={layer.width}
-      />
+    <Group {...commonGroupProps}>
+      <Group {...innerGroupProps}>
+        <Image
+          crop={cropProp}
+          height={renderHeight}
+          image={image}
+          ref={nodeRef}
+          width={renderWidth}
+          x={fitOffsetX}
+          y={fitOffsetY}
+        />
+      </Group>
     </Group>
   );
 }
@@ -304,6 +371,8 @@ function TextLayerComponent(
       strokeWidth={layer.strokeWidth}
       text={displayText}
       textDecoration={layer.textDecoration ?? ""}
+      width={layer.width ?? 300}
+      wrap="word"
       x={layer.x}
       y={layer.y}
     />
@@ -356,6 +425,8 @@ function TextLayerComponent(
         strokeWidth={layer.strokeWidth}
         text={displayText}
         textDecoration={layer.textDecoration ?? ""}
+        width={layer.width ?? 300}
+        wrap="word"
       />
     </Group>
   );
@@ -711,14 +782,14 @@ function SvgLayerComponent(props: LayerRenderProps & { layer: SvgLayerType }) {
     img.src = dataUrl;
   }, [cacheKey, layer.svgString, layer.colorMap, imageCache]);
 
-  if (!image) return null;
-
+  // Always render the node so Konva registers #id for the Transformer,
+  // even while the image is still loading. image={undefined} renders nothing visible.
   return (
     <Image
       draggable={!layer.locked && activeTool === "select" && isActive}
       height={layer.height}
       id={layer.id}
-      image={image}
+      image={image ?? undefined}
       key={layer.id}
       onDragEnd={(e) => onDragEnd(e, layer.id)}
       onDragMove={onDragMove}

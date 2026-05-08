@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AdjustmentProperties } from "@/components/editor/adjustment-properties";
-import { ImageColorProperties } from "@/components/editor/image-color-properties";
 import { ImageProperties } from "@/components/editor/image-properties";
 import { ShadowProperties } from "@/components/editor/shadow-properties";
 import { ShapeProperties } from "@/components/editor/shape-properties";
@@ -161,19 +160,10 @@ export function PropertiesPanel() {
 
         {/* Image-specific */}
         {activeLayer?.type === "image" && (
-          <>
-            <ImageColorProperties
-              layer={activeLayer as ImageLayer}
-              onUpdate={(updates) =>
-                updateWithHistory(updates as Partial<Layer>)
-              }
-            />
-            <div className="border-border border-t" />
-            <ImageProperties
-              layer={activeLayer as ImageLayer}
-              onUpdate={updateWithHistory}
-            />
-          </>
+          <ImageProperties
+            layer={activeLayer as ImageLayer}
+            onUpdate={updateWithHistory}
+          />
         )}
 
         {/* SVG-specific */}

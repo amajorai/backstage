@@ -28,6 +28,7 @@ interface TabsState {
   closeOtherTabs: (tabId: string) => void;
   duplicateTab: (tabId: string) => void;
   reopenClosedTab: () => void;
+  reorderTabs: (fromIndex: number, toIndex: number) => void;
   setActiveTab: (tabId: string) => void;
   setEditorVisible: (visible: boolean) => void;
   updateTabName: (tabId: string, name: string) => void;
@@ -223,6 +224,17 @@ export const useTabsStore = create<TabsState>()((set, get) => ({
       set({ tabs: newTabs, activeTabId: newTab.id, editorVisible: true });
     }
 
+    void get().savePersistedTabs();
+  },
+
+  reorderTabs: (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    set((s) => {
+      const tabs = [...s.tabs];
+      const [moved] = tabs.splice(fromIndex, 1);
+      tabs.splice(toIndex, 0, moved);
+      return { tabs };
+    });
     void get().savePersistedTabs();
   },
 

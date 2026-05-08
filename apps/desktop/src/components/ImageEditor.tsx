@@ -909,8 +909,8 @@ export function ImageEditor({
         type: l.type,
         x: l.x,
         y: l.y,
-        width: l.width,
-        height: l.height,
+        width: "width" in l ? l.width : undefined,
+        height: "height" in l ? l.height : undefined,
       })),
     };
   }, [canvasSize]);
