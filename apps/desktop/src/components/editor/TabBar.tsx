@@ -260,7 +260,7 @@ export function TabBar({
           className={`relative z-[1001] flex h-7 shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-3 text-xs transition-colors ${
             editorVisible
               ? "text-muted-foreground hover:bg-muted hover:text-foreground"
-              : "bg-muted text-foreground"
+              : "bg-background text-foreground"
           }`}
           onClick={handleGalleryClick}
           style={noDrag}
