@@ -206,7 +206,7 @@ export default function App() {
   // AI Generate page
   if (page === "ai-generate") {
     return (
-      <div className="flex h-screen flex-col bg-neutral-950">
+      <div className="flex h-screen flex-col bg-background">
         <TabBar activePage={page} />
         <div className={contentClass}>
           <GeminiImagePage
@@ -228,7 +228,7 @@ export default function App() {
   // Trash page
   if (page === "trash") {
     return (
-      <div className="flex h-screen flex-col bg-neutral-950">
+      <div className="flex h-screen flex-col bg-background">
         <TabBar activePage={page} />
         <div className={contentClass}>
           <TrashPage onClose={() => setPage("gallery")} />
@@ -241,7 +241,7 @@ export default function App() {
   // Settings page
   if (page === "settings") {
     return (
-      <div className="flex h-screen flex-col bg-neutral-950">
+      <div className="flex h-screen flex-col bg-background">
         <TabBar activePage={page} />
         <div className={contentClass}>
           <SettingsPage onClose={() => setPage("gallery")} />
@@ -259,7 +259,7 @@ export default function App() {
       : null;
 
     return (
-      <div className="flex h-screen flex-col bg-neutral-950">
+      <div className="flex h-screen flex-col bg-background">
         <TabBar activePage="gallery" />
         <div className={contentClass}>
           {activeTab && activeThumbnail && (
@@ -288,7 +288,7 @@ export default function App() {
 
   // Gallery (default or when tabs exist but editor hidden)
   return (
-    <div className="flex h-screen flex-col bg-neutral-950">
+    <div className="flex h-screen flex-col bg-background">
       <TabBar activePage="gallery" />
       <div className={contentClass}>
         <Gallery

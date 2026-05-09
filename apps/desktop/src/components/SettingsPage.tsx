@@ -358,6 +358,7 @@ function AppearanceSettings() {
           >
             <Switch checked={persistTabs} onCheckedChange={setPersistTabs} />
           </SettingRow>
+          <div className="h-2" />
           <SettingRow title="December Snowfall">
             <Switch
               checked={showDecemberSnow}

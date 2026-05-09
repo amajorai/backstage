@@ -1,5 +1,15 @@
-import { GalleryThumbnails, RotateCcw, X, XSquare } from "lucide-react";
-import { Fragment, useState } from "react";
+import {
+  File,
+  GalleryHorizontal,
+  GalleryThumbnails,
+  RotateCcw,
+  Settings,
+  Sparkles,
+  Trash2,
+  X,
+  XSquare,
+} from "lucide-react";
+import { Fragment, useLayoutEffect, useRef, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +40,13 @@ const PAGE_LABELS: Record<ActivePage, string> = {
   settings: "Settings",
 };
 
+const PAGE_ICONS: Record<ActivePage, React.ReactNode> = {
+  gallery: <GalleryHorizontal className="size-3 shrink-0" />,
+  "ai-generate": <Sparkles className="size-3 shrink-0" />,
+  trash: <Trash2 className="size-3 shrink-0" />,
+  settings: <Settings className="size-3 shrink-0" />,
+};
+
 const noDrag = { WebkitAppRegion: "no-drag" } as React.CSSProperties;
 
 export function TabBar({
@@ -41,6 +58,24 @@ export function TabBar({
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const tabContainerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const el = tabContainerRef.current;
+    if (!el) return;
+    setContainerWidth(el.offsetWidth);
+    const ro = new ResizeObserver(() => setContainerWidth(el.offsetWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Prevent WebView2 native context menu so Radix can handle right-clicks
+  useLayoutEffect(() => {
+    const prevent = (e: MouseEvent) => e.preventDefault();
+    document.addEventListener("contextmenu", prevent);
+    return () => document.removeEventListener("contextmenu", prevent);
+  }, []);
 
   const tabs = useTabsStore((s) => s.tabs);
   const activeTabId = useTabsStore((s) => s.activeTabId);
@@ -53,6 +88,14 @@ export function TabBar({
   const reopenClosedTab = useTabsStore((s) => s.reopenClosedTab);
   const reorderTabs = useTabsStore((s) => s.reorderTabs);
   const historyIndex = useEditorStore((s) => s.historyIndex);
+
+  // Stable refs so keyboard handler never goes stale
+  const tabsRef = useRef(tabs);
+  const activeTabIdRef = useRef(activeTabId);
+  const historyIndexRef = useRef(historyIndex);
+  tabsRef.current = tabs;
+  activeTabIdRef.current = activeTabId;
+  historyIndexRef.current = historyIndex;
 
   const isTabDirty = (tab: TabEntry) => {
     if (tab.id === activeTabId) {
@@ -70,11 +113,6 @@ export function TabBar({
     }
   };
 
-  const handleGalleryClick = () => {
-    if (!editorVisible) return;
-    setEditorVisible(false);
-  };
-
   const handleCloseTab = (tab: TabEntry) => {
     guardDirty(tab, () => closeTab(tab.id));
   };
@@ -87,6 +125,48 @@ export function TabBar({
     } else {
       closeOtherTabs(tab.id);
     }
+  };
+
+  // Keyboard shortcuts — use refs so the handler is registered once
+  useLayoutEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!e.ctrlKey) return;
+      const tabs = tabsRef.current;
+      const activeTabId = activeTabIdRef.current;
+
+      if (e.key === "Tab") {
+        e.preventDefault();
+        if (tabs.length === 0) return;
+        const idx = tabs.findIndex((t) => t.id === activeTabId);
+        const next = e.shiftKey
+          ? (idx - 1 + tabs.length) % tabs.length
+          : (idx + 1) % tabs.length;
+        setActiveTab(tabs[next].id);
+      } else if (e.shiftKey && e.key === "T") {
+        e.preventDefault();
+        reopenClosedTab();
+      } else if (e.key === "w") {
+        e.preventDefault();
+        const activeTab = tabs.find((t) => t.id === activeTabId);
+        if (!activeTab) return;
+        const hi = historyIndexRef.current;
+        const isDirty =
+          hi !== activeTab.savedHistoryIndex &&
+          activeTab.savedHistoryIndex !== -1;
+        if (isDirty) {
+          setPendingAction(() => () => closeTab(activeTab.id));
+        } else {
+          closeTab(activeTab.id);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [setActiveTab, reopenClosedTab, closeTab]);
+
+  const handleGalleryClick = () => {
+    if (!editorVisible) return;
+    setEditorVisible(false);
   };
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
@@ -128,10 +208,24 @@ export function TabBar({
 
   const isMac = /Mac/.test(navigator.userAgent);
 
+  const GAP_PX = 8;
+  const MAX_TAB_PX = 176;
+  const MIN_TAB_PX = 40;
+  const tabWidth =
+    containerWidth !== null && tabs.length > 0
+      ? Math.max(
+          MIN_TAB_PX,
+          Math.min(
+            MAX_TAB_PX,
+            (containerWidth - (tabs.length - 1) * GAP_PX) / tabs.length
+          )
+        )
+      : MAX_TAB_PX;
+
   return (
     <>
       <div
-        className={`relative flex h-10 shrink-0 items-center bg-neutral-950 ${isMac ? "pr-2 pl-[80px]" : "pr-[148px] pl-2"}`}
+        className={`relative flex h-10 shrink-0 items-center bg-muted ${isMac ? "pr-2 pl-[80px]" : "pr-[148px] pl-2"}`}
         data-tauri-drag-region
       >
         <style>{`
@@ -163,25 +257,32 @@ export function TabBar({
 
         {/* Gallery/page tab */}
         <div
-          className={`relative z-[1001] flex h-7 shrink-0 cursor-pointer select-none items-center rounded-full px-3 text-xs transition-colors ${
+          className={`relative z-[1001] flex h-7 shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-3 text-xs transition-colors ${
             editorVisible
-              ? "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300"
-              : "bg-neutral-700 text-white"
+              ? "text-muted-foreground hover:bg-muted hover:text-foreground"
+              : "bg-muted text-foreground"
           }`}
           onClick={handleGalleryClick}
           style={noDrag}
         >
+          {PAGE_ICONS[activePage]}
           {PAGE_LABELS[activePage]}
         </div>
 
-        {/* Scrollable project tabs */}
+        {/* Divider between page tab and project tabs */}
+        {tabs.length > 0 && (
+          <div className="mx-2 h-4 w-px shrink-0 bg-border" />
+        )}
+
+        {/* Project tabs — shrink like Chrome, no scroll */}
         <div
-          className="scrollbar-none relative z-[1001] flex flex-1 items-center gap-1 overflow-x-auto"
+          className={`relative z-[1001] flex flex-1 items-center gap-2 overflow-hidden ${containerWidth === null ? "invisible" : ""}`}
           onDragOver={(e) => {
             e.preventDefault();
             setDragOverIndex(tabs.length);
           }}
           onDrop={handleDrop}
+          ref={tabContainerRef}
         >
           {tabs.map((tab, index) => {
             const isActive = tab.id === activeTabId && editorVisible;
@@ -196,10 +297,10 @@ export function TabBar({
                 <ContextMenu>
                   <ContextMenuTrigger asChild>
                     <div
-                      className={`group relative z-[1001] flex h-7 min-w-20 max-w-44 flex-1 cursor-pointer select-none items-center gap-1.5 rounded-full px-3 text-xs transition-all ${
+                      className={`group relative z-[1001] flex h-7 shrink-0 cursor-pointer select-none items-center gap-1.5 overflow-hidden rounded-md px-3 text-xs transition-all ${
                         isActive
-                          ? "bg-neutral-700 text-white"
-                          : "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300"
+                          ? "bg-background text-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       } ${isDragging ? "opacity-40" : ""}`}
                       draggable
                       onClick={() => setActiveTab(tab.id)}
@@ -207,14 +308,16 @@ export function TabBar({
                       onDragOver={(e) => handleDragOver(e, index)}
                       onDragStart={(e) => handleDragStart(e, index)}
                       onDrop={handleDrop}
-                      onMouseDown={(e) => {
+                      onPointerDown={(e) => {
                         if (e.button === 1) {
                           e.preventDefault();
+                          e.stopPropagation();
                           handleCloseTab(tab);
                         }
                       }}
-                      style={noDrag}
+                      style={{ width: tabWidth, ...noDrag }}
                     >
+                      <File className="size-3 shrink-0 opacity-60" />
                       <span className="truncate">{tab.name}</span>
                       {dirty && (
                         <span className="size-1.5 shrink-0 rounded-full bg-amber-400" />
@@ -222,8 +325,8 @@ export function TabBar({
                       <button
                         className={`ml-auto shrink-0 rounded-full p-0.5 transition-colors ${
                           isActive
-                            ? "text-neutral-400 hover:bg-neutral-600 hover:text-white"
-                            : "hover:!bg-neutral-700 hover:!text-white text-transparent group-hover:text-neutral-500"
+                            ? "text-muted-foreground hover:bg-background hover:text-foreground"
+                            : "hover:!bg-muted hover:!text-foreground text-transparent group-hover:text-muted-foreground"
                         }`}
                         onClick={(e) => {
                           e.stopPropagation();
