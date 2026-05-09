@@ -10,6 +10,7 @@ import {
   XSquare,
 } from "lucide-react";
 import { Fragment, useLayoutEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,6 +61,9 @@ export function TabBar({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const tabContainerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
+  const [ctrlTabPendingId, setCtrlTabPendingId] = useState<string | null>(null);
+  const ctrlTabPendingIdRef = useRef<string | null>(null);
+  const ctrlTabLastTimeRef = useRef<number>(0);
 
   useLayoutEffect(() => {
     const el = tabContainerRef.current;
@@ -96,6 +100,7 @@ export function TabBar({
   tabsRef.current = tabs;
   activeTabIdRef.current = activeTabId;
   historyIndexRef.current = historyIndex;
+  ctrlTabPendingIdRef.current = ctrlTabPendingId;
 
   const isTabDirty = (tab: TabEntry) => {
     if (tab.id === activeTabId) {
@@ -137,11 +142,17 @@ export function TabBar({
       if (e.key === "Tab") {
         e.preventDefault();
         if (tabs.length === 0) return;
-        const idx = tabs.findIndex((t) => t.id === activeTabId);
+        const now = performance.now();
+        if (now - ctrlTabLastTimeRef.current < 80) return;
+        ctrlTabLastTimeRef.current = now;
+        const currentId = ctrlTabPendingIdRef.current ?? activeTabId;
+        const idx = tabs.findIndex((t) => t.id === currentId);
         const next = e.shiftKey
           ? (idx - 1 + tabs.length) % tabs.length
           : (idx + 1) % tabs.length;
-        setActiveTab(tabs[next].id);
+        const nextId = tabs[next].id;
+        ctrlTabPendingIdRef.current = nextId;
+        flushSync(() => setCtrlTabPendingId(nextId));
       } else if (e.shiftKey && e.key === "T") {
         e.preventDefault();
         reopenClosedTab();
@@ -160,8 +171,23 @@ export function TabBar({
         }
       }
     };
+
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key !== "Control") return;
+      const pendingId = ctrlTabPendingIdRef.current;
+      if (pendingId) {
+        setActiveTab(pendingId);
+        ctrlTabPendingIdRef.current = null;
+        setCtrlTabPendingId(null);
+      }
+    };
+
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
   }, [setActiveTab, reopenClosedTab, closeTab]);
 
   const handleGalleryClick = () => {
@@ -258,7 +284,7 @@ export function TabBar({
         {/* Gallery/page tab */}
         <div
           className={`relative z-[1001] flex h-7 shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-3 text-xs transition-colors ${
-            editorVisible
+            editorVisible || ctrlTabPendingId
               ? "text-muted-foreground hover:bg-muted hover:text-foreground"
               : "bg-background text-foreground"
           }`}
@@ -285,7 +311,9 @@ export function TabBar({
           ref={tabContainerRef}
         >
           {tabs.map((tab, index) => {
-            const isActive = tab.id === activeTabId && editorVisible;
+            const isActive = ctrlTabPendingId
+              ? tab.id === ctrlTabPendingId
+              : tab.id === activeTabId && editorVisible;
             const dirty = isTabDirty(tab);
             const isDragging = draggingIndex === index;
 
@@ -297,7 +325,7 @@ export function TabBar({
                 <ContextMenu>
                   <ContextMenuTrigger asChild>
                     <div
-                      className={`group relative z-[1001] flex h-7 shrink-0 cursor-pointer select-none items-center gap-1.5 overflow-hidden rounded-md px-3 text-xs transition-all ${
+                      className={`group relative z-[1001] flex h-7 shrink-0 cursor-pointer select-none items-center gap-1.5 overflow-hidden rounded-md px-3 text-xs ${
                         isActive
                           ? "bg-background text-foreground"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground"

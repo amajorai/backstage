@@ -41,7 +41,7 @@ interface TabsState {
 function captureSnapshot(savedHistoryIndex: number): EditorSnapshot {
   const s = useEditorStore.getState();
   return {
-    pages: JSON.parse(JSON.stringify(s.pages)),
+    pages: s.pages,
     activePageIndex: s.activePageIndex,
     layers: s.layers,
     activeLayerIds: s.activeLayerIds,
@@ -52,11 +52,12 @@ function captureSnapshot(savedHistoryIndex: number): EditorSnapshot {
     brushColor: s.brushColor,
     brushOpacity: s.brushOpacity,
     magicSelectTolerance: s.magicSelectTolerance,
-    historyPast: JSON.parse(JSON.stringify(s.historyPast)),
-    historyFuture: JSON.parse(JSON.stringify(s.historyFuture)),
+    historyPast: s.historyPast,
+    historyFuture: s.historyFuture,
     historyIndex: s.historyIndex,
     showRulers: s.showRulers,
     showGrid: s.showGrid,
+    userGuides: s.userGuides,
     savedHistoryIndex,
   };
 }
