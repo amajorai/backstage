@@ -199,7 +199,7 @@ export function BottomToolbar({
   const showDefaultToolbar = !isSelectionMode || selectedIds.size === 0;
 
   return (
-    <header className="flex h-12 items-center justify-between bg-background/50 px-4 backdrop-blur-sm">
+    <header className="flex h-12 items-center justify-between bg-muted px-4">
       {isSelectionMode && selectedIds.size > 0 ? (
         <SelectionToolbar
           isDuplicating={isDuplicating}
@@ -228,7 +228,7 @@ export function BottomToolbar({
           <div className="relative">
             <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/50" />
             <Input
-              className="h-8 w-52 border-none bg-muted/30 pr-8 pl-9 transition-all focus-visible:w-80 focus-visible:ring-1 focus-visible:ring-primary/20"
+              className="h-8 w-72 border-none bg-background pr-8 pl-9 transition-all focus-visible:w-96 focus-visible:ring-1 focus-visible:ring-primary/20"
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search projects..."
               type="text"

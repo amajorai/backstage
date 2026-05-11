@@ -70,40 +70,42 @@ export function RevisionPanel({ projectId, onRestored }: RevisionPanelProps) {
 
   return (
     <>
-      <ScrollFadeEffect className="flex flex-1 flex-col">
-        {revisions.map((rev) => (
-          <div
-            className="group flex items-center gap-2 px-3 py-2 text-xs hover:bg-neutral-700/50"
-            key={rev.id}
-          >
-            <Clock className="shrink-0 text-neutral-500" size={11} />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-neutral-200">{rev.name}</p>
+      <ScrollFadeEffect className="flex flex-1 flex-col p-1.5">
+        <div className="flex flex-col gap-1">
+          {revisions.map((rev) => (
+            <div
+              className="group flex items-center gap-2 rounded-md px-3 py-2 text-xs hover:bg-neutral-700/50"
+              key={rev.id}
+            >
+              <Clock className="shrink-0 text-neutral-500" size={11} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-neutral-200">{rev.name}</p>
+              </div>
+              <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                <Button
+                  className="h-5 w-5 text-neutral-400 hover:text-white"
+                  onClick={() => setConfirmRestoreId(rev.id)}
+                  size="icon"
+                  title="Restore this revision"
+                  type="button"
+                  variant="ghost"
+                >
+                  <RotateCcw size={10} />
+                </Button>
+                <Button
+                  className="h-5 w-5 text-neutral-400 hover:text-red-400"
+                  onClick={() => setConfirmDeleteId(rev.id)}
+                  size="icon"
+                  title="Delete this revision"
+                  type="button"
+                  variant="ghost"
+                >
+                  <Trash2 size={10} />
+                </Button>
+              </div>
             </div>
-            <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-              <Button
-                className="h-5 w-5 text-neutral-400 hover:text-white"
-                onClick={() => setConfirmRestoreId(rev.id)}
-                size="icon"
-                title="Restore this revision"
-                type="button"
-                variant="ghost"
-              >
-                <RotateCcw size={10} />
-              </Button>
-              <Button
-                className="h-5 w-5 text-neutral-400 hover:text-red-400"
-                onClick={() => setConfirmDeleteId(rev.id)}
-                size="icon"
-                title="Delete this revision"
-                type="button"
-                variant="ghost"
-              >
-                <Trash2 size={10} />
-              </Button>
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </ScrollFadeEffect>
 
       <AlertDialog

@@ -63,6 +63,7 @@ interface KonvaCanvasProps {
   workspaceHeight: number;
   showGrid?: boolean;
   panOffset?: { x: number; y: number };
+  isDark?: boolean;
 }
 
 const SNAP_THRESHOLD = 20;
@@ -117,7 +118,10 @@ export function KonvaCanvas({
   workspaceHeight,
   showGrid = false,
   panOffset,
+  isDark = true,
 }: KonvaCanvasProps) {
+  const workspaceBg = isDark ? "#171717" : "#e5e5e5";
+  const canvasBg = isDark ? "#262626" : "#d4d4d4";
   const inv = 1 / scale;
   const offsetX = (workspaceWidth - width * scale) / 2 + (panOffset?.x ?? 0);
   const offsetY = (workspaceHeight - height * scale) / 2 + (panOffset?.y ?? 0);
@@ -2175,9 +2179,9 @@ export function KonvaCanvas({
         width={workspaceWidth}
       >
         <Layer scaleX={scale} scaleY={scale} x={offsetX} y={offsetY}>
-          {/* Covers full workspace area with dark background */}
+          {/* Covers full workspace area */}
           <Rect
-            fill="#171717"
+            fill={workspaceBg}
             height={workspaceHeight / scale}
             listening={false}
             width={workspaceWidth / scale}
@@ -2199,7 +2203,7 @@ export function KonvaCanvas({
             }}
           >
             <Rect
-              fill="#262626"
+              fill={canvasBg}
               height={height}
               listening={false}
               width={width}

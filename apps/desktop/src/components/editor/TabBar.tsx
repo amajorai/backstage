@@ -97,7 +97,6 @@ export function TabBar({
   ctrlTabPendingIdRef.current = ctrlTabPendingId;
 
   const isTabDirty = (tab: TabEntry) => {
-    if (tab.savedHistoryIndex === -1) return false;
     if (tab.id === activeTabId) {
       return historyIndex !== tab.savedHistoryIndex;
     }

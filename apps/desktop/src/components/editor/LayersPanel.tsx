@@ -1,7 +1,6 @@
-import { Eye, EyeOff, Lock, Plus, Unlock } from "lucide-react";
+import { Copy, Eye, EyeOff, Lock, Plus, Trash2, Unlock } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollFadeEffect } from "@/components/scroll-fade-effect";
-import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -141,22 +140,8 @@ export function LayersPanel() {
 
   return (
     <div className="flex h-full w-full shrink-0 flex-col border-border border-l bg-background">
-      <div className="flex items-center justify-between border-border border-b px-3 py-2.5">
-        <span className="font-semibold text-muted-foreground text-xs uppercase">
-          Layers
-        </span>
-        <Button
-          className="size-5"
-          onClick={addEmptyLayer}
-          size="icon-sm"
-          title="Add empty layer"
-          variant="ghost"
-        >
-          <Plus className="size-3" />
-        </Button>
-      </div>
       <ScrollFadeEffect
-        className="flex-1"
+        className="flex-1 p-1.5"
         onContextMenu={(e) => {
           const target = e.target as HTMLElement;
           if (!target.closest("[data-layer-item]")) {
@@ -166,143 +151,185 @@ export function LayersPanel() {
         }}
         ref={listRef}
       >
-        {[...layers].reverse().map((layer, displayIdx) => {
-          const realIdx = layers.length - 1 - displayIdx;
-          const isEditing = editingLayerId === layer.id;
-          const isSelected = activeLayerIds.includes(layer.id);
-          const isDragging = draggingRealIdx === realIdx;
-          const isDropTarget =
-            draggingRealIdx !== null &&
-            dropRealIdx === realIdx &&
-            draggingRealIdx !== realIdx;
+        <div className="flex flex-col gap-1">
+          {[...layers].reverse().map((layer, displayIdx) => {
+            const realIdx = layers.length - 1 - displayIdx;
+            const isEditing = editingLayerId === layer.id;
+            const isSelected = activeLayerIds.includes(layer.id);
+            const isDragging = draggingRealIdx === realIdx;
+            const isDropTarget =
+              draggingRealIdx !== null &&
+              dropRealIdx === realIdx &&
+              draggingRealIdx !== realIdx;
 
-          return (
-            <ContextMenu key={layer.id}>
-              <ContextMenuTrigger data-layer-item="true">
-                <div
-                  className={cn(
-                    "flex cursor-grab items-center gap-0.5 border-border border-b px-2 py-1.5 text-xs transition-colors",
-                    isSelected
-                      ? "bg-primary/20 text-primary"
-                      : "hover:bg-muted/50",
-                    isDropTarget ? "border-primary border-t-2" : "",
-                    isDragging ? "opacity-50" : ""
-                  )}
-                  data-real-idx={realIdx}
-                  onClick={(e) => {
-                    if (draggingRealIdx !== null) return;
-                    if (e.metaKey || e.ctrlKey || e.shiftKey) {
-                      toggleLayerSelection(layer.id);
-                    } else {
-                      setActiveLayers([layer.id]);
+            return (
+              <ContextMenu key={layer.id}>
+                <ContextMenuTrigger data-layer-item="true">
+                  <div
+                    className={cn(
+                      "flex cursor-grab items-center gap-0.5 rounded-md px-2 py-1.5 text-xs transition-colors",
+                      isSelected
+                        ? "bg-primary/20 text-primary"
+                        : "hover:bg-muted/50",
+                      isDropTarget ? "ring-1 ring-primary" : "",
+                      isDragging ? "opacity-50" : ""
+                    )}
+                    data-real-idx={realIdx}
+                    onClick={(e) => {
+                      if (draggingRealIdx !== null) return;
+                      if (e.metaKey || e.ctrlKey || e.shiftKey) {
+                        toggleLayerSelection(layer.id);
+                      } else {
+                        setActiveLayers([layer.id]);
+                      }
+                    }}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && setActiveLayers([layer.id])
                     }
-                  }}
-                  onKeyDown={(e) =>
-                    e.key === "Enter" && setActiveLayers([layer.id])
-                  }
-                  onPointerDown={(e) => handlePointerDown(e, realIdx)}
-                  role="button"
-                  tabIndex={0}
-                >
-                  {/* Visibility */}
-                  <Button
-                    className="size-6 shrink-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      pushHistory(layer.visible ? "Hide Layer" : "Show Layer");
-                      updateLayer(layer.id, { visible: !layer.visible });
-                    }}
-                    size="icon-sm"
-                    variant="ghost"
+                    onPointerDown={(e) => handlePointerDown(e, realIdx)}
+                    role="button"
+                    tabIndex={0}
                   >
-                    {layer.visible ? (
-                      <Eye className="size-3" />
-                    ) : (
-                      <EyeOff className="size-3" />
-                    )}
-                  </Button>
+                    {/* Visibility + Lock */}
+                    <div className="flex shrink-0">
+                      <button
+                        className="flex size-5 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          pushHistory(
+                            layer.visible ? "Hide Layer" : "Show Layer"
+                          );
+                          updateLayer(layer.id, { visible: !layer.visible });
+                        }}
+                        type="button"
+                      >
+                        {layer.visible ? (
+                          <Eye className="size-3" />
+                        ) : (
+                          <EyeOff className="size-3" />
+                        )}
+                      </button>
+                      <button
+                        className={cn(
+                          "flex size-5 items-center justify-center rounded",
+                          layer.locked
+                            ? "text-destructive"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          pushHistory(
+                            layer.locked ? "Unlock Layer" : "Lock Layer"
+                          );
+                          updateLayer(layer.id, { locked: !layer.locked });
+                        }}
+                        type="button"
+                      >
+                        {layer.locked ? (
+                          <Lock className="size-3" />
+                        ) : (
+                          <Unlock className="size-3" />
+                        )}
+                      </button>
+                    </div>
 
-                  {/* Lock */}
-                  <Button
-                    className="size-6 shrink-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      pushHistory(layer.locked ? "Unlock Layer" : "Lock Layer");
-                      updateLayer(layer.id, { locked: !layer.locked });
+                    {/* Name: click to select, double-click to edit */}
+                    {isEditing ? (
+                      <Input
+                        autoFocus
+                        className="h-5 flex-1 border-0 bg-transparent px-1 text-xs shadow-none ring-0 focus-visible:ring-0 md:text-xs dark:bg-transparent"
+                        onBlur={finishEditing}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          e.stopPropagation();
+                          if (e.key === "Enter") finishEditing();
+                          if (e.key === "Escape") cancelEditing();
+                        }}
+                        ref={inputRef}
+                        value={editingName}
+                      />
+                    ) : (
+                      <span
+                        className="flex-1 select-none truncate pl-1"
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          startEditing(layer.id, layer.name);
+                        }}
+                      >
+                        {layer.name}
+                      </span>
+                    )}
+                  </div>
+                </ContextMenuTrigger>
+
+                <ContextMenuContent className="w-44">
+                  <ContextMenuItem
+                    onClick={() => {
+                      setActiveLayers([layer.id]);
+                      duplicateLayer(layer.id);
                     }}
-                    size="icon-sm"
-                    variant="ghost"
                   >
-                    {layer.locked ? (
-                      <Lock className="size-3" />
-                    ) : (
-                      <Unlock className="size-3" />
-                    )}
-                  </Button>
-
-                  {/* Name: click to select, double-click to edit */}
-                  {isEditing ? (
-                    <Input
-                      autoFocus
-                      className="h-5 flex-1 border-0 bg-transparent px-1 text-xs shadow-none ring-0 focus-visible:ring-0 md:text-xs dark:bg-transparent"
-                      onBlur={finishEditing}
-                      onChange={(e) => setEditingName(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => {
-                        e.stopPropagation();
-                        if (e.key === "Enter") finishEditing();
-                        if (e.key === "Escape") cancelEditing();
-                      }}
-                      ref={inputRef}
-                      value={editingName}
-                    />
-                  ) : (
-                    <span
-                      className="flex-1 select-none truncate pl-1"
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        startEditing(layer.id, layer.name);
-                      }}
-                    >
-                      {layer.name}
-                    </span>
-                  )}
-                </div>
-              </ContextMenuTrigger>
-
-              <ContextMenuContent className="w-44">
-                <ContextMenuItem
-                  onClick={() => {
-                    setActiveLayers([layer.id]);
-                    duplicateLayer(layer.id);
-                  }}
-                >
-                  Duplicate
-                </ContextMenuItem>
-                <ContextMenuItem
-                  onClick={() => {
-                    setActiveLayers([layer.id]);
-                    copyLayers();
-                  }}
-                >
-                  Copy
-                </ContextMenuItem>
-                <ContextMenuItem onClick={() => pasteLayers()}>
-                  Paste
-                </ContextMenuItem>
-                <ContextMenuSeparator />
-                <ContextMenuItem
-                  disabled={layers.length <= 1}
-                  onClick={() => removeLayer(layer.id)}
-                  variant="destructive"
-                >
-                  Delete
-                </ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
-          );
-        })}
+                    Duplicate
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onClick={() => {
+                      setActiveLayers([layer.id]);
+                      copyLayers();
+                    }}
+                  >
+                    Copy
+                  </ContextMenuItem>
+                  <ContextMenuItem onClick={() => pasteLayers()}>
+                    Paste
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    disabled={layers.length <= 1}
+                    onClick={() => removeLayer(layer.id)}
+                    variant="destructive"
+                  >
+                    Delete
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
+            );
+          })}
+        </div>
       </ScrollFadeEffect>
+
+      <div className="flex shrink-0 items-center border-border border-t px-1 py-1">
+        <button
+          className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
+          onClick={addEmptyLayer}
+          title="Add layer"
+          type="button"
+        >
+          <Plus className="size-3.5" />
+        </button>
+        <button
+          className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
+          disabled={activeLayerIds.length === 0}
+          onClick={() => {
+            for (const id of activeLayerIds) duplicateLayer(id);
+          }}
+          title="Duplicate layer"
+          type="button"
+        >
+          <Copy className="size-3.5" />
+        </button>
+        <button
+          className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-destructive disabled:opacity-30"
+          disabled={activeLayerIds.length === 0 || layers.length <= 1}
+          onClick={() => {
+            for (const id of activeLayerIds) removeLayer(id);
+          }}
+          title="Delete layer"
+          type="button"
+        >
+          <Trash2 className="size-3.5" />
+        </button>
+      </div>
 
       {/* Panel-level paste menu for right-clicking empty space */}
       {pasteMenuPos && (

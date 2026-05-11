@@ -48,6 +48,7 @@ import {
   loadRecovery,
   saveRecovery,
 } from "@/lib/revision-storage";
+import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import type {
   EditorSnapshot,
   ImageLayer,
@@ -79,6 +80,12 @@ export function ImageEditor({
   onExport,
   onAiGenerate,
 }: ImageEditorProps) {
+  const theme = useAppSettingsStore((s) => s.theme);
+  const isDark =
+    theme === "dark" ||
+    (theme === "system" &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<(() => string) | null>(null);
   const startPendingGuideRef = useRef<((type: "h" | "v") => void) | null>(null);
@@ -212,7 +219,9 @@ export function ImageEditor({
             thumbnail.canvasWidth || 1280,
             thumbnail.canvasHeight || 720
           );
-          setSavedHistoryIndex(useEditorStore.getState().historyIndex);
+          const loadedHistoryIndex = useEditorStore.getState().historyIndex;
+          setSavedHistoryIndex(loadedHistoryIndex);
+          useTabsStore.getState().markTabSaved(tabId, loadedHistoryIndex);
           // Check for crash recovery
           const recovery = await loadRecovery(thumbnail.id);
           if (recovery && recovery.savedAt > (thumbnail.updatedAt ?? 0)) {
@@ -233,7 +242,9 @@ export function ImageEditor({
             addImageLayer(fullImageUrl, w, h);
             setCanvasSize({ width: w, height: h });
             setStoreCanvasSize(w, h);
-            setSavedHistoryIndex(useEditorStore.getState().historyIndex);
+            const loadedHistoryIndex = useEditorStore.getState().historyIndex;
+            setSavedHistoryIndex(loadedHistoryIndex);
+            useTabsStore.getState().markTabSaved(tabId, loadedHistoryIndex);
             // Check for crash recovery (new projects may also have a recovery)
             const rec = await loadRecovery(thumbnail.id);
             if (rec && rec.savedAt > (thumbnail.updatedAt ?? 0)) {
@@ -388,13 +399,17 @@ export function ImageEditor({
     const majorInterval = Math.ceil(rawInterval / magnitude) * magnitude;
     const minorStep = Math.max(1, Math.floor(majorInterval / 20));
 
+    const rulerBg = isDark ? "#1a1a1a" : "#e5e5e5";
+    const rulerTick = isDark ? "#555" : "#a3a3a3";
+    const rulerLabel = isDark ? "#777" : "#737373";
+
     const topCtx = topCanvas.getContext("2d");
     if (topCtx) {
       topCtx.clearRect(0, 0, rulerW, RULER_SIZE);
-      topCtx.fillStyle = "#111";
+      topCtx.fillStyle = rulerBg;
       topCtx.fillRect(0, 0, rulerW, RULER_SIZE);
-      topCtx.strokeStyle = "#555";
-      topCtx.fillStyle = "#777";
+      topCtx.strokeStyle = rulerTick;
+      topCtx.fillStyle = rulerLabel;
       topCtx.font = "8px sans-serif";
       topCtx.textAlign = "center";
       const startX =
@@ -418,10 +433,10 @@ export function ImageEditor({
     const leftCtx = leftCanvas.getContext("2d");
     if (leftCtx) {
       leftCtx.clearRect(0, 0, RULER_SIZE, rulerH);
-      leftCtx.fillStyle = "#111";
+      leftCtx.fillStyle = rulerBg;
       leftCtx.fillRect(0, 0, RULER_SIZE, rulerH);
-      leftCtx.strokeStyle = "#555";
-      leftCtx.fillStyle = "#777";
+      leftCtx.strokeStyle = rulerTick;
+      leftCtx.fillStyle = rulerLabel;
       leftCtx.font = "8px sans-serif";
       const startY =
         Math.ceil(-canvasTop / effectiveScale / minorStep) * minorStep;
@@ -455,6 +470,7 @@ export function ImageEditor({
     workspaceSize.height,
     panOffset.x,
     panOffset.y,
+    isDark,
   ]);
 
   const handleTopRulerMouseDown = useCallback(() => {
@@ -1070,7 +1086,7 @@ export function ImageEditor({
                 style={{
                   width: RULER_SIZE,
                   height: RULER_SIZE,
-                  background: "#111",
+                  background: isDark ? "#1a1a1a" : "#e5e5e5",
                 }}
               />
             )}
@@ -1098,6 +1114,7 @@ export function ImageEditor({
             )}
             <KonvaCanvas
               height={canvasSize.height}
+              isDark={isDark}
               onExportRef={exportRef}
               panOffset={panOffset}
               scale={effectiveScale}
@@ -1176,12 +1193,12 @@ export function ImageEditor({
             minTopHeight={25}
             topPanel={
               <div className="flex h-full flex-col overflow-hidden">
-                <div className="flex shrink-0 border-neutral-700 border-b">
+                <div className="flex shrink-0 items-center border-border border-b">
                   <button
                     className={`flex-1 py-1.5 text-xs transition-colors ${
                       rightTab === "layers"
-                        ? "border-primary border-b-2 text-white"
-                        : "text-neutral-400 hover:text-neutral-200"
+                        ? "border-border border-b-2 text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                     onClick={() => setRightTab("layers")}
                     type="button"
@@ -1191,8 +1208,8 @@ export function ImageEditor({
                   <button
                     className={`flex-1 py-1.5 text-xs transition-colors ${
                       rightTab === "history"
-                        ? "border-primary border-b-2 text-white"
-                        : "text-neutral-400 hover:text-neutral-200"
+                        ? "border-border border-b-2 text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                     onClick={() => setRightTab("history")}
                     type="button"
@@ -1202,8 +1219,8 @@ export function ImageEditor({
                   <button
                     className={`flex-1 py-1.5 text-xs transition-colors ${
                       rightTab === "revisions"
-                        ? "border-primary border-b-2 text-white"
-                        : "text-neutral-400 hover:text-neutral-200"
+                        ? "border-border border-b-2 text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                     onClick={() => setRightTab("revisions")}
                     type="button"

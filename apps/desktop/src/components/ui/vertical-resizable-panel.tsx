@@ -68,15 +68,14 @@ export function VerticalResizablePanel({
       >
         {topPanel}
       </div>
-      {/* Resize handle */}
-      <div
-        className="z-10 flex h-2 shrink-0 cursor-row-resize items-center justify-center"
-        onMouseDown={handleMouseDown}
-      >
-        <div className="h-0.5 w-8 rounded-full bg-border" />
-      </div>
       {/* Bottom panel */}
       <div className="min-h-0 flex-1 overflow-hidden">{bottomPanel}</div>
+      {/* Resize handle — absolutely positioned at boundary, no layout space */}
+      <div
+        className="absolute z-10 h-2 w-full cursor-row-resize border-border border-t"
+        onMouseDown={handleMouseDown}
+        style={{ top: `calc(${topHeight}% - 4px)` }}
+      />
     </div>
   );
 }

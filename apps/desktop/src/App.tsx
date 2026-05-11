@@ -91,7 +91,7 @@ export default function App() {
 
   if (isValidating && !isValidated) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
+      <div className="flex h-screen items-center justify-center bg-muted">
         <div className="flex flex-col items-center gap-4">
           <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           <p className="text-muted-foreground text-sm">Checking license...</p>
@@ -201,14 +201,15 @@ export default function App() {
   };
 
   const contentClass =
-    "flex flex-1 flex-col overflow-hidden rounded-tl-xl rounded-tr-xl border-t border-neutral-800";
+    "mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background";
+  const contentClassWithBottom = `${contentClass} mb-1`;
 
   // AI Generate page
   if (page === "ai-generate") {
     return (
-      <div className="flex h-screen flex-col bg-background">
+      <div className="flex h-screen flex-col bg-muted">
         <TabBar activePage={page} />
-        <div className={contentClass}>
+        <div className={contentClassWithBottom}>
           <GeminiImagePage
             canvasHeight={aiCanvasHeight}
             canvasWidth={aiCanvasWidth}
@@ -228,9 +229,9 @@ export default function App() {
   // Trash page
   if (page === "trash") {
     return (
-      <div className="flex h-screen flex-col bg-background">
+      <div className="flex h-screen flex-col bg-muted">
         <TabBar activePage={page} />
-        <div className={contentClass}>
+        <div className={contentClassWithBottom}>
           <TrashPage onClose={() => setPage("gallery")} />
         </div>
         <Toaster />
@@ -241,9 +242,9 @@ export default function App() {
   // Settings page
   if (page === "settings") {
     return (
-      <div className="flex h-screen flex-col bg-background">
+      <div className="flex h-screen flex-col bg-muted">
         <TabBar activePage={page} />
-        <div className={contentClass}>
+        <div className={contentClassWithBottom}>
           <SettingsPage onClose={() => setPage("gallery")} />
         </div>
         <Toaster />
@@ -259,9 +260,9 @@ export default function App() {
       : null;
 
     return (
-      <div className="flex h-screen flex-col bg-background">
+      <div className="flex h-screen flex-col bg-muted">
         <TabBar activePage="gallery" />
-        <div className={contentClass}>
+        <div className={contentClassWithBottom}>
           {activeTab && activeThumbnail && (
             <ImageEditor
               key={activeTabId}
@@ -288,7 +289,7 @@ export default function App() {
 
   // Gallery (default or when tabs exist but editor hidden)
   return (
-    <div className="flex h-screen flex-col bg-background">
+    <div className="flex h-screen flex-col bg-muted">
       <TabBar activePage="gallery" />
       <div className={contentClass}>
         <Gallery
@@ -298,6 +299,8 @@ export default function App() {
           onThumbnailClick={handleEditThumbnail}
           viewMode={viewMode}
         />
+      </div>
+      <div className="mx-1 mb-1">
         <BottomToolbar
           onAddVideoClick={() => setShowExtractor(true)}
           onAiGenerateClick={handleOpenAiGenerateFromGallery}

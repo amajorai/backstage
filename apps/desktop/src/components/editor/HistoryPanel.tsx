@@ -35,42 +35,46 @@ export function HistoryPanel() {
   }
 
   return (
-    <ScrollFadeEffect className="flex flex-1 flex-col">
-      {Array.from({ length: totalEntries }, (_, i) => {
-        const isCurrent = i === currentPos;
-        const isPast = i < currentPos;
-        const label = getLabelForRow(i);
+    <ScrollFadeEffect className="flex flex-1 flex-col p-1.5">
+      <div className="flex flex-col gap-1">
+        {Array.from({ length: totalEntries }, (_, i) => {
+          const isCurrent = i === currentPos;
+          const isPast = i < currentPos;
+          const label = getLabelForRow(i);
 
-        return (
-          <div
-            className={cn(
-              "group flex cursor-pointer items-center gap-2 px-3 py-1.5 text-xs transition-colors",
-              isCurrent
-                ? "bg-primary/20 font-medium text-primary"
-                : isPast
-                  ? "text-neutral-300 hover:bg-neutral-700/50"
-                  : "text-neutral-600 hover:bg-neutral-700/30"
-            )}
-            key={i}
-            onClick={() => jumpToHistory(i)}
-            ref={isCurrent ? currentRef : undefined}
-          >
-            <CornerDownLeft
+          return (
+            <div
               className={cn(
-                "shrink-0",
-                isCurrent ? "text-primary" : "opacity-0 group-hover:opacity-50"
+                "group flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-xs transition-colors",
+                isCurrent
+                  ? "bg-primary/20 font-medium text-primary"
+                  : isPast
+                    ? "text-neutral-300 hover:bg-neutral-700/50"
+                    : "text-neutral-600 hover:bg-neutral-700/30"
               )}
-              size={11}
-            />
-            <span className="truncate">{label}</span>
-            {isCurrent && (
-              <span className="ml-auto shrink-0 text-[10px] text-primary/70">
-                current
-              </span>
-            )}
-          </div>
-        );
-      })}
+              key={i}
+              onClick={() => jumpToHistory(i)}
+              ref={isCurrent ? currentRef : undefined}
+            >
+              <CornerDownLeft
+                className={cn(
+                  "shrink-0",
+                  isCurrent
+                    ? "text-primary"
+                    : "opacity-0 group-hover:opacity-50"
+                )}
+                size={11}
+              />
+              <span className="truncate">{label}</span>
+              {isCurrent && (
+                <span className="ml-auto shrink-0 text-[10px] text-primary/70">
+                  current
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </ScrollFadeEffect>
   );
 }
