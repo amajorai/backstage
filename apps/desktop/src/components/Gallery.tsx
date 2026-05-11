@@ -304,6 +304,7 @@ export function Gallery({
           onDelete={handleDelete}
           onExportClick={onExportClick}
           onMoveToFolder={handleMoveToFolder}
+          onNewFolderClick={onNewFolderClick}
           onRemoveBackground={handleRemoveBackground}
           onRename={handleRename}
           onThumbnailClick={(t) => {
@@ -343,7 +344,7 @@ export function Gallery({
   return (
     <div className="relative flex flex-1 select-none flex-col overflow-hidden">
       {folders.length > 0 && (
-        <div className="scrollbar-none flex shrink-0 items-center gap-1.5 overflow-x-auto px-5 pt-4 pb-2">
+        <div className="scrollbar-none flex shrink-0 items-center gap-1.5 overflow-x-auto px-5 pt-4">
           <button
             className={cn(
               "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-sm transition-colors",
@@ -399,7 +400,7 @@ export function Gallery({
       )}
 
       <div className="relative flex-1 select-none overflow-hidden">
-        <div className="pointer-events-none absolute top-0 right-0 left-0 z-10 h-4 bg-gradient-to-b from-background to-transparent" />
+        <div className="pointer-events-none absolute top-0 right-0 left-0 z-10 h-8 bg-gradient-to-b from-background to-transparent" />
         <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 h-16 bg-gradient-to-t from-background to-transparent" />
         <ContextMenu>
           <ContextMenuTrigger className="h-full">

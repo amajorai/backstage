@@ -2,6 +2,7 @@ import {
   Copy,
   Download,
   FolderOpen,
+  FolderPlus,
   Loader2,
   PaintBucket,
   Pencil,
@@ -46,6 +47,7 @@ interface ThumbnailGridItemProps {
   onAutoRename: (thumbnail: ThumbnailItem) => Promise<void>;
   onAddColorBackground: (thumbnail: ThumbnailItem) => void;
   onMoveToFolder: (thumbnail: ThumbnailItem) => void;
+  onNewFolderClick: () => void;
   folders: Folder[];
 }
 
@@ -60,6 +62,7 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
   onAutoRename,
   onAddColorBackground,
   onMoveToFolder,
+  onNewFolderClick,
   folders,
 }: ThumbnailGridItemProps) {
   const isSelectionMode = useSelectionStore((s) => s.isSelectionMode);
@@ -267,6 +270,10 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
             Move to Folder
           </ContextMenuItem>
         )}
+        <ContextMenuItem onClick={onNewFolderClick}>
+          <FolderPlus className="mr-2 size-4" />
+          New Folder
+        </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => onExportClick(thumbnail)}>
           <Download className="mr-2 size-4" />
