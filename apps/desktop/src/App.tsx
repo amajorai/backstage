@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ResizablePanel } from "@/components/ui/resizable-panel";
 import { Toaster } from "@/components/ui/sonner";
 import { VideoExtractor } from "@/components/VideoExtractor";
 import { useAppUpdater } from "@/hooks/use-app-updater";
@@ -65,6 +66,9 @@ export default function App() {
   const [aiGenerateSource, setAiGenerateSource] = useState<
     "editor" | "gallery"
   >("editor");
+  const [editorRightPanel, setEditorRightPanel] = useState<
+    "settings" | "ai-generate" | null
+  >(null);
 
   const saveProject = useGalleryStore((s) => s.saveProject);
   const thumbnails = useGalleryStore((s) => s.thumbnails);
@@ -138,7 +142,7 @@ export default function App() {
     setAiCanvasWidth(canvasWidth);
     setAiCanvasHeight(canvasHeight);
     setAiGenerateSource("editor");
-    setPage("ai-generate");
+    setEditorRightPanel("ai-generate");
   };
 
   const handleOpenAiGenerateFromGallery = () => {
@@ -149,7 +153,11 @@ export default function App() {
 
   const handleCloseAiGenerate = () => {
     setAiEditorLayers(null);
-    setPage("gallery");
+    if (aiGenerateSource === "editor") {
+      setEditorRightPanel(null);
+    } else {
+      setPage("gallery");
+    }
   };
 
   const handleCreateProject = async (
@@ -243,46 +251,74 @@ export default function App() {
         />
       </div>
 
-      {/* Editor */}
-      {editorVisible && activeTab && activeThumbnail && (
-        <div className={contentClassWithBottom}>
-          <ImageEditor
-            key={activeTabId}
-            onAiGenerate={handleOpenAiGenerate}
-            onClose={() => setEditorVisible(false)}
-            onExport={() => setExportingThumbnail(activeThumbnail)}
-            snapshot={activeTab.snapshot}
-            tabId={activeTabId!}
-            thumbnail={activeThumbnail}
-          />
+      {/* Editor — stays mounted while tabs exist; right panel for settings / AI */}
+      {activeTab && activeThumbnail && (
+        <div
+          className="mx-1 mb-1 flex flex-1 overflow-hidden"
+          style={{ display: editorVisible ? "flex" : "none" }}
+        >
+          <div className="flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+            <ImageEditor
+              onAiGenerate={handleOpenAiGenerate}
+              onClose={() => setEditorVisible(false)}
+              onExport={() => setExportingThumbnail(activeThumbnail)}
+              onOpenSettings={() => setEditorRightPanel("settings")}
+              snapshot={activeTab.snapshot}
+              tabId={activeTabId!}
+              thumbnail={activeThumbnail}
+            />
+          </div>
+
+          {editorRightPanel && (
+            <ResizablePanel
+              className="ml-1"
+              defaultWidth={380}
+              maxWidth={700}
+              minWidth={280}
+              side="right"
+            >
+              <div className="flex h-full flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+                {editorRightPanel === "settings" ? (
+                  <SettingsPage onClose={() => setEditorRightPanel(null)} />
+                ) : (
+                  <GeminiImagePage
+                    canvasHeight={aiCanvasHeight}
+                    canvasWidth={aiCanvasWidth}
+                    editorLayers={aiEditorLayers}
+                    onClose={handleCloseAiGenerate}
+                    onSaveAsImage={handleSaveAiImage}
+                    onSaveAsLayer={handleSaveAiLayer}
+                  />
+                )}
+              </div>
+            </ResizablePanel>
+          )}
         </div>
       )}
 
-      {/* AI Generate */}
-      {page === "ai-generate" && (
+      {/* AI Generate — full page only from gallery */}
+      {page === "ai-generate" && aiGenerateSource === "gallery" && (
         <div className={contentClassWithBottom}>
           <GeminiImagePage
             canvasHeight={aiCanvasHeight}
             canvasWidth={aiCanvasWidth}
-            editorLayers={aiEditorLayers}
+            editorLayers={null}
             onClose={handleCloseAiGenerate}
             onSaveAsImage={handleSaveAiImage}
-            onSaveAsLayer={
-              aiGenerateSource === "editor" ? handleSaveAiLayer : undefined
-            }
+            onSaveAsLayer={undefined}
           />
         </div>
       )}
 
       {/* Trash */}
-      {page === "trash" && (
+      {page === "trash" && !editorVisible && (
         <div className={contentClassWithBottom}>
           <TrashPage onClose={() => setPage("gallery")} />
         </div>
       )}
 
       {/* Settings */}
-      {page === "settings" && (
+      {page === "settings" && !editorVisible && (
         <div className={contentClassWithBottom}>
           <SettingsPage onClose={() => setPage("gallery")} />
         </div>

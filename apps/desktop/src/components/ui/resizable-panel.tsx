@@ -70,14 +70,12 @@ export function ResizablePanel({
         aria-valuemax={maxWidth}
         aria-valuemin={minWidth}
         aria-valuenow={width}
-        className="absolute top-0 z-10 h-full w-2 cursor-col-resize border-border"
+        className="absolute top-0 z-10 h-full w-2 cursor-col-resize"
         onMouseDown={handleMouseDown}
         role="separator"
         style={{
           left: handleLeft,
           right: handleRight,
-          borderLeftWidth: side === "right" ? 1 : 0,
-          borderRightWidth: side === "left" ? 1 : 0,
         }}
         tabIndex={0}
       />

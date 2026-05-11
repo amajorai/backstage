@@ -1,3 +1,4 @@
+import { Settings as SettingsIcon } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -76,6 +77,7 @@ interface ImageEditorProps {
   onClose: () => void;
   onExport: () => void;
   onAiGenerate: () => void;
+  onOpenSettings: () => void;
 }
 
 export function ImageEditor({
@@ -85,6 +87,7 @@ export function ImageEditor({
   onClose,
   onExport,
   onAiGenerate,
+  onOpenSettings,
 }: ImageEditorProps) {
   const theme = useAppSettingsStore((s) => s.theme);
   const isDark =
@@ -97,7 +100,22 @@ export function ImageEditor({
   const startPendingGuideRef = useRef<((type: "h" | "v") => void) | null>(null);
   const topRulerRef = useRef<HTMLCanvasElement>(null);
   const leftRulerRef = useRef<HTMLCanvasElement>(null);
-  const initializedRef = useRef(false);
+  const lastTabIdRef = useRef<string | null>(null);
+  const tabUIStateRef = useRef<
+    Map<
+      string,
+      {
+        zoom: number;
+        panOffset: { x: number; y: number };
+        editorViewMode: EditorViewMode;
+        rightTab: "layers" | "history" | "revisions";
+        savedHistoryIndex: number;
+        projectName: string;
+        projectId: string | null;
+        canvasSize: { width: number; height: number };
+      }
+    >
+  >(new Map());
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeToastIdsRef = useRef<Set<string | number>>(new Set());
   const [projectId, setProjectId] = useState<string | null>(thumbnail.id);
@@ -167,7 +185,7 @@ export function ImageEditor({
 
   const [, setIsLoadingEditor] = useState(true);
 
-  // Dismiss any active loading toasts when this editor tab unmounts
+  // Dismiss any active loading toasts when this editor unmounts entirely
   useEffect(() => {
     const toastIds = activeToastIdsRef.current;
     return () => {
@@ -177,13 +195,82 @@ export function ImageEditor({
     };
   }, []);
 
-  // Initialize - restore from snapshot or load from files
-  useEffect(() => {
-    if (initializedRef.current) {
-      return;
-    }
-    initializedRef.current = true;
+  // Keep refs in sync so the init effect can read current values without deps
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  const panOffsetRef = useRef(panOffset);
+  panOffsetRef.current = panOffset;
+  const editorViewModeRef = useRef(editorViewMode);
+  editorViewModeRef.current = editorViewMode;
+  const rightTabRef = useRef(rightTab);
+  rightTabRef.current = rightTab;
+  const savedHistoryIndexRef = useRef(savedHistoryIndex);
+  savedHistoryIndexRef.current = savedHistoryIndex;
+  const projectNameRef = useRef(projectName);
+  projectNameRef.current = projectName;
+  const projectIdRef = useRef(projectId);
+  projectIdRef.current = projectId;
+  const canvasSizeRef = useRef(canvasSize);
+  canvasSizeRef.current = canvasSize;
 
+  // Initialize / re-initialize when the active tab changes
+  useEffect(() => {
+    const prevTabId = lastTabIdRef.current;
+    if (prevTabId === tabId) return;
+
+    // Save UI state for the previous tab before switching away (via refs = always fresh)
+    if (prevTabId !== null) {
+      tabUIStateRef.current.set(prevTabId, {
+        zoom: zoomRef.current,
+        panOffset: panOffsetRef.current,
+        editorViewMode: editorViewModeRef.current,
+        rightTab: rightTabRef.current,
+        savedHistoryIndex: savedHistoryIndexRef.current,
+        projectName: projectNameRef.current,
+        projectId: projectIdRef.current,
+        canvasSize: canvasSizeRef.current,
+      });
+    }
+
+    lastTabIdRef.current = tabId;
+
+    // Reset transient dialog/processing state
+    setShowColorBgDialog(false);
+    setShowGalleryPicker(false);
+    setShowIconPicker(false);
+    setShowLogoPicker(false);
+    setIsProcessing(false);
+    setIsSaving(false);
+    setShowConfirmClose(false);
+    setShowRecoveryDialog(false);
+    setRecoveryPages(null);
+
+    // Restore persisted UI state for this tab or apply defaults
+    const saved = tabUIStateRef.current.get(tabId);
+    if (saved) {
+      setZoom(saved.zoom);
+      setPanOffset(saved.panOffset);
+      setEditorViewMode(saved.editorViewMode);
+      setRightTab(saved.rightTab);
+      setSavedHistoryIndex(saved.savedHistoryIndex);
+      setProjectName(saved.projectName);
+      setProjectId(saved.projectId);
+      setCanvasSize(saved.canvasSize);
+    } else {
+      setZoom(1);
+      setPanOffset({ x: 0, y: 0 });
+      setEditorViewMode("single");
+      setRightTab("layers");
+      setSavedHistoryIndex(-1);
+      setProjectName(thumbnail.name);
+      setProjectId(thumbnail.id);
+      setCanvasSize({
+        width: thumbnail.canvasWidth || 1280,
+        height: thumbnail.canvasHeight || 720,
+      });
+    }
+
+    // Restore editor store from snapshot, or load fresh from disk
     if (snapshot) {
       useEditorStore.setState({
         pages: snapshot.pages,
@@ -232,7 +319,7 @@ export function ImageEditor({
             pages,
             activePageIndex: 0,
             layers: initialLayers,
-            activeLayerId: initialLayers[0]?.id || null,
+            activeLayerIds: initialLayers[0]?.id ? [initialLayers[0].id] : [],
             canvasWidth: thumbnail.canvasWidth || 1280,
             canvasHeight: thumbnail.canvasHeight || 720,
           });
@@ -293,11 +380,13 @@ export function ImageEditor({
 
     loadProject();
   }, [
+    tabId,
     snapshot,
     thumbnail.id,
     thumbnail.updatedAt,
     thumbnail.canvasWidth,
     thumbnail.canvasHeight,
+    thumbnail.name,
     addImageLayer,
     reset,
     setStoreCanvasSize,
@@ -340,6 +429,7 @@ export function ImageEditor({
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
+        if (width === 0 || height === 0) continue; // editor hidden via display:none
         const padding = 60;
         const newFitScale = Math.min(
           (width - padding * 2) / canvasSize.width,
@@ -592,12 +682,9 @@ export function ImageEditor({
           .bgRemovalGeminiModel as import("@/lib/gemini-image").GeminiImageModel;
         const extra = extraPrompt.trim();
         const prompt = `Replace the background of this image with a solid flat ${color} color. Keep the subject (person, object, or foreground element) exactly as-is. Output the full image with the new solid color background.${extra ? ` Additional instructions: ${extra}` : ""}`;
-        const result = await generateImageWithGemini(
-          apiKey,
-          model,
-          prompt,
-          (activeLayer as ImageLayer).dataUrl
-        );
+        const result = await generateImageWithGemini(apiKey, model, prompt, [
+          (activeLayer as ImageLayer).dataUrl,
+        ]);
         const resultDataUrl = base64ToDataUrl(
           result.imageBase64,
           result.mimeType
@@ -880,7 +967,7 @@ export function ImageEditor({
 
     if (spec.type === "text" && spec.text) {
       store.addTextLayer(spec.text);
-      const id = store.activeLayerId;
+      const id = store.activeLayerIds[0];
       if (id) {
         store.updateLayer(id, {
           name: spec.name || "Text",
@@ -894,7 +981,7 @@ export function ImageEditor({
       }
     } else if (spec.type === "shape") {
       store.addShapeLayer(spec.shapeType ?? "rect");
-      const id = store.activeLayerId;
+      const id = store.activeLayerIds[0];
       if (id) {
         store.updateLayer(id, {
           name: spec.name || "Shape",
@@ -909,15 +996,18 @@ export function ImageEditor({
         });
       }
     } else if (spec.type === "icon" && spec.iconKeyword) {
-      const dataUrl = resolveIconToDataUrl(
+      const iconResult = resolveIconToDataUrl(
         spec.iconKeyword,
-        spec.iconLibrary || "lucide",
         spec.iconSize || 64,
         spec.iconColor || spec.fill || "#000000"
       );
-      if (dataUrl) {
-        store.addImageLayer(dataUrl, spec.width || 64, spec.height || 64);
-        const id = store.activeLayerId;
+      if (iconResult) {
+        store.addImageLayer(
+          iconResult.dataUrl,
+          spec.width || 64,
+          spec.height || 64
+        );
+        const id = store.activeLayerIds[0];
         if (id) {
           store.updateLayer(id, {
             name: spec.name || `Icon: ${spec.iconKeyword}`,
@@ -929,13 +1019,8 @@ export function ImageEditor({
     } else if (spec.type === "emoji" && spec.emojiKeyword) {
       const emojiData = resolveFormattedEmoji(spec.emojiKeyword);
       if (emojiData) {
-        store.addAnimatedImageLayer(
-          emojiData.frames,
-          emojiData.delays,
-          spec.width || 64,
-          spec.height || 64
-        );
-        const id = store.activeLayerId;
+        store.addImageLayer(emojiData.url, spec.width || 64, spec.height || 64);
+        const id = store.activeLayerIds[0];
         if (id) {
           store.updateLayer(id, {
             name: spec.name || `Emoji: ${spec.emojiKeyword}`,
@@ -1039,7 +1124,9 @@ export function ImageEditor({
               if (targetLayer && update.text) {
                 useEditorStore.getState().updateLayer(targetLayer.id, {
                   text: update.text,
-                  fill: update.fill || targetLayer.fill,
+                  fill:
+                    update.fill ||
+                    (targetLayer as unknown as { fill?: string }).fill,
                 });
               }
             }
@@ -1065,11 +1152,17 @@ export function ImageEditor({
   const [showCarouselGenerator, setShowCarouselGenerator] = useState(false);
 
   const handleAddIcon = useCallback((dataUrl: string) => {
-    useEditorStore.getState().addImageLayer(dataUrl);
-    const id = useEditorStore.getState().activeLayerId;
-    if (id) {
-      useEditorStore.getState().updateLayer(id, { name: "Icon" });
-    }
+    const img = new window.Image();
+    img.onload = () => {
+      useEditorStore
+        .getState()
+        .addImageLayer(dataUrl, img.naturalWidth, img.naturalHeight);
+      const id = useEditorStore.getState().activeLayerIds[0];
+      if (id) {
+        useEditorStore.getState().updateLayer(id, { name: "Icon" });
+      }
+    };
+    img.src = dataUrl;
   }, []);
 
   return (
@@ -1365,6 +1458,14 @@ export function ImageEditor({
                   >
                     Saves
                   </button>
+                  <button
+                    className="px-2 py-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                    onClick={onOpenSettings}
+                    title="Settings"
+                    type="button"
+                  >
+                    <SettingsIcon className="size-3.5" />
+                  </button>
                 </div>
                 {rightTab === "layers" ? (
                   <LayersPanel />
@@ -1423,6 +1524,40 @@ export function ImageEditor({
               }}
             >
               Leave
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        onOpenChange={setShowRecoveryDialog}
+        open={showRecoveryDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recover Unsaved Work?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Auto-saved work from a previous session was found. Recover it or
+              discard to use the last saved version.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowRecoveryDialog(false)}>
+              Discard
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (recoveryPages) {
+                  useEditorStore.setState({
+                    pages: recoveryPages,
+                    layers: recoveryPages[0]?.layers ?? [],
+                    activePageIndex: 0,
+                  });
+                }
+                setShowRecoveryDialog(false);
+              }}
+            >
+              Recover
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

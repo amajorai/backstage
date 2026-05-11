@@ -18,6 +18,7 @@ interface EditorHeaderProps {
   onClose: () => void;
   onShowConfirmClose: () => void;
   onNameChange: (name: string) => void;
+  onOpenSettings: () => void;
 }
 
 export function EditorHeader({
@@ -26,6 +27,7 @@ export function EditorHeader({
   onClose,
   onShowConfirmClose,
   onNameChange,
+  onOpenSettings,
 }: EditorHeaderProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editValue, setEditValue] = useState(projectName);
@@ -127,6 +129,17 @@ export function EditorHeader({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          <button
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "sm" }),
+              "h-8 px-2 text-muted-foreground hover:text-foreground"
+            )}
+            onClick={onOpenSettings}
+            type="button"
+          >
+            Settings
+          </button>
         </div>
       }
     />
