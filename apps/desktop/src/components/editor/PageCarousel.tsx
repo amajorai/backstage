@@ -25,7 +25,7 @@ export function PageCarousel() {
   };
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border bg-background/80 p-2 shadow-sm backdrop-blur-sm">
+    <div className="flex items-center gap-2 rounded-lg border bg-background/80 p-2 backdrop-blur-sm">
       <TooltipProvider>
         <div className="flex items-center gap-1">
           <Tooltip>

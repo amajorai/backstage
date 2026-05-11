@@ -20,26 +20,11 @@ import {
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
-  ColorPicker,
-  ColorPickerAlphaSlider,
-  ColorPickerArea,
-  ColorPickerContent,
-  ColorPickerEyeDropper,
-  ColorPickerHueSlider,
-  ColorPickerInput,
-  ColorPickerTrigger,
-} from "@/components/ui/color-picker";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   Tooltip,
   TooltipContent,
@@ -92,14 +77,6 @@ export function EditorToolbar({
     updateLayer,
     undo,
     redo,
-    brushSize,
-    brushColor,
-    brushOpacity,
-    setBrushSize,
-    setBrushColor,
-    setBrushOpacity,
-    magicSelectTolerance,
-    setMagicSelectTolerance,
   } = useEditorStore();
 
   const activeLayer = layers.find((l) => activeLayerIds.includes(l.id));
@@ -169,40 +146,18 @@ export function EditorToolbar({
               canMagicSelect ? undefined : "pointer-events-none opacity-40"
             }
           >
-            <Popover>
-              <PopoverTrigger
-                aria-label="Magic Select Tool"
-                className={buttonVariants({
-                  size: "icon-sm",
-                  variant: isMagicSelectActive ? "secondary" : "ghost",
-                })}
-                disabled={!canMagicSelect}
-                onClick={() => setActiveTool("magic-select")}
-              >
-                <Lasso className="size-4" />
-              </PopoverTrigger>
-              <PopoverContent className="w-52 p-3" side="right">
-                <p className="mb-2 font-medium text-sm">Magic Select</p>
-                <p className="mb-2 text-muted-foreground text-xs">
-                  Click to select · Delete to erase
-                </p>
-                <div>
-                  <label className="mb-1 block text-muted-foreground text-xs">
-                    Tolerance: {magicSelectTolerance}
-                  </label>
-                  <input
-                    className="w-full accent-primary"
-                    max={255}
-                    min={0}
-                    onChange={(e) =>
-                      setMagicSelectTolerance(Number(e.target.value))
-                    }
-                    type="range"
-                    value={magicSelectTolerance}
-                  />
-                </div>
-              </PopoverContent>
-            </Popover>
+            <button
+              aria-label="Magic Select Tool"
+              className={buttonVariants({
+                size: "icon-sm",
+                variant: isMagicSelectActive ? "secondary" : "ghost",
+              })}
+              disabled={!canMagicSelect}
+              onClick={() => setActiveTool("magic-select")}
+              type="button"
+            >
+              <Lasso className="size-4" />
+            </button>
           </span>
         </TooltipTrigger>
         <TooltipContent side="right">
@@ -298,85 +253,18 @@ export function EditorToolbar({
               canPaintOnLayer ? undefined : "pointer-events-none opacity-40"
             }
           >
-            <Popover>
-              <PopoverTrigger
-                aria-label="Brush Tool"
-                className={buttonVariants({
-                  size: "icon-sm",
-                  variant: isBrushActive ? "secondary" : "ghost",
-                })}
-                disabled={!canPaintOnLayer}
-                onClick={() => setActiveTool("brush")}
-              >
-                <Paintbrush className="size-4" />
-              </PopoverTrigger>
-              <PopoverContent className="w-52 p-3" side="right">
-                <p className="mb-2 font-medium text-sm">Brush</p>
-                <p className="mb-2 text-muted-foreground text-xs">
-                  [ ] size · {"{ }"} opacity
-                </p>
-                <div className="space-y-3">
-                  <div>
-                    <label className="mb-1 block text-muted-foreground text-xs">
-                      Color
-                    </label>
-                    <ColorPicker
-                      onValueChange={setBrushColor}
-                      value={brushColor}
-                    >
-                      <ColorPickerTrigger className="w-full justify-start gap-2 px-2 font-normal">
-                        <div
-                          className="size-4 rounded border border-border"
-                          style={{ backgroundColor: brushColor }}
-                        />
-                        <span className="truncate font-mono text-xs">
-                          {brushColor}
-                        </span>
-                      </ColorPickerTrigger>
-                      <ColorPickerContent>
-                        <ColorPickerArea className="h-40 w-full rounded-md border" />
-                        <div className="mt-4 flex flex-col gap-2">
-                          <ColorPickerHueSlider />
-                          <ColorPickerAlphaSlider />
-                        </div>
-                        <div className="mt-4 flex items-center gap-2">
-                          <ColorPickerInput />
-                          <ColorPickerEyeDropper />
-                        </div>
-                      </ColorPickerContent>
-                    </ColorPicker>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-muted-foreground text-xs">
-                      Size: {brushSize}px
-                    </label>
-                    <input
-                      className="w-full accent-primary"
-                      max={200}
-                      min={1}
-                      onChange={(e) => setBrushSize(Number(e.target.value))}
-                      type="range"
-                      value={brushSize}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-muted-foreground text-xs">
-                      Opacity: {Math.round(brushOpacity * 100)}%
-                    </label>
-                    <input
-                      className="w-full accent-primary"
-                      max={100}
-                      min={1}
-                      onChange={(e) =>
-                        setBrushOpacity(Number(e.target.value) / 100)
-                      }
-                      type="range"
-                      value={Math.round(brushOpacity * 100)}
-                    />
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
+            <button
+              aria-label="Brush Tool"
+              className={buttonVariants({
+                size: "icon-sm",
+                variant: isBrushActive ? "secondary" : "ghost",
+              })}
+              disabled={!canPaintOnLayer}
+              onClick={() => setActiveTool("brush")}
+              type="button"
+            >
+              <Paintbrush className="size-4" />
+            </button>
           </span>
         </TooltipTrigger>
         <TooltipContent side="right">
@@ -392,55 +280,18 @@ export function EditorToolbar({
               canPaintOnLayer ? undefined : "pointer-events-none opacity-40"
             }
           >
-            <Popover>
-              <PopoverTrigger
-                aria-label="Eraser Tool"
-                className={buttonVariants({
-                  size: "icon-sm",
-                  variant: isEraserActive ? "secondary" : "ghost",
-                })}
-                disabled={!canPaintOnLayer}
-                onClick={() => setActiveTool("eraser")}
-              >
-                <Eraser className="size-4" />
-              </PopoverTrigger>
-              <PopoverContent className="w-52 p-3" side="right">
-                <p className="mb-2 font-medium text-sm">Eraser</p>
-                <p className="mb-2 text-muted-foreground text-xs">
-                  [ ] size · {"{ }"} opacity
-                </p>
-                <div className="space-y-3">
-                  <div>
-                    <label className="mb-1 block text-muted-foreground text-xs">
-                      Size: {brushSize}px
-                    </label>
-                    <input
-                      className="w-full accent-primary"
-                      max={200}
-                      min={1}
-                      onChange={(e) => setBrushSize(Number(e.target.value))}
-                      type="range"
-                      value={brushSize}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-muted-foreground text-xs">
-                      Opacity: {Math.round(brushOpacity * 100)}%
-                    </label>
-                    <input
-                      className="w-full accent-primary"
-                      max={100}
-                      min={1}
-                      onChange={(e) =>
-                        setBrushOpacity(Number(e.target.value) / 100)
-                      }
-                      type="range"
-                      value={Math.round(brushOpacity * 100)}
-                    />
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
+            <button
+              aria-label="Eraser Tool"
+              className={buttonVariants({
+                size: "icon-sm",
+                variant: isEraserActive ? "secondary" : "ghost",
+              })}
+              disabled={!canPaintOnLayer}
+              onClick={() => setActiveTool("eraser")}
+              type="button"
+            >
+              <Eraser className="size-4" />
+            </button>
           </span>
         </TooltipTrigger>
         <TooltipContent side="right">

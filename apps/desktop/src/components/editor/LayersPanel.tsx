@@ -18,7 +18,18 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { generateThumbnailName } from "@/lib/gemini-rename";
 import { getGeminiApiKey } from "@/lib/gemini-store";
 import { cn } from "@/lib/utils";
@@ -206,11 +217,10 @@ export function LayersPanel() {
     setEditingName("");
   }, []);
 
-  const handleAutoRename = useCallback(async () => {
+  const handleAutoRenameActive = useCallback(async () => {
     const activeLayer = layers.find((l) => activeLayerIds.includes(l.id));
     if (!activeLayer) return;
 
-    // Rule-based for non-image layers
     if (activeLayer.type === "text") {
       const name = activeLayer.text.slice(0, 40).trim() || "Text Layer";
       updateLayer(activeLayer.id, { name });
@@ -223,8 +233,6 @@ export function LayersPanel() {
       toast.success("Layer renamed");
       return;
     }
-
-    // Gemini for image-based layers
     if (
       activeLayer.type !== "image" &&
       activeLayer.type !== "draw" &&
@@ -257,10 +265,64 @@ export function LayersPanel() {
     }
   }, [layers, activeLayerIds, updateLayer]);
 
+  const handleAutoRenameAll = useCallback(async () => {
+    const imageLayers = layers.filter(
+      (l) =>
+        l.type === "image" || l.type === "draw" || l.type === "animated-image"
+    );
+
+    for (const layer of layers) {
+      if (layer.type === "text") {
+        updateLayer(layer.id, {
+          name: layer.text.slice(0, 40).trim() || "Text Layer",
+        });
+      } else if (layer.type === "shape") {
+        updateLayer(layer.id, { name: `${layer.fill} ${layer.shapeType}` });
+      }
+    }
+
+    if (imageLayers.length === 0) {
+      toast.success("All layers renamed");
+      return;
+    }
+
+    const apiKey = await getGeminiApiKey();
+    if (!apiKey) {
+      toast.error("Gemini API key not set. Add it in Settings → API Keys.");
+      return;
+    }
+
+    setIsRenaming(true);
+    const toastId = toast.loading(
+      `Renaming ${imageLayers.length} image layer(s)…`
+    );
+    try {
+      await Promise.all(
+        imageLayers.map(async (layer) => {
+          const dataUrl =
+            layer.type === "animated-image" ? layer.frames[0] : layer.dataUrl;
+          const name = await generateThumbnailName(apiKey, dataUrl);
+          updateLayer(layer.id, { name });
+        })
+      );
+      toast.success("All layers renamed", { id: toastId });
+    } catch {
+      toast.error("Failed to rename some layers", { id: toastId });
+    } finally {
+      setIsRenaming(false);
+    }
+  }, [layers, updateLayer]);
+
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col border-border border-l bg-background">
       <ScrollFadeEffect
         className="flex-1 p-1.5"
+        onClick={(e) => {
+          const target = e.target as HTMLElement;
+          if (!target.closest("[data-layer-item]")) {
+            setActiveLayers([]);
+          }
+        }}
         onContextMenu={(e) => {
           const target = e.target as HTMLElement;
           if (!target.closest("[data-layer-item]")) {
@@ -421,45 +483,74 @@ export function LayersPanel() {
       </ScrollFadeEffect>
 
       <div className="flex shrink-0 items-center border-border border-t px-1 py-1">
-        <button
-          className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
-          onClick={addEmptyLayer}
-          title="Add layer"
-          type="button"
-        >
-          <Plus className="size-3.5" />
-        </button>
-        <button
-          className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
-          disabled={activeLayerIds.length === 0}
-          onClick={() => {
-            for (const id of activeLayerIds) duplicateLayer(id);
-          }}
-          title="Duplicate layer"
-          type="button"
-        >
-          <Copy className="size-3.5" />
-        </button>
-        <button
-          className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-destructive disabled:opacity-30"
-          disabled={activeLayerIds.length === 0 || layers.length <= 1}
-          onClick={() => {
-            for (const id of activeLayerIds) removeLayer(id);
-          }}
-          title="Delete layer"
-          type="button"
-        >
-          <Trash2 className="size-3.5" />
-        </button>
-        <button
-          className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
-          disabled={activeLayerIds.length === 0 || isRenaming}
-          onClick={handleAutoRename}
-          title="Auto-rename with AI"
-          type="button"
-        >
-          <Sparkles className={cn("size-3.5", isRenaming && "animate-pulse")} />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
+              onClick={addEmptyLayer}
+              type="button"
+            >
+              <Plus className="size-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Add layer</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+              disabled={activeLayerIds.length === 0}
+              onClick={() => {
+                for (const id of activeLayerIds) duplicateLayer(id);
+              }}
+              type="button"
+            >
+              <Copy className="size-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Duplicate layer</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-destructive disabled:pointer-events-none disabled:opacity-30"
+              disabled={activeLayerIds.length === 0 || layers.length <= 1}
+              onClick={() => {
+                for (const id of activeLayerIds) removeLayer(id);
+              }}
+              type="button"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Delete layer</TooltipContent>
+        </Tooltip>
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger
+                className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+                disabled={isRenaming}
+              >
+                <Sparkles
+                  className={cn("size-3.5", isRenaming && "animate-pulse")}
+                />
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>Auto-rename with AI</TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="start" side="top">
+            <DropdownMenuItem
+              disabled={activeLayerIds.length === 0}
+              onClick={handleAutoRenameActive}
+            >
+              Active layer
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleAutoRenameAll}>
+              All layers
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Panel-level paste menu for right-clicking empty space */}

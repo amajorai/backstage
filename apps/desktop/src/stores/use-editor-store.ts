@@ -205,6 +205,8 @@ interface EditorState {
   brushColor: string;
   brushOpacity: number;
   magicSelectTolerance: number;
+  // Select tool options
+  selectActiveLayerOnly: boolean;
   // past[i].label = action that will move FROM past[i].pages TO next state
   historyPast: Array<{
     pages: Page[];
@@ -286,6 +288,7 @@ interface EditorState {
   setBrushColor: (color: string) => void;
   setBrushOpacity: (opacity: number) => void;
   setMagicSelectTolerance: (tolerance: number) => void;
+  setSelectActiveLayerOnly: (value: boolean) => void;
   // Ordering
   moveLayer: (id: string, direction: "up" | "down") => void;
   reorderLayers: (fromIndex: number, toIndex: number) => void;
@@ -316,6 +319,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   brushColor: "#000000",
   brushOpacity: 1,
   magicSelectTolerance: 32,
+  selectActiveLayerOnly: false,
   historyPast: [],
   historyFuture: [],
   historyIndex: -1,
@@ -757,8 +761,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const newLayer = {
       ...JSON.parse(JSON.stringify(layer)),
       id: crypto.randomUUID(),
-      x: layer.x + 20,
-      y: layer.y + 20,
     };
     const newPages = [...pages];
     newPages[activePageIndex] = {
@@ -834,6 +836,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setBrushOpacity: (opacity) => set({ brushOpacity: opacity }),
   setMagicSelectTolerance: (tolerance) =>
     set({ magicSelectTolerance: tolerance }),
+
+  setSelectActiveLayerOnly: (value) => set({ selectActiveLayerOnly: value }),
 
   moveLayer: (id, direction) => {
     get().pushHistory("Reorder Layer");

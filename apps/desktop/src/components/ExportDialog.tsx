@@ -1,12 +1,19 @@
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
-import { Loader2, X } from "lucide-react";
+import { CheckSquare2, Layers, Loader2, Square, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { renderLayersToCanvas } from "@/lib/canvas-renderer";
 import { exportCanvasFramesToGif } from "@/lib/gif-encoder";
@@ -178,10 +185,13 @@ export function ExportDialog({
   );
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [customRange, setCustomRange] = useState("");
-  const [layerScope, setLayerScope] = useState<"composite" | "single">(
-    "composite"
-  );
+  const [layerScope, setLayerScope] = useState<
+    "composite" | "single" | "select"
+  >("composite");
   const [selectedLayerIndex, setSelectedLayerIndex] = useState(0);
+  const [selectedLayerIndices, setSelectedLayerIndices] = useState<Set<number>>(
+    new Set()
+  );
 
   const [isLoadingImage, setIsLoadingImage] = useState(!isBatchMode);
   const [originalDimensions, setOriginalDimensions] = useState({
@@ -418,7 +428,11 @@ export function ExportDialog({
         const layersToRender =
           layerScope === "single"
             ? [page.layers[selectedLayerIndex]].filter(Boolean)
-            : page.layers;
+            : layerScope === "select"
+              ? page.layers.filter((_: any, i: number) =>
+                  selectedLayerIndices.has(i)
+                )
+              : page.layers;
         await renderLayersToCanvas(layersToRender, sourceW, sourceH, canvas);
 
         if (needsScaling) {
@@ -471,6 +485,7 @@ export function ExportDialog({
     originalDimensions,
     layerScope,
     selectedLayerIndex,
+    selectedLayerIndices,
   ]);
 
   // Animated export handler for GIF/MP4
@@ -797,7 +812,7 @@ export function ExportDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/80 backdrop-blur-sm"
       onClick={onClose}
       onKeyDown={(e) => e.key === "Escape" && onClose()}
     >
@@ -873,7 +888,7 @@ export function ExportDialog({
               </div>
 
               <RadioGroup
-                className="grid grid-cols-3 gap-2"
+                className="flex flex-row gap-2"
                 onValueChange={(v) => {
                   const scope = v as "current" | "all" | "custom";
                   setExportScope(scope);
@@ -986,45 +1001,93 @@ export function ExportDialog({
                 <div className="space-y-3 rounded-lg bg-muted/40 p-4">
                   <h3 className="font-medium text-sm">Layer Export</h3>
                   <RadioGroup
-                    className="grid grid-cols-2 gap-2"
-                    onValueChange={(v) =>
-                      setLayerScope(v as "composite" | "single")
-                    }
+                    className="flex flex-row gap-2"
+                    onValueChange={(v) => {
+                      const scope = v as "composite" | "single" | "select";
+                      setLayerScope(scope);
+                      if (scope === "select") {
+                        setSelectedLayerIndices(
+                          new Set(layerList.map((_: any, i: number) => i))
+                        );
+                      }
+                    }}
                     value={layerScope}
                   >
                     <div className="flex items-center space-x-2 rounded-md border border-input bg-background/50 p-2 hover:bg-muted">
                       <RadioGroupItem id="layer-composite" value="composite" />
                       <Label
-                        className="cursor-pointer font-normal text-xs"
+                        className="flex cursor-pointer items-center gap-1.5 font-normal text-xs"
                         htmlFor="layer-composite"
                       >
-                        All layers (composite)
+                        <Layers className="size-3 shrink-0" />
+                        All layers
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2 rounded-md border border-input bg-background/50 p-2 hover:bg-muted">
                       <RadioGroupItem id="layer-single" value="single" />
                       <Label
-                        className="cursor-pointer font-normal text-xs"
+                        className="flex cursor-pointer items-center gap-1.5 font-normal text-xs"
                         htmlFor="layer-single"
                       >
-                        Single layer
+                        <Square className="size-3 shrink-0" />
+                        Single
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2 rounded-md border border-input bg-background/50 p-2 hover:bg-muted">
+                      <RadioGroupItem id="layer-select" value="select" />
+                      <Label
+                        className="flex cursor-pointer items-center gap-1.5 font-normal text-xs"
+                        htmlFor="layer-select"
+                      >
+                        <CheckSquare2 className="size-3 shrink-0" />
+                        Pick layers
                       </Label>
                     </div>
                   </RadioGroup>
                   {layerScope === "single" && (
-                    <select
-                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                      onChange={(e) =>
-                        setSelectedLayerIndex(Number(e.target.value))
-                      }
-                      value={selectedLayerIndex}
+                    <Select
+                      onValueChange={(v) => setSelectedLayerIndex(Number(v))}
+                      value={String(selectedLayerIndex)}
                     >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {layerList.map((layer: any, i: number) => (
+                          <SelectItem key={layer.id ?? i} value={String(i)}>
+                            {layer.name || `Layer ${i + 1}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {layerScope === "select" && (
+                    <div className="space-y-1 rounded-md border border-border bg-background/30 p-2">
                       {layerList.map((layer: any, i: number) => (
-                        <option key={layer.id ?? i} value={i}>
-                          {layer.name || `Layer ${i + 1}`}
-                        </option>
+                        <label
+                          className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-muted"
+                          key={layer.id ?? i}
+                        >
+                          <input
+                            checked={selectedLayerIndices.has(i)}
+                            className="accent-primary"
+                            onChange={(e) => {
+                              const next = new Set(selectedLayerIndices);
+                              if (e.target.checked) {
+                                next.add(i);
+                              } else {
+                                next.delete(i);
+                              }
+                              setSelectedLayerIndices(next);
+                            }}
+                            type="checkbox"
+                          />
+                          <span className="text-xs">
+                            {layer.name || `Layer ${i + 1}`}
+                          </span>
+                        </label>
                       ))}
-                    </select>
+                    </div>
                   )}
                 </div>
               );
@@ -1080,17 +1143,21 @@ export function ExportDialog({
           {/* Resolution */}
           <div>
             <label className="mb-2 block font-medium text-sm">Resolution</label>
-            <select
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-              onChange={(e) => setResolution(e.target.value as Resolution)}
+            <Select
+              onValueChange={(v) => setResolution(v as Resolution)}
               value={resolution}
             >
-              {resolutionPresets.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {resolutionPresets.map((r) => (
+                  <SelectItem key={r.value} value={r.value}>
+                    {r.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Custom Resolution */}
@@ -1166,7 +1233,8 @@ export function ExportDialog({
               (!isBatchMode &&
                 (isLoadingImage ||
                   !fullImageUrl ||
-                  (exportScope === "custom" && selectedIndices.length === 0)))
+                  (exportScope === "custom" && selectedIndices.length === 0) ||
+                  (layerScope === "select" && selectedLayerIndices.size === 0)))
             }
             onClick={() => {
               if (isBatchMode) {

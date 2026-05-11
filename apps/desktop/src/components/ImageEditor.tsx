@@ -682,7 +682,7 @@ export function ImageEditor({
         } else if (e.key === "v") {
           e.preventDefault();
           useEditorStore.getState().pasteLayers();
-        } else if (e.key === "j" || e.key === "J") {
+        } else if (e.key === "d" || e.key === "D") {
           e.preventDefault();
           const { activeLayerIds, duplicateLayer } = useEditorStore.getState();
           for (const id of activeLayerIds) duplicateLayer(id);

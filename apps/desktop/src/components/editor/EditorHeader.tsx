@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/stores/use-editor-store";
+import { ToolOptionsBar } from "./ToolOptionsBar";
 
 interface EditorHeaderProps {
   projectName: string;
@@ -48,6 +49,7 @@ export function EditorHeader({
 
   return (
     <TitleBar
+      center={<ToolOptionsBar />}
       className="h-12 border-b-0"
       showIcon={false}
       title={
