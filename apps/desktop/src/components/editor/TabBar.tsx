@@ -1,3 +1,4 @@
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   File,
   GalleryHorizontal,
@@ -74,13 +75,6 @@ export function TabBar({
     return () => ro.disconnect();
   }, []);
 
-  // Prevent WebView2 native context menu so Radix can handle right-clicks
-  useLayoutEffect(() => {
-    const prevent = (e: MouseEvent) => e.preventDefault();
-    document.addEventListener("contextmenu", prevent);
-    return () => document.removeEventListener("contextmenu", prevent);
-  }, []);
-
   const tabs = useTabsStore((s) => s.tabs);
   const activeTabId = useTabsStore((s) => s.activeTabId);
   const closedTabs = useTabsStore((s) => s.closedTabs);
@@ -103,6 +97,7 @@ export function TabBar({
   ctrlTabPendingIdRef.current = ctrlTabPendingId;
 
   const isTabDirty = (tab: TabEntry) => {
+    if (tab.savedHistoryIndex === -1) return false;
     if (tab.id === activeTabId) {
       return historyIndex !== tab.savedHistoryIndex;
     }
@@ -190,6 +185,11 @@ export function TabBar({
     };
   }, [setActiveTab, reopenClosedTab, closeTab]);
 
+  const handleBarMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    getCurrentWindow().startDragging();
+  };
+
   const handleGalleryClick = () => {
     if (!editorVisible) return;
     setEditorVisible(false);
@@ -252,7 +252,7 @@ export function TabBar({
     <>
       <div
         className={`relative flex h-10 shrink-0 items-center bg-muted ${isMac ? "pr-2 pl-[80px]" : "pr-[148px] pl-2"}`}
-        data-tauri-drag-region
+        onMouseDown={handleBarMouseDown}
       >
         <style>{`
           @keyframes tab-logo-bounce {
@@ -270,6 +270,7 @@ export function TabBar({
         <button
           className="relative z-[1001] flex shrink-0 cursor-pointer items-center px-1.5 outline-none"
           onClick={() => setBounceKey((k) => k + 1)}
+          onMouseDown={(e) => e.stopPropagation()}
           style={noDrag}
           type="button"
         >
@@ -289,6 +290,7 @@ export function TabBar({
               : "bg-background text-foreground"
           }`}
           onClick={handleGalleryClick}
+          onMouseDown={(e) => e.stopPropagation()}
           style={noDrag}
         >
           {PAGE_ICONS[activePage]}
@@ -320,7 +322,7 @@ export function TabBar({
             return (
               <Fragment key={tab.id}>
                 {showIndicator(index) && (
-                  <div className="h-5 w-0.5 shrink-0 rounded-full bg-blue-400" />
+                  <div className="pointer-events-none h-5 w-0.5 shrink-0 rounded-full bg-blue-400" />
                 )}
                 <ContextMenu>
                   <ContextMenuTrigger asChild>
@@ -336,6 +338,7 @@ export function TabBar({
                       onDragOver={(e) => handleDragOver(e, index)}
                       onDragStart={(e) => handleDragStart(e, index)}
                       onDrop={handleDrop}
+                      onMouseDown={(e) => e.stopPropagation()}
                       onPointerDown={(e) => {
                         if (e.button === 1) {
                           e.preventDefault();
@@ -343,7 +346,7 @@ export function TabBar({
                           handleCloseTab(tab);
                         }
                       }}
-                      style={{ width: tabWidth, ...noDrag }}
+                      style={{ width: tabWidth }}
                     >
                       <File className="size-3 shrink-0 opacity-60" />
                       <span className="truncate">{tab.name}</span>
@@ -400,7 +403,7 @@ export function TabBar({
             );
           })}
           {showIndicator(tabs.length) && (
-            <div className="h-5 w-0.5 shrink-0 rounded-full bg-blue-400" />
+            <div className="pointer-events-none h-5 w-0.5 shrink-0 rounded-full bg-blue-400" />
           )}
         </div>
       </div>

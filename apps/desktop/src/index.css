@@ -210,8 +210,8 @@
 }
 
 [data-tauri-drag-region] {
-  -webkit-app-region: drag;
-  app-region: drag;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
 
 /* Scrollbar */

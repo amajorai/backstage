@@ -5,6 +5,33 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>youtube.pub</title>
+    <script>
+    "use strict";
+    // Suppress WebView2 native context menu so Radix ContextMenu can handle right-clicks.
+    // Must run before React so the capture listener is always registered.
+    document.addEventListener(
+      "contextmenu",
+      (e) => {
+        e.preventDefault();
+      },
+      true
+    );
+    // Suppress middle-click autoscroll cursor in WebView2.
+    document.addEventListener(
+      "mousedown",
+      (e) => {
+        if (e.button === 1) e.preventDefault();
+      },
+      true
+    );
+    document.addEventListener(
+      "auxclick",
+      (e) => {
+        if (e.button === 1) e.preventDefault();
+      },
+      true
+    );
+    </script>
   </head>
   <body>
     <div id="root"></div>
