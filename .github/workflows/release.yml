@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "v*"
+    branches:
+      - "release/v*"
 
 env:
   CARGO_TERM_COLOR: always
@@ -40,6 +42,18 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Get version tag
+        id: version
+        shell: bash
+        run: |
+          REF="$GITHUB_REF_NAME"
+          if [[ "$REF" == release/* ]]; then
+            VERSION="${REF#release/}"
+          else
+            VERSION="$REF"
+          fi
+          echo "tag=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -83,14 +97,14 @@ jobs:
         shell: bash
         run: |
           git fetch --tags --force
-          TAG_MSG=$(git for-each-ref refs/tags/${{ github.ref_name }} --format='%(contents:subject)' 2>/dev/null | head -1)
+          TAG_MSG=$(git for-each-ref refs/tags/${{ steps.version.outputs.tag }} --format='%(contents:subject)' 2>/dev/null | head -1)
           echo "message=$TAG_MSG" >> $GITHUB_OUTPUT
 
       - name: Generate changelog
         id: changelog
         shell: bash
         run: |
-          VERSION="${GITHUB_REF#refs/tags/}"
+          VERSION="${{ steps.version.outputs.tag }}"
           PREV_TAG="${{ steps.prev_tag.outputs.prev_tag }}"
           REPO="${{ github.repository }}"
 
@@ -170,7 +184,7 @@ jobs:
             echo "## Downloads"
             echo ""
             echo "| Platform | Download |"
-            echo "|----------|----------|"
+            echo "|----------|-----------|"
             echo "| macOS (Apple Silicon) | \`.dmg\` (arm64) |"
             echo "| macOS (Intel) | \`.dmg\` (x64) |"
             echo "| Windows | \`.exe\` / \`.msi\` installer |"
@@ -192,11 +206,11 @@ jobs:
         with:
           projectPath: apps/desktop
           tauriScript: bunx tauri
-          tagName: ${{ github.ref_name }}
-          releaseName: "${{ github.ref_name }}${{ steps.tag_message.outputs.message && format(' - {0}', steps.tag_message.outputs.message) || '' }}"
+          tagName: ${{ steps.version.outputs.tag }}
+          releaseName: "${{ steps.version.outputs.tag }}${{ steps.tag_message.outputs.message && format(' - {0}', steps.tag_message.outputs.message) || '' }}"
           releaseBody: ${{ steps.changelog.outputs.body }}
           releaseDraft: false
-          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'nightly') || contains(github.ref_name, 'rc') }}
+          prerelease: ${{ contains(steps.version.outputs.tag, 'beta') || contains(steps.version.outputs.tag, 'alpha') || contains(steps.version.outputs.tag, 'nightly') || contains(steps.version.outputs.tag, 'rc') }}
           includeUpdaterJson: true
           args: ${{ matrix.args }}
 
@@ -255,6 +269,6 @@ jobs:
             find . -name "*.sha256" -type f | while read file; do
               filename=$(basename "$file")
               echo "Uploading $filename"
-              gh release upload "${{ github.ref_name }}" "$file" --clobber || true
+              gh release upload "${{ steps.version.outputs.tag }}" "$file" --clobber || true
             done
           fi
