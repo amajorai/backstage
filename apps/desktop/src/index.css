@@ -74,6 +74,26 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+@keyframes ios-wiggle {
+  0%,
+  100% {
+    transform: rotate(-0.4deg);
+  }
+  50% {
+    transform: rotate(0.4deg);
+  }
+}
+
+.animate-wiggle {
+  animation: ios-wiggle 0.22s ease-in-out infinite;
+  transform-origin: 50% 20%;
+}
+
+.animate-wiggle-delayed {
+  animation: ios-wiggle 0.22s ease-in-out 0.11s infinite;
+  transform-origin: 50% 20%;
+}
+
 @layer base {
   @keyframes show-top-mask {
     to {

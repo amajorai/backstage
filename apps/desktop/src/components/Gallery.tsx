@@ -18,7 +18,10 @@ import { toast } from "sonner";
 import type { ViewMode } from "@/App";
 import { AddColorBackgroundDialog } from "@/components/editor/AddColorBackgroundDialog";
 import { EmptyState } from "@/components/gallery/EmptyState";
-import { gridComponents } from "@/components/gallery/VirtuosoGridComponents";
+import {
+  gridComponents,
+  gridComponentsWithFolderBar,
+} from "@/components/gallery/VirtuosoGridComponents";
 import { ThumbnailGridItem } from "@/components/ThumbnailGridItem";
 import { AddMenu } from "@/components/toolbar/add-menu";
 import {
@@ -93,6 +96,7 @@ export function Gallery({
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<string | null>(
     null
   );
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
 
   const addToRenameQueue = useAutoRenameQueue((s) => s.addToQueue);
   const addThumbnail = useGalleryStore((s) => s.addThumbnail);
@@ -120,6 +124,10 @@ export function Gallery({
   const setFilteredCount = useGalleryUIStore((s) => s.setFilteredCount);
   const selectedFolderId = useGalleryUIStore((s) => s.selectedFolderId);
   const setSelectedFolderId = useGalleryUIStore((s) => s.setSelectedFolderId);
+  const bulkMoveFolderOpen = useGalleryUIStore((s) => s.bulkMoveFolderOpen);
+  const setBulkMoveFolderOpen = useGalleryUIStore(
+    (s) => s.setBulkMoveFolderOpen
+  );
 
   const filteredThumbnails = useMemo(() => {
     let filtered = rawThumbnails;
@@ -299,6 +307,7 @@ export function Gallery({
         <ThumbnailGridItem
           folders={folders}
           isProcessing={processingId === thumbnail.id}
+          itemIndex={index}
           onAddColorBackground={setColorBgThumbnail}
           onAutoRename={handleAutoRename}
           onDelete={handleDelete}
@@ -344,13 +353,13 @@ export function Gallery({
   return (
     <div className="relative flex flex-1 select-none flex-col overflow-hidden">
       {folders.length > 0 && (
-        <div className="scrollbar-none flex shrink-0 items-center gap-1.5 overflow-x-auto px-5 pt-4">
+        <div className="scrollbar-none absolute top-0 right-0 left-0 z-20 flex items-center gap-1.5 overflow-x-auto px-5 py-3">
           <button
             className={cn(
               "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-sm transition-colors",
               selectedFolderId === null
                 ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                : "text-muted-foreground hover:text-foreground"
             )}
             onClick={() => setSelectedFolderId(null)}
             type="button"
@@ -360,12 +369,33 @@ export function Gallery({
           {folders.map((folder) => (
             <div
               className={cn(
-                "group flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-sm transition-colors",
+                "group flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-sm transition-all",
                 selectedFolderId === folder.id
                   ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+                dragOverFolderId === folder.id &&
+                  "scale-110 ring-2 ring-primary"
               )}
               key={folder.id}
+              onDragLeave={() => setDragOverFolderId(null)}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                setDragOverFolderId(folder.id);
+              }}
+              onDrop={async (e) => {
+                e.preventDefault();
+                setDragOverFolderId(null);
+                const raw = e.dataTransfer.getData("application/thumbnail-ids");
+                if (!raw) return;
+                const ids = JSON.parse(raw) as string[];
+                await Promise.all(
+                  ids.map((id) => setThumbnailFolder(id, folder.id))
+                );
+                toast.success(
+                  `Moved ${ids.length} item${ids.length > 1 ? "s" : ""} to "${folder.name}"`
+                );
+              }}
             >
               <button
                 className="flex items-center gap-1.5"
@@ -400,7 +430,7 @@ export function Gallery({
       )}
 
       <div className="relative flex-1 select-none overflow-hidden">
-        <div className="pointer-events-none absolute top-0 right-0 left-0 z-10 h-8 bg-gradient-to-b from-background to-transparent" />
+        <div className="pointer-events-none absolute top-0 right-0 left-0 z-10 h-16 bg-gradient-to-b from-background to-transparent" />
         <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 h-16 bg-gradient-to-t from-background to-transparent" />
         <ContextMenu>
           <ContextMenuTrigger className="h-full">
@@ -417,6 +447,10 @@ export function Gallery({
                 ) {
                   exitSelectionMode();
                 }
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
               }}
               onMouseDown={handleMouseDown}
               ref={containerRef}
@@ -478,7 +512,11 @@ export function Gallery({
                   />
                 ) : (
                   <VirtuosoGrid
-                    components={gridComponents}
+                    components={
+                      folders.length > 0
+                        ? gridComponentsWithFolderBar
+                        : gridComponents
+                    }
                     itemContent={itemContent}
                     listClassName={gridColClass}
                     overscan={600}
@@ -606,6 +644,65 @@ export function Gallery({
                 No folders yet. Right-click the gallery to create one.
               </p>
             )}
+          </div>
+          <DialogFooter>
+            <DialogClose render={<Button variant="ghost" />}>
+              Cancel
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk move to folder dialog */}
+      <Dialog onOpenChange={setBulkMoveFolderOpen} open={bulkMoveFolderOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Move to Folder</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-1">
+            <button
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+              onClick={async () => {
+                const ids = Array.from(
+                  useSelectionStore.getState().selectedIds
+                );
+                await Promise.all(
+                  ids.map((id) => setThumbnailFolder(id, null))
+                );
+                toast.success(
+                  `Moved ${ids.length} item${ids.length > 1 ? "s" : ""} out of folder`
+                );
+                setBulkMoveFolderOpen(false);
+                useSelectionStore.getState().clearSelection();
+              }}
+              type="button"
+            >
+              <GalleryThumbnails className="size-4 text-muted-foreground" />
+              No folder
+            </button>
+            {folders.map((folder) => (
+              <button
+                className="flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+                key={folder.id}
+                onClick={async () => {
+                  const ids = Array.from(
+                    useSelectionStore.getState().selectedIds
+                  );
+                  await Promise.all(
+                    ids.map((id) => setThumbnailFolder(id, folder.id))
+                  );
+                  toast.success(
+                    `Moved ${ids.length} item${ids.length > 1 ? "s" : ""} to "${folder.name}"`
+                  );
+                  setBulkMoveFolderOpen(false);
+                  useSelectionStore.getState().clearSelection();
+                }}
+                type="button"
+              >
+                <FolderOpen className="size-4 text-muted-foreground" />
+                {folder.name}
+              </button>
+            ))}
           </div>
           <DialogFooter>
             <DialogClose render={<Button variant="ghost" />}>

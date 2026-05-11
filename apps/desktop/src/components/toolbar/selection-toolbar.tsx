@@ -1,6 +1,7 @@
 import {
   Copy,
   Download,
+  FolderOpen,
   Loader2,
   PaintBucket,
   Sparkles,
@@ -25,6 +26,7 @@ interface SelectionToolbarProps {
   onAddColorBackground: () => void;
   onAutoRename: () => void;
   onExport?: () => void;
+  onMoveToFolder?: () => void;
 }
 
 export function SelectionToolbar({
@@ -37,6 +39,7 @@ export function SelectionToolbar({
   onAddColorBackground,
   onAutoRename,
   onExport,
+  onMoveToFolder,
 }: SelectionToolbarProps) {
   return (
     <div className="flex flex-1 items-center justify-center gap-4">
@@ -121,6 +124,19 @@ export function SelectionToolbar({
           <span>Replace background with a solid color</span>
         </TooltipContent>
       </Tooltip>
+      {onMoveToFolder && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button onClick={onMoveToFolder} size="sm" variant="ghost">
+              <FolderOpen className="mr-2 size-4" />
+              Move to Folder
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <span>Move selected items to a folder</span>
+          </TooltipContent>
+        </Tooltip>
+      )}
       {onExport && (
         <Tooltip>
           <TooltipTrigger asChild>

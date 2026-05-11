@@ -35,6 +35,7 @@ import { useSelectionStore } from "@/stores/use-selection-store";
 
 interface ThumbnailGridItemProps {
   thumbnail: ThumbnailItem;
+  itemIndex: number;
   onThumbnailClick: (thumbnail: ThumbnailItem) => void;
   onExportClick: (thumbnail: ThumbnailItem) => void;
   isProcessing: boolean;
@@ -53,6 +54,7 @@ interface ThumbnailGridItemProps {
 
 export const ThumbnailGridItem = memo(function ThumbnailGridItem({
   thumbnail,
+  itemIndex,
   onThumbnailClick,
   onExportClick,
   isProcessing,
@@ -79,7 +81,11 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
   );
   const [isLoadingPreview, setIsLoadingPreview] = useState(!previewUrl);
 
+  const toggleSelectionMode = useSelectionStore((s) => s.toggleSelectionMode);
+
   const titleRef = useRef<HTMLButtonElement>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggered = useRef(false);
   const [isTitleTruncated, setIsTitleTruncated] = useState(false);
   const [isTitleHovered, setIsTitleHovered] = useState(false);
   const [contextMenuSize, setContextMenuSize] = useState<number | null>(null);
@@ -130,6 +136,10 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
   }, [thumbnail.id, thumbnail.previewUrl, cachedPreviewUrl, loadPreviewForId]);
 
   const handleClick = useCallback(() => {
+    if (longPressTriggered.current) {
+      longPressTriggered.current = false;
+      return;
+    }
     if (isProcessing) {
       return;
     }
@@ -148,16 +158,36 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
 
   const isSelected = selectedIds.has(thumbnail.id);
 
+  const wiggleClass =
+    itemIndex % 2 === 0 ? "animate-wiggle" : "animate-wiggle-delayed";
+
   return (
     <ContextMenu onOpenChange={(open) => open && handleContextMenuOpen()}>
       <ContextMenuTrigger>
         <div
           className={cn(
             "group relative aspect-video cursor-pointer overflow-hidden rounded-lg border border-border bg-card transition-transform hover:scale-[1.02]",
-            isSelectionMode && isSelected && "ring-2 ring-primary"
+            isSelectionMode && isSelected && "ring-2 ring-primary",
+            isSelectionMode && wiggleClass
           )}
           data-thumbnail-id={thumbnail.id}
+          draggable={!(isProcessing || isSelectionMode)}
           onClick={handleClick}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+          }}
+          onDragStart={(e) => {
+            const ids =
+              isSelectionMode && selectedIds.has(thumbnail.id)
+                ? Array.from(selectedIds)
+                : [thumbnail.id];
+            e.dataTransfer.setData(
+              "application/thumbnail-ids",
+              JSON.stringify(ids)
+            );
+            e.dataTransfer.effectAllowed = "move";
+          }}
           onKeyDown={() => {}}
           onMouseDown={(e) => {
             if (e.button === 1) {
@@ -165,6 +195,32 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
               import("@/stores/use-tabs-store").then(({ useTabsStore }) => {
                 useTabsStore.getState().openTabBackground(thumbnail);
               });
+            }
+          }}
+          onPointerCancel={() => {
+            if (longPressTimer.current) clearTimeout(longPressTimer.current);
+          }}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            longPressTriggered.current = false;
+            longPressTimer.current = setTimeout(() => {
+              longPressTriggered.current = true;
+              if (!isSelectionMode) {
+                toggleSelectionMode();
+              }
+              toggleSelection(thumbnail.id);
+            }, 450);
+          }}
+          onPointerMove={() => {
+            if (longPressTimer.current) {
+              clearTimeout(longPressTimer.current);
+              longPressTimer.current = null;
+            }
+          }}
+          onPointerUp={() => {
+            if (longPressTimer.current) {
+              clearTimeout(longPressTimer.current);
+              longPressTimer.current = null;
             }
           }}
         >

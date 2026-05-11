@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAutoRenameQueue } from "@/stores/use-auto-rename-queue";
 import { useBackgroundRemovalQueue } from "@/stores/use-background-removal-queue";
+import { useFolderStore } from "@/stores/use-folder-store";
 import { useGalleryStore } from "@/stores/use-gallery-store";
 import { useGalleryUIStore } from "@/stores/use-gallery-ui-store";
 import { useSelectionStore } from "@/stores/use-selection-store";
@@ -67,6 +68,8 @@ export function BottomToolbar({
   const clearSelection = useSelectionStore((s) => s.clearSelection);
   const selectAll = useSelectionStore((s) => s.selectAll);
   const exitSelectionMode = useSelectionStore((s) => s.exitSelectionMode);
+
+  const hasFolders = useFolderStore((s) => s.folders.length > 0);
 
   const addToBgQueue = useBackgroundRemovalQueue((s) => s.addToQueue);
   const addColorBgToQueue = useBackgroundRemovalQueue(
@@ -211,6 +214,11 @@ export function BottomToolbar({
           onDelete={() => setDeleteDialogOpen(true)}
           onDuplicate={handleBulkDuplicate}
           onExport={onExportSelected}
+          onMoveToFolder={
+            hasFolders
+              ? () => useGalleryUIStore.getState().setBulkMoveFolderOpen(true)
+              : undefined
+          }
           onRemoveBackground={handleBulkRemoveBackground}
           selectedCount={selectedIds.size}
         />

@@ -34,26 +34,29 @@ export const GridItem = forwardRef<
 ));
 GridItem.displayName = "GridItem";
 
-/**
- * Footer component with bottom padding for VirtuosoGrid.
- */
 export function GridFooter() {
   return <div className="col-span-full h-8" />;
 }
 
-/**
- * Header component with top padding for VirtuosoGrid.
- */
 export function GridHeader() {
   return <div className="col-span-full h-4" />;
 }
 
-/**
- * Default grid components configuration for VirtuosoGrid.
- */
+/** Taller header used when the folder bar is visible — matches h-10 bar height. */
+export function GridHeaderWithFolderBar() {
+  return <div className="col-span-full h-14" />;
+}
+
 export const gridComponents = {
   List: GridList,
   Item: GridItem,
   Footer: GridFooter,
   Header: GridHeader,
+};
+
+export const gridComponentsWithFolderBar = {
+  List: GridList,
+  Item: GridItem,
+  Footer: GridFooter,
+  Header: GridHeaderWithFolderBar,
 };

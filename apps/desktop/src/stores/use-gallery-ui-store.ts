@@ -14,6 +14,8 @@ interface GalleryUIState {
   setFilteredCount: (count: number) => void;
   selectedFolderId: string | null;
   setSelectedFolderId: (id: string | null) => void;
+  bulkMoveFolderOpen: boolean;
+  setBulkMoveFolderOpen: (open: boolean) => void;
 }
 
 export const useGalleryUIStore = create<GalleryUIState>()((set) => ({
@@ -29,4 +31,6 @@ export const useGalleryUIStore = create<GalleryUIState>()((set) => ({
   setFilteredCount: (count) => set({ filteredCount: count }),
   selectedFolderId: null,
   setSelectedFolderId: (id) => set({ selectedFolderId: id }),
+  bulkMoveFolderOpen: false,
+  setBulkMoveFolderOpen: (open) => set({ bulkMoveFolderOpen: open }),
 }));
