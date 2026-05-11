@@ -1,5 +1,15 @@
-import { Copy, Eye, EyeOff, Lock, Plus, Trash2, Unlock } from "lucide-react";
+import {
+  Copy,
+  Eye,
+  EyeOff,
+  Lock,
+  Plus,
+  Sparkles,
+  Trash2,
+  Unlock,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { ScrollFadeEffect } from "@/components/scroll-fade-effect";
 import {
   ContextMenu,
@@ -9,8 +19,65 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Input } from "@/components/ui/input";
+import { generateThumbnailName } from "@/lib/gemini-rename";
+import { getGeminiApiKey } from "@/lib/gemini-store";
 import { cn } from "@/lib/utils";
+import type { Layer } from "@/stores/use-editor-store";
 import { useEditorStore } from "@/stores/use-editor-store";
+
+function LayerThumbnail({ layer }: { layer: Layer }) {
+  if (layer.type === "image" || layer.type === "draw") {
+    return (
+      <img
+        alt=""
+        className="size-7 shrink-0 rounded-sm object-cover"
+        src={layer.dataUrl}
+        style={{
+          background:
+            "repeating-conic-gradient(#808080 0% 25%, transparent 0% 50%) 0 0 / 6px 6px",
+        }}
+      />
+    );
+  }
+  if (layer.type === "animated-image") {
+    return (
+      <img
+        alt=""
+        className="size-7 shrink-0 rounded-sm object-cover"
+        src={layer.frames[0]}
+      />
+    );
+  }
+  if (layer.type === "text") {
+    return (
+      <div
+        className="flex size-7 shrink-0 items-center justify-center rounded-sm font-bold text-[11px]"
+        style={{ color: layer.fill, background: `${layer.fill}22` }}
+      >
+        T
+      </div>
+    );
+  }
+  if (layer.type === "shape") {
+    return (
+      <div
+        className="size-7 shrink-0 rounded-sm border border-white/10"
+        style={{ background: layer.fill || "#888" }}
+      />
+    );
+  }
+  if (layer.type === "svg") {
+    const encoded = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(layer.svgString)}`;
+    return (
+      <img
+        alt=""
+        className="size-7 shrink-0 rounded-sm object-cover"
+        src={encoded}
+      />
+    );
+  }
+  return <div className="size-7 shrink-0 rounded-sm bg-muted" />;
+}
 
 export function LayersPanel() {
   const {
@@ -36,6 +103,7 @@ export function LayersPanel() {
     x: number;
     y: number;
   } | null>(null);
+  const [isRenaming, setIsRenaming] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -138,8 +206,59 @@ export function LayersPanel() {
     setEditingName("");
   }, []);
 
+  const handleAutoRename = useCallback(async () => {
+    const activeLayer = layers.find((l) => activeLayerIds.includes(l.id));
+    if (!activeLayer) return;
+
+    // Rule-based for non-image layers
+    if (activeLayer.type === "text") {
+      const name = activeLayer.text.slice(0, 40).trim() || "Text Layer";
+      updateLayer(activeLayer.id, { name });
+      toast.success("Layer renamed");
+      return;
+    }
+    if (activeLayer.type === "shape") {
+      const name = `${activeLayer.fill} ${activeLayer.shapeType}`;
+      updateLayer(activeLayer.id, { name });
+      toast.success("Layer renamed");
+      return;
+    }
+
+    // Gemini for image-based layers
+    if (
+      activeLayer.type !== "image" &&
+      activeLayer.type !== "draw" &&
+      activeLayer.type !== "animated-image"
+    ) {
+      toast.info("Auto-rename not supported for this layer type");
+      return;
+    }
+
+    const apiKey = await getGeminiApiKey();
+    if (!apiKey) {
+      toast.error("Gemini API key not set. Add it in Settings → API Keys.");
+      return;
+    }
+
+    setIsRenaming(true);
+    const toastId = toast.loading("Renaming…");
+    try {
+      const dataUrl =
+        activeLayer.type === "animated-image"
+          ? activeLayer.frames[0]
+          : activeLayer.dataUrl;
+      const name = await generateThumbnailName(apiKey, dataUrl);
+      updateLayer(activeLayer.id, { name });
+      toast.success(`Renamed to "${name}"`, { id: toastId });
+    } catch {
+      toast.error("Failed to rename", { id: toastId });
+    } finally {
+      setIsRenaming(false);
+    }
+  }, [layers, activeLayerIds, updateLayer]);
+
   return (
-    <div className="flex h-full w-full shrink-0 flex-col border-border border-l bg-background">
+    <div className="flex min-h-0 w-full flex-1 flex-col border-border border-l bg-background">
       <ScrollFadeEffect
         className="flex-1 p-1.5"
         onContextMenu={(e) => {
@@ -167,7 +286,7 @@ export function LayersPanel() {
                 <ContextMenuTrigger data-layer-item="true">
                   <div
                     className={cn(
-                      "flex cursor-grab items-center gap-0.5 rounded-md px-2 py-1.5 text-xs transition-colors",
+                      "flex cursor-grab items-center gap-1.5 rounded-md px-1.5 py-1 text-xs transition-colors",
                       isSelected
                         ? "bg-primary/20 text-primary"
                         : "hover:bg-muted/50",
@@ -233,7 +352,10 @@ export function LayersPanel() {
                       </button>
                     </div>
 
-                    {/* Name: click to select, double-click to edit */}
+                    {/* Thumbnail */}
+                    <LayerThumbnail layer={layer} />
+
+                    {/* Name */}
                     {isEditing ? (
                       <Input
                         autoFocus
@@ -251,7 +373,7 @@ export function LayersPanel() {
                       />
                     ) : (
                       <span
-                        className="flex-1 select-none truncate pl-1"
+                        className="flex-1 select-none truncate"
                         onDoubleClick={(e) => {
                           e.stopPropagation();
                           startEditing(layer.id, layer.name);
@@ -328,6 +450,15 @@ export function LayersPanel() {
           type="button"
         >
           <Trash2 className="size-3.5" />
+        </button>
+        <button
+          className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
+          disabled={activeLayerIds.length === 0 || isRenaming}
+          onClick={handleAutoRename}
+          title="Auto-rename with AI"
+          type="button"
+        >
+          <Sparkles className={cn("size-3.5", isRenaming && "animate-pulse")} />
         </button>
       </div>
 

@@ -106,7 +106,7 @@ export function PropertiesPanel() {
 
   return (
     <div className="h-full w-full shrink-0 overflow-y-auto border-border border-l bg-background">
-      <div className="border-border border-b px-4 py-3">
+      <div className="px-4 py-3">
         <span className="font-semibold text-muted-foreground text-xs uppercase">
           Properties
         </span>
