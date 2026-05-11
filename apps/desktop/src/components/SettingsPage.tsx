@@ -50,6 +50,7 @@ import {
   removeGeminiApiKey,
   setGeminiApiKey,
 } from "@/lib/gemini-store";
+import { getHfToken, removeHfToken, setHfToken } from "@/lib/hf-store";
 import { POLAR_CONFIG } from "@/lib/polar-config";
 import {
   type BgRemovalProvider,
@@ -420,6 +421,12 @@ const BG_PROVIDER_OPTIONS: {
     label: "BRIA RMBG-1.4",
     description: "Higher accuracy · requires one-time ~176 MB model download",
   },
+  {
+    value: "briaai2",
+    label: "BRIA RMBG-2.0",
+    description:
+      "Latest BRIA model · improved accuracy · requires one-time ~890 MB model download · non-commercial license",
+  },
 ];
 
 interface BriaModelStatus {
@@ -450,6 +457,8 @@ const GEMINI_BG_MODELS: { value: string; label: string }[] = [
 ];
 
 interface BriaModelRowProps {
+  title: string;
+  downloadSizeMb: string;
   briaStatus: BriaModelStatus | null;
   isDownloading: boolean;
   downloadProgress: { downloaded: number; total: number } | null;
@@ -458,6 +467,8 @@ interface BriaModelRowProps {
 }
 
 function BriaModelRow({
+  title,
+  downloadSizeMb,
   briaStatus,
   isDownloading,
   downloadProgress,
@@ -468,11 +479,11 @@ function BriaModelRow({
   if (briaStatus !== null) {
     description = briaStatus.exists
       ? `${formatBytes(briaStatus.size_bytes)} · ${briaStatus.path}`
-      : "Model not found. Download it once (~176 MB) to use BRIA background removal.";
+      : `Model not found. Download it once (~${downloadSizeMb}) to use BRIA background removal.`;
   }
 
   return (
-    <SettingRow description={description} title="BRIA RMBG-1.4 Model">
+    <SettingRow description={description} title={title}>
       {briaStatus?.exists ? (
         <Button
           disabled={isDownloading}
@@ -525,9 +536,44 @@ function ProcessingSettings() {
   } = useAppSettingsStore();
 
   const [isBriaAvailable, setIsBriaAvailable] = useState(false);
+
+  // HuggingFace token (for gated models like RMBG-2.0)
+  const [hfToken, setHfTokenState] = useState("");
+  const [hfTokenSaved, setHfTokenSaved] = useState(false);
+
+  useEffect(() => {
+    getHfToken().then((t) => {
+      if (t) {
+        setHfTokenSaved(true);
+      }
+    });
+  }, []);
+
+  const handleSaveHfToken = useCallback(async () => {
+    try {
+      await setHfToken(hfToken.trim());
+      setHfTokenSaved(true);
+      setHfTokenState("");
+      toast.success("HuggingFace token saved");
+    } catch {
+      toast.error("Failed to save token");
+    }
+  }, [hfToken]);
+
+  // RMBG-1.4 state
   const [briaStatus, setBriaStatus] = useState<BriaModelStatus | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<{
+    downloaded: number;
+    total: number;
+  } | null>(null);
+
+  // RMBG-2.0 state
+  const [briaV2Status, setBriaV2Status] = useState<BriaModelStatus | null>(
+    null
+  );
+  const [isDownloadingV2, setIsDownloadingV2] = useState(false);
+  const [downloadProgressV2, setDownloadProgressV2] = useState<{
     downloaded: number;
     total: number;
   } | null>(null);
@@ -547,9 +593,19 @@ function ProcessingSettings() {
     }
   }, []);
 
+  const loadBriaV2Status = useCallback(async () => {
+    try {
+      const status = await invoke<BriaModelStatus>("bria_v2_model_status");
+      setBriaV2Status(status);
+    } catch {
+      // not available outside Tauri, safe to ignore
+    }
+  }, []);
+
   useEffect(() => {
     loadBriaStatus();
-  }, [loadBriaStatus]);
+    loadBriaV2Status();
+  }, [loadBriaStatus, loadBriaV2Status]);
 
   useEffect(() => {
     const unlistenPromise = listen<{ downloaded: number; total: number }>(
@@ -563,13 +619,25 @@ function ProcessingSettings() {
     };
   }, []);
 
+  useEffect(() => {
+    const unlistenPromise = listen<{ downloaded: number; total: number }>(
+      "bria-v2-download-progress",
+      (event) => {
+        setDownloadProgressV2(event.payload);
+      }
+    );
+    return () => {
+      unlistenPromise.then((unlisten) => unlisten());
+    };
+  }, []);
+
   const handleDownload = useCallback(async () => {
     setIsDownloading(true);
     setDownloadProgress(null);
     try {
       await invoke("download_bria_model");
       await loadBriaStatus();
-      toast.success("BRIA model downloaded successfully");
+      toast.success("BRIA RMBG-1.4 model downloaded successfully");
     } catch (error) {
       toast.error(`Download failed: ${error}`);
     } finally {
@@ -578,9 +646,32 @@ function ProcessingSettings() {
     }
   }, [loadBriaStatus]);
 
+  const handleDownloadV2 = useCallback(async () => {
+    setIsDownloadingV2(true);
+    setDownloadProgressV2(null);
+    try {
+      const token = await getHfToken();
+      await invoke("download_bria_v2_model", { hfToken: token ?? undefined });
+      await loadBriaV2Status();
+      toast.success("BRIA RMBG-2.0 model downloaded successfully");
+    } catch (error) {
+      toast.error(`Download failed: ${error}`);
+    } finally {
+      setIsDownloadingV2(false);
+      setDownloadProgressV2(null);
+    }
+  }, [loadBriaV2Status]);
+
   const downloadPercent =
     downloadProgress && downloadProgress.total > 0
       ? Math.round((downloadProgress.downloaded / downloadProgress.total) * 100)
+      : null;
+
+  const downloadPercentV2 =
+    downloadProgressV2 && downloadProgressV2.total > 0
+      ? Math.round(
+          (downloadProgressV2.downloaded / downloadProgressV2.total) * 100
+        )
       : null;
 
   return (
@@ -632,9 +723,82 @@ function ProcessingSettings() {
             briaStatus={briaStatus}
             downloadPercent={downloadPercent}
             downloadProgress={downloadProgress}
+            downloadSizeMb="176 MB"
             isDownloading={isDownloading}
             onDownload={handleDownload}
+            title="BRIA RMBG-1.4 Model"
           />
+        )}
+        {isBriaAvailable && bgRemovalProvider === "briaai2" && (
+          <>
+            <SettingRow
+              description={
+                hfTokenSaved
+                  ? "Token saved · used for gated model downloads"
+                  : "RMBG-2.0 is gated. Agree to the license on HuggingFace then enter your access token."
+              }
+              title="HuggingFace Access Token"
+            >
+              {hfTokenSaved ? (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+                    <div className="size-2 rounded-full bg-green-500" />
+                    Saved
+                  </div>
+                  <Button
+                    onClick={async () => {
+                      await removeHfToken();
+                      setHfTokenSaved(false);
+                      toast.success("Token removed");
+                    }}
+                    size="sm"
+                    variant="ghost"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Input
+                    className="h-8 w-52 text-xs"
+                    onChange={(e) => setHfTokenState(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveHfToken();
+                    }}
+                    placeholder="hf_…"
+                    type="password"
+                    value={hfToken}
+                  />
+                  <Button
+                    disabled={!hfToken.trim()}
+                    onClick={handleSaveHfToken}
+                    size="sm"
+                  >
+                    Save
+                  </Button>
+                  <button
+                    className="inline-flex cursor-pointer items-center gap-1 bg-transparent p-0 text-muted-foreground text-xs hover:text-foreground hover:underline"
+                    onClick={() =>
+                      openUrl("https://huggingface.co/briaai/RMBG-2.0")
+                    }
+                    type="button"
+                  >
+                    <ExternalLink className="size-3" />
+                    Agree &amp; get token
+                  </button>
+                </div>
+              )}
+            </SettingRow>
+            <BriaModelRow
+              briaStatus={briaV2Status}
+              downloadPercent={downloadPercentV2}
+              downloadProgress={downloadProgressV2}
+              downloadSizeMb="~890 MB"
+              isDownloading={isDownloadingV2}
+              onDownload={handleDownloadV2}
+              title="BRIA RMBG-2.0 Model"
+            />
+          </>
         )}
 
         {/* Quality tiers are only applicable when using the imgly provider */}

@@ -18,7 +18,7 @@ const LOGGING_ENABLED_FIELD = "logging_enabled";
 
 export type AppTheme = "light" | "dark" | "system";
 export type BgRemovalQuality = "fast" | "balanced" | "best";
-export type BgRemovalProvider = "imgly" | "briaai";
+export type BgRemovalProvider = "imgly" | "briaai" | "briaai2";
 
 export const BG_REMOVAL_MODEL_MAP: Record<BgRemovalQuality, string> = {
   fast: "isnet_quint8",

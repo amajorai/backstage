@@ -1,4 +1,15 @@
-import { ChevronDown, Copy, Loader2, Minus, Plus, Save } from "lucide-react";
+import {
+  ChevronDown,
+  Copy,
+  Grid2X2,
+  Loader2,
+  Minus,
+  Plus,
+  Rows2,
+  Save,
+  Square,
+  TableOfContents,
+} from "lucide-react";
 import { useState } from "react";
 import { CanvasSizeDialog } from "@/components/editor/CanvasSizeDialog";
 import { Button } from "@/components/ui/button";
@@ -7,6 +18,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+
+export type EditorViewMode = "single" | "vertical" | "horizontal" | "artboard";
 
 interface EditorFooterProps {
   canvasSize: { width: number; height: number };
@@ -20,7 +33,36 @@ interface EditorFooterProps {
   onSaveAsNew: () => void;
   isSaving: boolean;
   hasUnsavedChanges: boolean;
+  editorViewMode: EditorViewMode;
+  onEditorViewModeChange: (mode: EditorViewMode) => void;
 }
+
+const VIEW_MODES: {
+  mode: EditorViewMode;
+  icon: React.ReactNode;
+  label: string;
+}[] = [
+  {
+    mode: "single",
+    icon: <Square className="size-3.5" />,
+    label: "Single page",
+  },
+  {
+    mode: "vertical",
+    icon: <Rows2 className="size-3.5" />,
+    label: "Vertical scroll",
+  },
+  {
+    mode: "horizontal",
+    icon: <TableOfContents className="size-3.5" />,
+    label: "Slides (with thumbnails)",
+  },
+  {
+    mode: "artboard",
+    icon: <Grid2X2 className="size-3.5" />,
+    label: "Artboard canvas",
+  },
+];
 
 export function EditorFooter({
   canvasSize,
@@ -34,22 +76,76 @@ export function EditorFooter({
   onSaveAsNew,
   isSaving,
   hasUnsavedChanges,
+  editorViewMode,
+  onEditorViewModeChange,
 }: EditorFooterProps) {
   const [showCanvasSizeDialog, setShowCanvasSizeDialog] = useState(false);
   const [showSaveMenu, setShowSaveMenu] = useState(false);
 
   return (
     <div className="flex shrink-0 items-center justify-between border-border border-t bg-background px-3 py-2">
-      <Tooltip>
-        <TooltipTrigger
-          className="cursor-pointer text-muted-foreground text-xs hover:text-foreground"
-          onClick={() => setShowCanvasSizeDialog(true)}
-          type="button"
-        >
-          {`${canvasSize.width} × ${canvasSize.height}`}
-        </TooltipTrigger>
-        <TooltipContent>Change Canvas Size</TooltipContent>
-      </Tooltip>
+      <div className="flex items-center gap-3">
+        <Tooltip>
+          <TooltipTrigger
+            className="cursor-pointer text-muted-foreground text-xs hover:text-foreground"
+            onClick={() => setShowCanvasSizeDialog(true)}
+            type="button"
+          >
+            {`${canvasSize.width} × ${canvasSize.height}`}
+          </TooltipTrigger>
+          <TooltipContent>Change Canvas Size</TooltipContent>
+        </Tooltip>
+
+        <div className="h-4 w-px bg-border" />
+
+        {/* View mode switcher */}
+        <div className="flex items-center gap-0.5 rounded-md bg-muted p-0.5">
+          {VIEW_MODES.map(({ mode, icon, label }) => {
+            const isActive = editorViewMode === mode;
+            return (
+              <Tooltip key={mode}>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onEditorViewModeChange(mode)}
+                    style={
+                      isActive
+                        ? {
+                            background: "oklch(0.685 0.169 237.323)",
+                            color: "#fff",
+                            borderRadius: "0.25rem",
+                            padding: "4px 6px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            border: "none",
+                            cursor: "pointer",
+                          }
+                        : {
+                            background: "transparent",
+                            color: "var(--muted-foreground)",
+                            borderRadius: "0.25rem",
+                            padding: "4px 6px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            border: "none",
+                            cursor: "pointer",
+                          }
+                    }
+                    type="button"
+                  >
+                    {icon}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {label}
+                  {isActive ? " (active)" : ""}
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </div>
+      </div>
 
       <CanvasSizeDialog
         currentSize={canvasSize}

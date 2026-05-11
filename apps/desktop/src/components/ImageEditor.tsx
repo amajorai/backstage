@@ -7,16 +7,22 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { AddColorBackgroundDialog } from "@/components/editor/AddColorBackgroundDialog";
+import { ArtboardView } from "@/components/editor/ArtboardView";
 import { CarouselGeneratorDialog } from "@/components/editor/CarouselGeneratorDialog";
-import { EditorFooter } from "@/components/editor/EditorFooter";
+import {
+  EditorFooter,
+  type EditorViewMode,
+} from "@/components/editor/EditorFooter";
 import { EditorHeader } from "@/components/editor/EditorHeader";
 import { EditorToolbar } from "@/components/editor/EditorToolbar";
 import { HistoryPanel } from "@/components/editor/HistoryPanel";
+import { HorizontalSlideView } from "@/components/editor/HorizontalSlideView";
 import { KonvaCanvas } from "@/components/editor/KonvaCanvas";
 import { LayersPanel } from "@/components/editor/LayersPanel";
 import { PageCarousel } from "@/components/editor/PageCarousel";
 import { PropertiesPanel } from "@/components/editor/PropertiesPanel";
 import { RevisionPanel } from "@/components/editor/RevisionPanel";
+import { VerticalScrollView } from "@/components/editor/VerticalScrollView";
 import { GalleryPicker } from "@/components/GalleryPicker";
 import {
   AlertDialog,
@@ -93,6 +99,7 @@ export function ImageEditor({
   const leftRulerRef = useRef<HTMLCanvasElement>(null);
   const initializedRef = useRef(false);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeToastIdsRef = useRef<Set<string | number>>(new Set());
   const [projectId, setProjectId] = useState<string | null>(thumbnail.id);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showColorBgDialog, setShowColorBgDialog] = useState(false);
@@ -112,6 +119,8 @@ export function ImageEditor({
     height: thumbnail.canvasHeight || 720,
   });
   const [zoom, setZoom] = useState(1);
+  const [editorViewMode, setEditorViewMode] =
+    useState<EditorViewMode>("single");
   const [fitScale, setFitScale] = useState(1);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanMode, setIsPanMode] = useState(false);
@@ -143,6 +152,12 @@ export function ImageEditor({
     showRulers,
     showGrid,
   } = useEditorStore();
+  const pages = useEditorStore((s) => s.pages);
+  const activePageIndex = useEditorStore((s) => s.activePageIndex);
+  const setActivePage = useEditorStore((s) => s.setActivePage);
+  const addPage = useEditorStore((s) => s.addPage);
+  const removePage = useEditorStore((s) => s.removePage);
+  const duplicatePage = useEditorStore((s) => s.duplicatePage);
   const activeLayerId = activeLayerIds[0] ?? null;
 
   const hasUnsavedChanges = historyIndex !== savedHistoryIndex;
@@ -151,6 +166,16 @@ export function ImageEditor({
   const loadLayerDataForId = useGalleryStore((s) => s.loadLayerDataForId);
 
   const [, setIsLoadingEditor] = useState(true);
+
+  // Dismiss any active loading toasts when this editor tab unmounts
+  useEffect(() => {
+    const toastIds = activeToastIdsRef.current;
+    return () => {
+      for (const id of toastIds) {
+        toast.dismiss(id);
+      }
+    };
+  }, []);
 
   // Initialize - restore from snapshot or load from files
   useEffect(() => {
@@ -352,13 +377,18 @@ export function ImageEditor({
     };
   }, []);
 
-  const handleWheel = useCallback((e: WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      setZoom((prev) => Math.max(0.1, Math.min(5, prev + delta)));
-    }
-  }, []);
+  const handleWheel = useCallback(
+    (e: WheelEvent) => {
+      if (editorViewMode !== "single" && editorViewMode !== "horizontal")
+        return;
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        setZoom((prev) => Math.max(0.1, Math.min(5, prev + delta)));
+      }
+    },
+    [editorViewMode]
+  );
 
   useEffect(() => {
     const el = containerRef.current;
@@ -508,6 +538,7 @@ export function ImageEditor({
     }
     setIsProcessing(true);
     const toastId = toast.loading("Removing background...");
+    activeToastIdsRef.current.add(toastId);
     try {
       const { runBgRemovalPipeline } = await import(
         "@/lib/bg-removal-pipeline"
@@ -529,6 +560,7 @@ export function ImageEditor({
         { id: toastId }
       );
     } finally {
+      activeToastIdsRef.current.delete(toastId);
       setIsProcessing(false);
     }
   }, [activeLayerId, layers, addImageLayer]);
@@ -542,6 +574,7 @@ export function ImageEditor({
       setShowColorBgDialog(false);
       setIsProcessing(true);
       const toastId = toast.loading("Adding color background...");
+      activeToastIdsRef.current.add(toastId);
       try {
         const apiKey = await getGeminiApiKey();
         if (!apiKey) {
@@ -579,6 +612,7 @@ export function ImageEditor({
           { id: toastId }
         );
       } finally {
+        activeToastIdsRef.current.delete(toastId);
         setIsProcessing(false);
       }
     },
@@ -942,6 +976,7 @@ export function ImageEditor({
       setIsProcessing(true);
       setShowCarouselGenerator(false);
       const toastId = toast.loading("Generating carousel with Gemini AI...");
+      activeToastIdsRef.current.add(toastId);
 
       try {
         let slides: CarouselSlideKonva[];
@@ -1021,6 +1056,7 @@ export function ImageEditor({
           id: toastId,
         });
       } finally {
+        activeToastIdsRef.current.delete(toastId);
         setIsProcessing(false);
       }
     },
@@ -1071,105 +1107,207 @@ export function ImageEditor({
 
         <div className="flex flex-1 flex-col overflow-hidden">
           <div
-            className="relative flex flex-1 items-center justify-center overflow-hidden bg-neutral-900"
+            className="relative flex flex-1 overflow-hidden"
             onMouseDown={(e) => {
-              if (e.target === e.currentTarget) {
+              if (editorViewMode === "single" && e.target === e.currentTarget) {
                 useEditorStore.getState().setActiveLayers([]);
               }
             }}
             ref={containerRef}
           >
-            {/* Corner piece */}
-            {showRulers && (
-              <div
-                className="absolute top-0 left-0 z-[11]"
-                style={{
-                  width: RULER_SIZE,
-                  height: RULER_SIZE,
-                  background: isDark ? "#1a1a1a" : "#e5e5e5",
-                }}
+            {editorViewMode === "single" && (
+              <div className="relative flex h-full w-full items-center justify-center bg-neutral-900">
+                {showRulers && (
+                  <div
+                    className="absolute top-0 left-0 z-[11]"
+                    style={{
+                      width: RULER_SIZE,
+                      height: RULER_SIZE,
+                      background: isDark ? "#1a1a1a" : "#e5e5e5",
+                    }}
+                  />
+                )}
+                {showRulers && (
+                  <canvas
+                    className="absolute top-0 z-10 cursor-s-resize"
+                    height={RULER_SIZE}
+                    onMouseDown={handleTopRulerMouseDown}
+                    ref={topRulerRef}
+                    style={{ left: RULER_SIZE }}
+                    width={Math.max(1, workspaceSize.width - RULER_SIZE)}
+                  />
+                )}
+                {showRulers && (
+                  <canvas
+                    className="absolute left-0 z-10 cursor-e-resize"
+                    height={Math.max(1, workspaceSize.height - RULER_SIZE)}
+                    onMouseDown={handleLeftRulerMouseDown}
+                    ref={leftRulerRef}
+                    style={{ top: RULER_SIZE }}
+                    width={RULER_SIZE}
+                  />
+                )}
+                <KonvaCanvas
+                  height={canvasSize.height}
+                  isDark={isDark}
+                  onExportRef={exportRef}
+                  panOffset={panOffset}
+                  scale={effectiveScale}
+                  showGrid={showGrid}
+                  startPendingGuideRef={startPendingGuideRef}
+                  width={canvasSize.width}
+                  workspaceHeight={workspaceSize.height}
+                  workspaceWidth={workspaceSize.width}
+                />
+                {isPanMode && (
+                  <div
+                    onMouseDown={(e) => {
+                      setIsCurrentlyPanning(true);
+                      panStartRef.current = {
+                        mouseX: e.clientX,
+                        mouseY: e.clientY,
+                        offsetX: panOffset.x,
+                        offsetY: panOffset.y,
+                      };
+                    }}
+                    onMouseLeave={() => {
+                      setIsCurrentlyPanning(false);
+                      panStartRef.current = null;
+                    }}
+                    onMouseMove={(e) => {
+                      if (!(isCurrentlyPanning && panStartRef.current)) return;
+                      const dx = e.clientX - panStartRef.current.mouseX;
+                      const dy = e.clientY - panStartRef.current.mouseY;
+                      setPanOffset({
+                        x: panStartRef.current.offsetX + dx,
+                        y: panStartRef.current.offsetY + dy,
+                      });
+                    }}
+                    onMouseUp={() => {
+                      setIsCurrentlyPanning(false);
+                      panStartRef.current = null;
+                    }}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      zIndex: 100,
+                      cursor: isCurrentlyPanning ? "grabbing" : "grab",
+                    }}
+                  />
+                )}
+                <div className="absolute bottom-4 left-1/2 z-50 -translate-x-1/2">
+                  <PageCarousel />
+                </div>
+              </div>
+            )}
+
+            {editorViewMode === "vertical" && (
+              <VerticalScrollView
+                activePageIndex={activePageIndex}
+                addPage={addPage}
+                canvasHeight={canvasSize.height}
+                canvasWidth={canvasSize.width}
+                duplicatePage={duplicatePage}
+                exportRef={exportRef}
+                isDark={isDark}
+                pages={pages}
+                removePage={removePage}
+                setActivePage={setActivePage}
+                showGrid={showGrid}
+                startPendingGuideRef={startPendingGuideRef}
               />
             )}
-            {/* Top ruler, fixed to workspace top edge */}
-            {showRulers && (
-              <canvas
-                className="absolute top-0 z-10 cursor-s-resize"
-                height={RULER_SIZE}
-                onMouseDown={handleTopRulerMouseDown}
-                ref={topRulerRef}
-                style={{ left: RULER_SIZE }}
-                width={Math.max(1, workspaceSize.width - RULER_SIZE)}
+
+            {editorViewMode === "horizontal" && (
+              <HorizontalSlideView
+                activePageIndex={activePageIndex}
+                addPage={addPage}
+                canvasHeight={canvasSize.height}
+                canvasWidth={canvasSize.width}
+                duplicatePage={duplicatePage}
+                pages={pages}
+                removePage={removePage}
+                setActivePage={setActivePage}
+              >
+                <div className="relative flex h-full w-full items-center justify-center bg-neutral-900">
+                  <KonvaCanvas
+                    height={canvasSize.height}
+                    isDark={isDark}
+                    onExportRef={exportRef}
+                    panOffset={panOffset}
+                    scale={effectiveScale}
+                    showGrid={showGrid}
+                    startPendingGuideRef={startPendingGuideRef}
+                    width={canvasSize.width}
+                    workspaceHeight={workspaceSize.height}
+                    workspaceWidth={workspaceSize.width}
+                  />
+                  {isPanMode && (
+                    <div
+                      onMouseDown={(e) => {
+                        setIsCurrentlyPanning(true);
+                        panStartRef.current = {
+                          mouseX: e.clientX,
+                          mouseY: e.clientY,
+                          offsetX: panOffset.x,
+                          offsetY: panOffset.y,
+                        };
+                      }}
+                      onMouseLeave={() => {
+                        setIsCurrentlyPanning(false);
+                        panStartRef.current = null;
+                      }}
+                      onMouseMove={(e) => {
+                        if (!(isCurrentlyPanning && panStartRef.current))
+                          return;
+                        const dx = e.clientX - panStartRef.current.mouseX;
+                        const dy = e.clientY - panStartRef.current.mouseY;
+                        setPanOffset({
+                          x: panStartRef.current.offsetX + dx,
+                          y: panStartRef.current.offsetY + dy,
+                        });
+                      }}
+                      onMouseUp={() => {
+                        setIsCurrentlyPanning(false);
+                        panStartRef.current = null;
+                      }}
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        zIndex: 100,
+                        cursor: isCurrentlyPanning ? "grabbing" : "grab",
+                      }}
+                    />
+                  )}
+                </div>
+              </HorizontalSlideView>
+            )}
+
+            {editorViewMode === "artboard" && (
+              <ArtboardView
+                activePageIndex={activePageIndex}
+                addPage={addPage}
+                canvasHeight={canvasSize.height}
+                canvasWidth={canvasSize.width}
+                duplicatePage={duplicatePage}
+                exportRef={exportRef}
+                isDark={isDark}
+                pages={pages}
+                removePage={removePage}
+                setActivePage={setActivePage}
+                showGrid={showGrid}
+                startPendingGuideRef={startPendingGuideRef}
               />
             )}
-            {/* Left ruler, fixed to workspace left edge */}
-            {showRulers && (
-              <canvas
-                className="absolute left-0 z-10 cursor-e-resize"
-                height={Math.max(1, workspaceSize.height - RULER_SIZE)}
-                onMouseDown={handleLeftRulerMouseDown}
-                ref={leftRulerRef}
-                style={{ top: RULER_SIZE }}
-                width={RULER_SIZE}
-              />
-            )}
-            <KonvaCanvas
-              height={canvasSize.height}
-              isDark={isDark}
-              onExportRef={exportRef}
-              panOffset={panOffset}
-              scale={effectiveScale}
-              showGrid={showGrid}
-              startPendingGuideRef={startPendingGuideRef}
-              width={canvasSize.width}
-              workspaceHeight={workspaceSize.height}
-              workspaceWidth={workspaceSize.width}
-            />
-            {isPanMode && (
-              <div
-                onMouseDown={(e) => {
-                  setIsCurrentlyPanning(true);
-                  panStartRef.current = {
-                    mouseX: e.clientX,
-                    mouseY: e.clientY,
-                    offsetX: panOffset.x,
-                    offsetY: panOffset.y,
-                  };
-                }}
-                onMouseLeave={() => {
-                  setIsCurrentlyPanning(false);
-                  panStartRef.current = null;
-                }}
-                onMouseMove={(e) => {
-                  if (!(isCurrentlyPanning && panStartRef.current)) return;
-                  const dx = e.clientX - panStartRef.current.mouseX;
-                  const dy = e.clientY - panStartRef.current.mouseY;
-                  setPanOffset({
-                    x: panStartRef.current.offsetX + dx,
-                    y: panStartRef.current.offsetY + dy,
-                  });
-                }}
-                onMouseUp={() => {
-                  setIsCurrentlyPanning(false);
-                  panStartRef.current = null;
-                }}
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  zIndex: 100,
-                  cursor: isCurrentlyPanning ? "grabbing" : "grab",
-                }}
-              />
-            )}
-            <div className="absolute bottom-4 left-1/2 z-50 -translate-x-1/2">
-              <PageCarousel />
-            </div>
           </div>
 
           <EditorFooter
             canvasSize={canvasSize}
+            editorViewMode={editorViewMode}
             hasUnsavedChanges={hasUnsavedChanges}
             isSaving={isSaving}
             onCanvasSizeChange={handleCanvasSizeChange}
+            onEditorViewModeChange={setEditorViewMode}
             onExport={onExport}
             onSave={handleSave}
             onSaveAsNew={handleSaveAsNew}

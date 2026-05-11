@@ -35,7 +35,7 @@ export async function runBgRemovalPipeline(
       apiKey,
       bgRemovalGeminiModel as import("@/lib/gemini-image").GeminiImageModel,
       prompt,
-      workingUrl
+      [workingUrl]
     );
     const geminiDataUrl = base64ToDataUrl(
       geminiResult.imageBase64,
@@ -50,9 +50,13 @@ export async function runBgRemovalPipeline(
   }
 
   let resultDataUrl: string;
-  if (bgRemovalProvider === "briaai") {
+  if (bgRemovalProvider === "briaai" || bgRemovalProvider === "briaai2") {
     const { invoke } = await import("@tauri-apps/api/core");
-    resultDataUrl = await invoke<string>("remove_background_bria", {
+    const command =
+      bgRemovalProvider === "briaai2"
+        ? "remove_background_bria_v2"
+        : "remove_background_bria";
+    resultDataUrl = await invoke<string>(command, {
       imageData: workingUrl,
     });
   } else {

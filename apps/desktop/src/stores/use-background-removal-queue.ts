@@ -109,7 +109,7 @@ export const useBackgroundRemovalQueue = create<BackgroundRemovalQueueState>()(
             apiKey,
             model,
             prompt,
-            fullImageUrl
+            [fullImageUrl]
           );
           resultDataUrl = base64ToDataUrl(
             geminiResult.imageBase64,
@@ -137,7 +137,9 @@ export const useBackgroundRemovalQueue = create<BackgroundRemovalQueueState>()(
           ),
         }));
       } catch (error) {
-        // Update status to error
+        const message =
+          error instanceof Error ? error.message : "Background removal failed";
+        toast.error(message);
         set((state) => ({
           queue: state.queue.map((item) =>
             item.id === pendingItem.id

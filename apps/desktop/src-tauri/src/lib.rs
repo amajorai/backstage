@@ -119,6 +119,12 @@ pub fn run() {
             background_removal::download_bria_model,
             #[cfg(feature = "bria")]
             background_removal::remove_background_bria,
+            #[cfg(feature = "bria")]
+            background_removal::bria_v2_model_status,
+            #[cfg(feature = "bria")]
+            background_removal::download_bria_v2_model,
+            #[cfg(feature = "bria")]
+            background_removal::remove_background_bria_v2,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
