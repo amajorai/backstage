@@ -652,8 +652,10 @@ function ColorPickerImpl(props: ColorPickerImplProps) {
       const currentState = store.getState();
       const color = hexToRgb(valueProp, currentState.color.a);
       const hsv = rgbToHsv(color);
-      store.setColor(color);
-      store.setHsv(hsv);
+      // Always silent-sync: prop updates never fire onValueChange (only user interaction does)
+      currentState.color = color;
+      currentState.hsv = hsv;
+      store.notify();
     }
   }, [valueProp]);
 

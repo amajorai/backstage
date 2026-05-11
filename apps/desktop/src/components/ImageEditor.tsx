@@ -1,4 +1,3 @@
-import { Settings as SettingsIcon } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -327,10 +326,6 @@ export function ImageEditor({
             width: thumbnail.canvasWidth || 1280,
             height: thumbnail.canvasHeight || 720,
           });
-          setStoreCanvasSize(
-            thumbnail.canvasWidth || 1280,
-            thumbnail.canvasHeight || 720
-          );
           const loadedHistoryIndex = useEditorStore.getState().historyIndex;
           setSavedHistoryIndex(loadedHistoryIndex);
           useTabsStore.getState().markTabSaved(tabId, loadedHistoryIndex);
@@ -351,9 +346,28 @@ export function ImageEditor({
           img.onload = async () => {
             const w = img.naturalWidth;
             const h = img.naturalHeight;
+            // Resize canvas and Background layer without pushing a history entry
+            useEditorStore.setState((state) => {
+              const resized = state.pages.map((p) => ({
+                ...p,
+                layers: p.layers.map((l) =>
+                  l.name === "Background" &&
+                  l.type === "shape" &&
+                  l.x === 0 &&
+                  l.y === 0
+                    ? { ...l, width: w, height: h }
+                    : l
+                ),
+              }));
+              return {
+                canvasWidth: w,
+                canvasHeight: h,
+                pages: resized,
+                layers: resized[state.activePageIndex]?.layers ?? [],
+              };
+            });
             addImageLayer(fullImageUrl, w, h);
             setCanvasSize({ width: w, height: h });
-            setStoreCanvasSize(w, h);
             const loadedHistoryIndex = useEditorStore.getState().historyIndex;
             setSavedHistoryIndex(loadedHistoryIndex);
             useTabsStore.getState().markTabSaved(tabId, loadedHistoryIndex);
@@ -389,7 +403,6 @@ export function ImageEditor({
     thumbnail.name,
     addImageLayer,
     reset,
-    setStoreCanvasSize,
     loadFullImageForId,
     loadLayerDataForId,
   ]);
@@ -1171,6 +1184,7 @@ export function ImageEditor({
         hasUnsavedChanges={hasUnsavedChanges}
         onClose={onClose}
         onNameChange={handleNameChange}
+        onOpenSettings={onOpenSettings}
         onShowConfirmClose={() => setShowConfirmClose(true)}
         projectName={projectName}
       />
@@ -1412,8 +1426,8 @@ export function ImageEditor({
         </div>
 
         <ResizablePanel
-          defaultWidth={400}
-          maxWidth={600}
+          defaultWidth={700}
+          maxWidth={900}
           minWidth={260}
           side="right"
         >
@@ -1457,14 +1471,6 @@ export function ImageEditor({
                     type="button"
                   >
                     Saves
-                  </button>
-                  <button
-                    className="px-2 py-1.5 text-muted-foreground transition-colors hover:text-foreground"
-                    onClick={onOpenSettings}
-                    title="Settings"
-                    type="button"
-                  >
-                    <SettingsIcon className="size-3.5" />
                   </button>
                 </div>
                 {rightTab === "layers" ? (
@@ -1542,7 +1548,12 @@ export function ImageEditor({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowRecoveryDialog(false)}>
+            <AlertDialogCancel
+              onClick={() => {
+                if (projectId) deleteRecovery(projectId);
+                setShowRecoveryDialog(false);
+              }}
+            >
               Discard
             </AlertDialogCancel>
             <AlertDialogAction
@@ -1554,6 +1565,7 @@ export function ImageEditor({
                     activePageIndex: 0,
                   });
                 }
+                if (projectId) deleteRecovery(projectId);
                 setShowRecoveryDialog(false);
               }}
             >
