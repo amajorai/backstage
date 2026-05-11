@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { AutoRenameQueue } from "@/components/AutoRenameQueue";
 import { BackgroundRemovalQueue } from "@/components/BackgroundRemovalQueue";
 import { BottomToolbar } from "@/components/BottomToolbar";
@@ -11,6 +12,16 @@ import { ImageEditor } from "@/components/ImageEditor";
 import { LicenseActivation } from "@/components/LicenseActivation";
 import { SettingsPage } from "@/components/SettingsPage";
 import { TrashPage } from "@/components/TrashPage";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Toaster } from "@/components/ui/sonner";
 import { VideoExtractor } from "@/components/VideoExtractor";
 import { useAppUpdater } from "@/hooks/use-app-updater";
@@ -19,6 +30,7 @@ import { runMigrations } from "@/lib/migration";
 import { initPostHog, trackPage } from "@/lib/posthog";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import { type Layer, useEditorStore } from "@/stores/use-editor-store";
+import { useFolderStore } from "@/stores/use-folder-store";
 import {
   type ThumbnailItem,
   useGalleryStore,
@@ -40,6 +52,8 @@ export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("4");
   const [showExtractor, setShowExtractor] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
   const [exportingThumbnail, setExportingThumbnail] =
     useState<ThumbnailItem | null>(null);
   const [exportingThumbnails, setExportingThumbnails] = useState<
@@ -60,7 +74,6 @@ export default function App() {
   const activeTabId = useTabsStore((s) => s.activeTabId);
   const editorVisible = useTabsStore((s) => s.editorVisible);
   const openTab = useTabsStore((s) => s.openTab);
-  const closeTab = useTabsStore((s) => s.closeTab);
   const setEditorVisible = useTabsStore((s) => s.setEditorVisible);
 
   const { isValidated, isValidating, loadStoredLicense } = useLicenseStore();
@@ -204,11 +217,49 @@ export default function App() {
     "mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background";
   const contentClassWithBottom = `${contentClass} mb-1`;
 
-  // AI Generate page
-  if (page === "ai-generate") {
-    return (
-      <div className="flex h-screen flex-col bg-muted">
-        <TabBar activePage={page} />
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const activeThumbnail = activeTab
+    ? thumbnails.find((t) => t.id === activeTab.thumbnailId)
+    : null;
+
+  const showGallery = page === "gallery" && !editorVisible;
+
+  return (
+    <div className="flex h-screen flex-col bg-muted">
+      <TabBar activePage={editorVisible ? "gallery" : page} />
+
+      {/* Gallery — always mounted so scroll/state survives navigation */}
+      <div
+        className={contentClass}
+        style={{ display: showGallery ? "flex" : "none" }}
+      >
+        <Gallery
+          onAddVideoClick={() => setShowExtractor(true)}
+          onExportClick={setExportingThumbnail}
+          onNewFolderClick={() => setNewFolderOpen(true)}
+          onNewProjectClick={() => setNewProjectOpen(true)}
+          onThumbnailClick={handleEditThumbnail}
+          viewMode={viewMode}
+        />
+      </div>
+
+      {/* Editor */}
+      {editorVisible && activeTab && activeThumbnail && (
+        <div className={contentClassWithBottom}>
+          <ImageEditor
+            key={activeTabId}
+            onAiGenerate={handleOpenAiGenerate}
+            onClose={() => setEditorVisible(false)}
+            onExport={() => setExportingThumbnail(activeThumbnail)}
+            snapshot={activeTab.snapshot}
+            tabId={activeTabId!}
+            thumbnail={activeThumbnail}
+          />
+        </div>
+      )}
+
+      {/* AI Generate */}
+      {page === "ai-generate" && (
         <div className={contentClassWithBottom}>
           <GeminiImagePage
             canvasHeight={aiCanvasHeight}
@@ -221,97 +272,38 @@ export default function App() {
             }
           />
         </div>
-        <Toaster />
-      </div>
-    );
-  }
+      )}
 
-  // Trash page
-  if (page === "trash") {
-    return (
-      <div className="flex h-screen flex-col bg-muted">
-        <TabBar activePage={page} />
+      {/* Trash */}
+      {page === "trash" && (
         <div className={contentClassWithBottom}>
           <TrashPage onClose={() => setPage("gallery")} />
         </div>
-        <Toaster />
-      </div>
-    );
-  }
+      )}
 
-  // Settings page
-  if (page === "settings") {
-    return (
-      <div className="flex h-screen flex-col bg-muted">
-        <TabBar activePage={page} />
+      {/* Settings */}
+      {page === "settings" && (
         <div className={contentClassWithBottom}>
           <SettingsPage onClose={() => setPage("gallery")} />
         </div>
-        <Toaster />
-      </div>
-    );
-  }
+      )}
 
-  // Editor (tab open and editor visible)
-  if (editorVisible && activeTabId && tabs.length > 0) {
-    const activeTab = tabs.find((t) => t.id === activeTabId);
-    const activeThumbnail = activeTab
-      ? thumbnails.find((t) => t.id === activeTab.thumbnailId)
-      : null;
-
-    return (
-      <div className="flex h-screen flex-col bg-muted">
-        <TabBar activePage="gallery" />
-        <div className={contentClassWithBottom}>
-          {activeTab && activeThumbnail && (
-            <ImageEditor
-              key={activeTabId}
-              onAiGenerate={handleOpenAiGenerate}
-              onClose={() => setEditorVisible(false)}
-              onExport={() => setExportingThumbnail(activeThumbnail)}
-              snapshot={activeTab.snapshot}
-              tabId={activeTabId}
-              thumbnail={activeThumbnail}
-            />
-          )}
-        </div>
-        {exportingThumbnail && (
-          <ExportDialog
-            onClose={() => setExportingThumbnail(null)}
-            thumbnail={exportingThumbnail}
-            useCurrentEditorState
+      {showGallery && (
+        <div className="mx-1 mb-1">
+          <BottomToolbar
+            onAddVideoClick={() => setShowExtractor(true)}
+            onAiGenerateClick={handleOpenAiGenerateFromGallery}
+            onExportSelected={handleExportSelected}
+            onNewFolderClick={() => setNewFolderOpen(true)}
+            onNewProjectClick={() => setNewProjectOpen(true)}
+            onSettingsClick={() => setPage("settings")}
+            onTrashClick={() => setPage("trash")}
+            onViewModeChange={setViewMode}
+            viewMode={viewMode}
           />
-        )}
-        <Toaster />
-      </div>
-    );
-  }
+        </div>
+      )}
 
-  // Gallery (default or when tabs exist but editor hidden)
-  return (
-    <div className="flex h-screen flex-col bg-muted">
-      <TabBar activePage="gallery" />
-      <div className={contentClass}>
-        <Gallery
-          onAddVideoClick={() => setShowExtractor(true)}
-          onExportClick={setExportingThumbnail}
-          onNewProjectClick={() => setNewProjectOpen(true)}
-          onThumbnailClick={handleEditThumbnail}
-          viewMode={viewMode}
-        />
-      </div>
-      <div className="mx-1 mb-1">
-        <BottomToolbar
-          onAddVideoClick={() => setShowExtractor(true)}
-          onAiGenerateClick={handleOpenAiGenerateFromGallery}
-          onExportSelected={handleExportSelected}
-          onNewProjectClick={() => setNewProjectOpen(true)}
-          onSettingsClick={() => setPage("settings")}
-          onTrashClick={() => setPage("trash")}
-          onViewModeChange={setViewMode}
-          viewMode={viewMode}
-        />
-      </div>
       {showExtractor && (
         <VideoExtractor onClose={() => setShowExtractor(false)} />
       )}
@@ -319,6 +311,7 @@ export default function App() {
         <ExportDialog
           onClose={() => setExportingThumbnail(null)}
           thumbnail={exportingThumbnail}
+          useCurrentEditorState={editorVisible}
         />
       )}
       {exportingThumbnails.length > 0 && (
@@ -332,6 +325,54 @@ export default function App() {
         onOpenChange={setNewProjectOpen}
         open={newProjectOpen}
       />
+      <Dialog
+        onOpenChange={(open) => {
+          setNewFolderOpen(open);
+          if (!open) setNewFolderName("");
+        }}
+        open={newFolderOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Folder</DialogTitle>
+          </DialogHeader>
+          <Input
+            autoFocus
+            onChange={(e) => setNewFolderName(e.target.value)}
+            onKeyDown={async (e) => {
+              if (e.key === "Enter" && newFolderName.trim()) {
+                await useFolderStore
+                  .getState()
+                  .createFolder(newFolderName.trim());
+                toast.success(`Folder "${newFolderName.trim()}" created`);
+                setNewFolderName("");
+                setNewFolderOpen(false);
+              }
+            }}
+            placeholder="Folder name"
+            value={newFolderName}
+          />
+          <DialogFooter>
+            <DialogClose render={<Button variant="ghost" />}>
+              Cancel
+            </DialogClose>
+            <Button
+              disabled={!newFolderName.trim()}
+              onClick={async () => {
+                if (!newFolderName.trim()) return;
+                await useFolderStore
+                  .getState()
+                  .createFolder(newFolderName.trim());
+                toast.success(`Folder "${newFolderName.trim()}" created`);
+                setNewFolderName("");
+                setNewFolderOpen(false);
+              }}
+            >
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Toaster />
       <BackgroundRemovalQueue />
       <AutoRenameQueue />

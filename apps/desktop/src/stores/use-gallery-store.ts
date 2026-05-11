@@ -19,6 +19,7 @@ export interface ThumbnailItem {
   updatedAt: number;
   canvasWidth?: number;
   canvasHeight?: number;
+  folderId?: string | null;
   // Lazy loaded fields (not in DB)
   previewUrl?: string;
 }
@@ -74,6 +75,7 @@ interface GalleryState {
   ) => Promise<string>;
   updateThumbnailName: (id: string, name: string) => Promise<void>;
   updateThumbnail: (id: string, dataUrl: string) => Promise<void>;
+  setThumbnailFolder: (id: string, folderId: string | null) => Promise<void>;
   deleteThumbnail: (id: string) => Promise<void>;
   restoreThumbnail: (trashItem: {
     id: string;
@@ -584,7 +586,7 @@ export const useGalleryStore = create<GalleryState>()((set, get) => ({
       const database = await getDb();
       // Only load metadata - NO image data!
       const result = await database.select<ThumbnailItem[]>(
-        "SELECT id, name, createdAt, updatedAt, canvasWidth, canvasHeight FROM thumbnails ORDER BY updatedAt DESC"
+        "SELECT id, name, createdAt, updatedAt, canvasWidth, canvasHeight, folderId FROM thumbnails ORDER BY updatedAt DESC"
       );
       logger.info(
         { count: result.length },
@@ -620,6 +622,26 @@ export const useGalleryStore = create<GalleryState>()((set, get) => ({
   loadLayerDataForId: async (id) => {
     const data = await loadLayerData(id);
     return data as Layer[] | null;
+  },
+
+  setThumbnailFolder: async (id, folderId) => {
+    const now = Date.now();
+    set((state) => ({
+      thumbnails: state.thumbnails.map((t) =>
+        t.id === id ? { ...t, folderId, updatedAt: now } : t
+      ),
+    }));
+    try {
+      const database = await getDb();
+      await database.execute(
+        "UPDATE thumbnails SET folderId = $1, updatedAt = $2 WHERE id = $3",
+        [folderId, now, id]
+      );
+      logger.info({ id, folderId }, "[Gallery] Thumbnail folder updated");
+    } catch (error) {
+      logger.error({ err: error }, "[Gallery] Failed to update folder");
+      set({ dbError: String(error) });
+    }
   },
 }));
 

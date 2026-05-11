@@ -59,10 +59,12 @@ export function ThumbnailActionButtons({
     >
       <Tooltip>
         <TooltipTrigger
-          className={buttonVariants({
-            size: "icon-sm",
-            variant: "ghost",
-          })}
+          className={
+            buttonVariants({
+              size: "icon-sm",
+              variant: "ghost",
+            }) + "text-white"
+          }
           onClick={async (e) => {
             e.stopPropagation();
             await onAutoRename(thumbnail);
@@ -74,10 +76,12 @@ export function ThumbnailActionButtons({
       </Tooltip>
       <Tooltip>
         <TooltipTrigger
-          className={buttonVariants({
-            size: "icon-sm",
-            variant: "ghost",
-          })}
+          className={
+            buttonVariants({
+              size: "icon-sm",
+              variant: "ghost",
+            }) + "text-white"
+          }
           onClick={(e) => onRemoveBackground(e, thumbnail)}
         >
           <Wand2 className="size-4" />
@@ -86,10 +90,12 @@ export function ThumbnailActionButtons({
       </Tooltip>
       <Tooltip>
         <TooltipTrigger
-          className={buttonVariants({
-            size: "icon-sm",
-            variant: "ghost",
-          })}
+          className={
+            buttonVariants({
+              size: "icon-sm",
+              variant: "ghost",
+            }) + "text-white"
+          }
           onClick={(e) => {
             e.stopPropagation();
             onExportClick(thumbnail);
@@ -102,10 +108,12 @@ export function ThumbnailActionButtons({
       <div className="relative">
         <Tooltip>
           <TooltipTrigger
-            className={buttonVariants({
-              size: "icon-sm",
-              variant: "ghost",
-            })}
+            className={
+              buttonVariants({
+                size: "icon-sm",
+                variant: "ghost",
+              }) + "text-white"
+            }
             onClick={(e) => {
               e.stopPropagation();
               setMenuOpenId(menuOpenId === thumbnail.id ? null : thumbnail.id);

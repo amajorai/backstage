@@ -34,6 +34,7 @@ interface BottomToolbarProps {
   onSettingsClick: () => void;
   onTrashClick: () => void;
   onNewProjectClick: () => void;
+  onNewFolderClick: () => void;
   onAiGenerateClick: () => void;
   onExportSelected?: () => void;
 }
@@ -45,6 +46,7 @@ export function BottomToolbar({
   onSettingsClick,
   onTrashClick,
   onNewProjectClick,
+  onNewFolderClick,
   onAiGenerateClick,
   onExportSelected,
 }: BottomToolbarProps) {
@@ -296,6 +298,7 @@ export function BottomToolbar({
             </Button>
             <AddMenu
               onAddVideoClick={onAddVideoClick}
+              onNewFolderClick={onNewFolderClick}
               onNewProjectClick={onNewProjectClick}
             />
           </>

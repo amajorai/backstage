@@ -1,15 +1,19 @@
 import {
   CheckSquare,
+  FolderOpen,
+  FolderPlus,
   GalleryThumbnails,
-  Grid2X2,
   ImagePlus,
+  LayoutTemplate,
   Loader2,
   MonitorPlay,
   Plus,
   Search,
+  SquareDashedMousePointer,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { VirtuosoGrid } from "react-virtuoso";
+import { type GridStateSnapshot, VirtuosoGrid } from "react-virtuoso";
 import { toast } from "sonner";
 import type { ViewMode } from "@/App";
 import { AddColorBackgroundDialog } from "@/components/editor/AddColorBackgroundDialog";
@@ -47,7 +51,9 @@ import { Input } from "@/components/ui/input";
 import { VideoExtractor } from "@/components/VideoExtractor";
 import { useDragSelection } from "@/hooks/use-drag-selection";
 import { openAndLoadImages } from "@/lib/image-file-utils";
+import { cn } from "@/lib/utils";
 import { useAutoRenameQueue } from "@/stores/use-auto-rename-queue";
+import { useFolderStore } from "@/stores/use-folder-store";
 import {
   type ThumbnailItem,
   useGalleryStore,
@@ -61,6 +67,7 @@ interface GalleryProps {
   onExportClick: (thumbnail: ThumbnailItem) => void;
   onAddVideoClick: () => void;
   onNewProjectClick: () => void;
+  onNewFolderClick: () => void;
 }
 
 export function Gallery({
@@ -69,6 +76,7 @@ export function Gallery({
   onExportClick,
   onAddVideoClick,
   onNewProjectClick,
+  onNewFolderClick,
 }: GalleryProps) {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [colorBgThumbnail, setColorBgThumbnail] =
@@ -79,27 +87,45 @@ export function Gallery({
   const [selectedThumbnail, setSelectedThumbnail] =
     useState<ThumbnailItem | null>(null);
   const [newName, setNewName] = useState("");
+
+  const [moveFolderThumbnail, setMoveFolderThumbnail] =
+    useState<ThumbnailItem | null>(null);
+  const [deleteFolderTarget, setDeleteFolderTarget] = useState<string | null>(
+    null
+  );
+
   const addToRenameQueue = useAutoRenameQueue((s) => s.addToQueue);
   const addThumbnail = useGalleryStore((s) => s.addThumbnail);
   const deleteThumbnail = useGalleryStore((s) => s.deleteThumbnail);
-  const updateThumbnailName = useGalleryStore((s) => s.updateThumbnailName); // used by rename dialog
+  const updateThumbnailName = useGalleryStore((s) => s.updateThumbnailName);
+  const setThumbnailFolder = useGalleryStore((s) => s.setThumbnailFolder);
   const sortField = useGalleryStore((s) => s.sortField);
   const sortOrder = useGalleryStore((s) => s.sortOrder);
   const rawThumbnails = useGalleryStore((s) => s.thumbnails);
   const isLoaded = useGalleryStore((s) => s.isLoaded);
+
+  const folders = useFolderStore((s) => s.folders);
+  const deleteFolder = useFolderStore((s) => s.deleteFolder);
 
   const isSelectionMode = useSelectionStore((s) => s.isSelectionMode);
   const selectAll = useSelectionStore((s) => s.selectAll);
   const toggleSelectionMode = useSelectionStore((s) => s.toggleSelectionMode);
   const exitSelectionMode = useSelectionStore((s) => s.exitSelectionMode);
 
-  const lastClickedIndex = useGalleryUIStore((s) => s.lastClickedIndex);
   const setLastClickedIndex = useGalleryUIStore((s) => s.setLastClickedIndex);
+  const gridSnapshot = useGalleryUIStore((s) => s.gridSnapshot);
+  const setGridSnapshot = useGalleryUIStore((s) => s.setGridSnapshot);
   const searchQuery = useGalleryUIStore((s) => s.searchQuery);
+  const setSearchQuery = useGalleryUIStore((s) => s.setSearchQuery);
   const setFilteredCount = useGalleryUIStore((s) => s.setFilteredCount);
+  const selectedFolderId = useGalleryUIStore((s) => s.selectedFolderId);
+  const setSelectedFolderId = useGalleryUIStore((s) => s.setSelectedFolderId);
 
   const filteredThumbnails = useMemo(() => {
     let filtered = rawThumbnails;
+    if (selectedFolderId !== null) {
+      filtered = filtered.filter((t) => t.folderId === selectedFolderId);
+    }
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter((t) => t.name.toLowerCase().includes(query));
@@ -113,7 +139,7 @@ export function Gallery({
       }
       return sortOrder === "desc" ? -cmp : cmp;
     });
-  }, [rawThumbnails, sortField, sortOrder, searchQuery]);
+  }, [rawThumbnails, sortField, sortOrder, searchQuery, selectedFolderId]);
 
   const projects = filteredThumbnails;
 
@@ -131,7 +157,6 @@ export function Gallery({
     return gridClasses[viewMode];
   }, [viewMode]);
 
-  // Drag selection hook
   const {
     selectionBox,
     containerRef,
@@ -162,7 +187,6 @@ export function Gallery({
       try {
         const fullImageUrl = await loadFullImageForId(thumbnail.id);
         if (!fullImageUrl) {
-          console.error("Failed to load image for background removal");
           return;
         }
         const { runBgRemovalPipeline } = await import(
@@ -248,17 +272,38 @@ export function Gallery({
     setDeleteDialogOpen(true);
   }, []);
 
+  const handleMoveToFolder = useCallback((thumbnail: ThumbnailItem) => {
+    setMoveFolderThumbnail(thumbnail);
+  }, []);
+
+  const handleConfirmDeleteFolder = useCallback(async () => {
+    if (!deleteFolderTarget) return;
+    const folder = folders.find((f) => f.id === deleteFolderTarget);
+    await deleteFolder(deleteFolderTarget);
+    setDeleteFolderTarget(null);
+    if (selectedFolderId === deleteFolderTarget) setSelectedFolderId(null);
+    toast.success(`Folder "${folder?.name}" deleted`);
+  }, [
+    deleteFolderTarget,
+    folders,
+    deleteFolder,
+    selectedFolderId,
+    setSelectedFolderId,
+  ]);
+
   const itemContent = useCallback(
     (index: number) => {
       const thumbnail = projects[index];
       if (!thumbnail) return null;
       return (
         <ThumbnailGridItem
+          folders={folders}
           isProcessing={processingId === thumbnail.id}
           onAddColorBackground={setColorBgThumbnail}
           onAutoRename={handleAutoRename}
           onDelete={handleDelete}
           onExportClick={onExportClick}
+          onMoveToFolder={handleMoveToFolder}
           onRemoveBackground={handleRemoveBackground}
           onRename={handleRename}
           onThumbnailClick={(t) => {
@@ -271,10 +316,12 @@ export function Gallery({
     },
     [
       projects,
+      folders,
       processingId,
       handleAutoRename,
       handleDelete,
       onExportClick,
+      handleMoveToFolder,
       handleRemoveBackground,
       handleRename,
       setLastClickedIndex,
@@ -291,12 +338,68 @@ export function Gallery({
     );
   }
 
-  // Generic empty state logic replaced by tab-specific
+  const selectedFolder = folders.find((f) => f.id === selectedFolderId) ?? null;
 
   return (
-    <div className="relative flex flex-1 select-none flex-col">
+    <div className="relative flex flex-1 select-none flex-col overflow-hidden">
+      {folders.length > 0 && (
+        <div className="scrollbar-none flex shrink-0 items-center gap-1.5 overflow-x-auto px-5 pt-4 pb-2">
+          <button
+            className={cn(
+              "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-sm transition-colors",
+              selectedFolderId === null
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+            onClick={() => setSelectedFolderId(null)}
+            type="button"
+          >
+            All
+          </button>
+          {folders.map((folder) => (
+            <div
+              className={cn(
+                "group flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-sm transition-colors",
+                selectedFolderId === folder.id
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+              key={folder.id}
+            >
+              <button
+                className="flex items-center gap-1.5"
+                onClick={() =>
+                  setSelectedFolderId(
+                    selectedFolderId === folder.id ? null : folder.id
+                  )
+                }
+                type="button"
+              >
+                <FolderOpen className="size-3.5" />
+                {folder.name}
+              </button>
+              <button
+                className={cn(
+                  "ml-0.5 rounded opacity-0 transition-opacity group-hover:opacity-100",
+                  selectedFolderId === folder.id &&
+                    "opacity-60 hover:opacity-100"
+                )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteFolderTarget(folder.id);
+                }}
+                title="Delete folder"
+                type="button"
+              >
+                <X className="size-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="relative flex-1 select-none overflow-hidden">
-        <div className="pointer-events-none absolute top-0 right-0 left-0 z-10 h-8 bg-gradient-to-b from-background to-transparent" />
+        <div className="pointer-events-none absolute top-0 right-0 left-0 z-10 h-4 bg-gradient-to-b from-background to-transparent" />
         <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 h-16 bg-gradient-to-t from-background to-transparent" />
         <ContextMenu>
           <ContextMenuTrigger className="h-full">
@@ -358,22 +461,33 @@ export function Gallery({
                         }
                       />
                     }
-                    description="Start by adding images or extracting frames from videos"
+                    description={
+                      selectedFolder
+                        ? `No projects in "${selectedFolder.name}" yet`
+                        : "Start by adding images or extracting frames from videos"
+                    }
                     icon={
                       <GalleryThumbnails className="size-10 fill-muted-foreground" />
                     }
-                    title="No projects yet"
+                    title={
+                      selectedFolder
+                        ? `"${selectedFolder.name}" is empty`
+                        : "No projects yet"
+                    }
                   />
                 ) : (
                   <VirtuosoGrid
                     components={gridComponents}
-                    initialTopMostItemIndex={lastClickedIndex ?? 0}
                     itemContent={itemContent}
                     listClassName={gridColClass}
                     overscan={600}
+                    restoreStateFrom={gridSnapshot}
                     scrollerRef={(ref) => {
                       scrollerRef.current = ref as HTMLDivElement;
                     }}
+                    stateChanged={(state: GridStateSnapshot) =>
+                      setGridSnapshot(state)
+                    }
                     style={{ height: "100%", width: "100%" }}
                     totalCount={projects.length}
                   />
@@ -382,9 +496,18 @@ export function Gallery({
             </div>
           </ContextMenuTrigger>
           <ContextMenuContent>
+            <ContextMenuItem onClick={onNewProjectClick}>
+              <LayoutTemplate className="mr-2 size-4" />
+              New Project
+            </ContextMenuItem>
+            <ContextMenuItem onClick={onNewFolderClick}>
+              <FolderPlus className="mr-2 size-4" />
+              New Folder
+            </ContextMenuItem>
+            <ContextMenuSeparator />
             <ContextMenuItem onClick={handleAddImage}>
               <ImagePlus className="mr-2 size-4" />
-              Upload Photo
+              Add Image
             </ContextMenuItem>
             <ContextMenuItem onClick={() => setShowVideoExtractor(true)}>
               <MonitorPlay className="mr-2 size-4" />
@@ -409,7 +532,7 @@ export function Gallery({
                 }
               }}
             >
-              <Grid2X2 className="mr-2 size-4" />
+              <SquareDashedMousePointer className="mr-2 size-4" />
               {isSelectionMode ? "Exit Selection Mode" : "Enter Selection Mode"}
             </ContextMenuItem>
           </ContextMenuContent>
@@ -428,6 +551,68 @@ export function Gallery({
         }}
         open={colorBgThumbnail !== null}
       />
+
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) setMoveFolderThumbnail(null);
+        }}
+        open={moveFolderThumbnail !== null}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Move to Folder</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-1">
+            <button
+              className={cn(
+                "flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted",
+                moveFolderThumbnail?.folderId === null && "bg-muted"
+              )}
+              onClick={async () => {
+                if (moveFolderThumbnail) {
+                  await setThumbnailFolder(moveFolderThumbnail.id, null);
+                  toast.success("Moved out of folder");
+                  setMoveFolderThumbnail(null);
+                }
+              }}
+              type="button"
+            >
+              <GalleryThumbnails className="size-4 text-muted-foreground" />
+              No folder
+            </button>
+            {folders.map((folder) => (
+              <button
+                className={cn(
+                  "flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted",
+                  moveFolderThumbnail?.folderId === folder.id && "bg-muted"
+                )}
+                key={folder.id}
+                onClick={async () => {
+                  if (moveFolderThumbnail) {
+                    await setThumbnailFolder(moveFolderThumbnail.id, folder.id);
+                    toast.success(`Moved to "${folder.name}"`);
+                    setMoveFolderThumbnail(null);
+                  }
+                }}
+                type="button"
+              >
+                <FolderOpen className="size-4 text-muted-foreground" />
+                {folder.name}
+              </button>
+            ))}
+            {folders.length === 0 && (
+              <p className="px-3 py-2 text-muted-foreground text-sm">
+                No folders yet. Right-click the gallery to create one.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <DialogClose render={<Button variant="ghost" />}>
+              Cancel
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog onOpenChange={setRenameDialogOpen} open={renameDialogOpen}>
         <DialogContent>
@@ -464,6 +649,31 @@ export function Gallery({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) setDeleteFolderTarget(null);
+        }}
+        open={deleteFolderTarget !== null}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Folder?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Projects inside will be moved out of the folder, not deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteFolder}
+              variant="destructive"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog onOpenChange={setDeleteDialogOpen} open={deleteDialogOpen}>
         <AlertDialogContent>

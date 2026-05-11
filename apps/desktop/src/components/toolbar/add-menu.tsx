@@ -1,4 +1,4 @@
-import { Image, LayoutTemplate, Plus, Video } from "lucide-react";
+import { FolderPlus, Image, LayoutTemplate, Plus, Video } from "lucide-react";
 import { useCallback, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -14,6 +14,7 @@ import { useGalleryStore } from "@/stores/use-gallery-store";
 interface AddMenuProps {
   onAddVideoClick: () => void;
   onNewProjectClick: () => void;
+  onNewFolderClick?: () => void;
   /** Content rendered inside the trigger button (replaces default Plus icon). */
   triggerContent?: React.ReactNode;
   triggerClassName?: string;
@@ -23,6 +24,7 @@ interface AddMenuProps {
 export function AddMenu({
   onAddVideoClick,
   onNewProjectClick,
+  onNewFolderClick,
   triggerContent,
   triggerClassName,
   className,
@@ -67,6 +69,17 @@ export function AddMenu({
             <LayoutTemplate className="size-4" />
             New Project
           </DropdownMenuItem>
+          {onNewFolderClick && (
+            <DropdownMenuItem
+              onClick={() => {
+                setOpen(false);
+                onNewFolderClick();
+              }}
+            >
+              <FolderPlus className="size-4" />
+              New Folder
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={handleAddImage}>
             <Image className="size-4" />
             Add Image

@@ -72,6 +72,7 @@ const UI_COLOR = "oklch(0.685 0.169 237.323)";
 /** Returns the effective width/height of a layer. */
 function getLayerDimensions(l: EditorLayer): { w: number; h: number } {
   if (l.type === "text") return { w: l.width ?? 300, h: 0 };
+  if (l.type === "group") return { w: 0, h: 0 };
   return { w: l.width, h: l.height };
 }
 
@@ -2047,8 +2048,16 @@ export function KonvaCanvas({
     }
   };
 
+  const hiddenGroupIds = new Set(
+    layers.filter((l) => l.type === "group" && !l.visible).map((l) => l.id)
+  );
+
   const renderLayer = (layer: EditorLayer) => {
     if (!layer.visible) return null;
+    // Hide children of invisible groups
+    if (layer.groupId && hiddenGroupIds.has(layer.groupId)) return null;
+    // Group headers render nothing on canvas
+    if (layer.type === "group") return null;
     // Hide the layer being actively painted on (preview node takes over)
     if (
       paintPreviewProps?.targetLayerId === layer.id &&
@@ -2190,15 +2199,8 @@ export function KonvaCanvas({
           />
           <Group
             clipFunc={(ctx) => {
-              const r = 8 / scale;
               ctx.beginPath();
-              ctx.moveTo(r, 0);
-              ctx.lineTo(width - r, 0);
-              ctx.quadraticCurveTo(width, 0, width, r);
-              ctx.lineTo(width, height);
-              ctx.lineTo(0, height);
-              ctx.lineTo(0, r);
-              ctx.quadraticCurveTo(0, 0, r, 0);
+              ctx.rect(0, 0, width, height);
               ctx.closePath();
             }}
           >

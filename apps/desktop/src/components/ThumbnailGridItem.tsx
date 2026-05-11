@@ -1,6 +1,7 @@
 import {
   Copy,
   Download,
+  FolderOpen,
   Loader2,
   PaintBucket,
   Pencil,
@@ -24,6 +25,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import type { Folder } from "@/stores/use-folder-store";
 import {
   type ThumbnailItem,
   useGalleryStore,
@@ -43,6 +45,8 @@ interface ThumbnailGridItemProps {
   onDelete: (thumbnail: ThumbnailItem) => void;
   onAutoRename: (thumbnail: ThumbnailItem) => Promise<void>;
   onAddColorBackground: (thumbnail: ThumbnailItem) => void;
+  onMoveToFolder: (thumbnail: ThumbnailItem) => void;
+  folders: Folder[];
 }
 
 export const ThumbnailGridItem = memo(function ThumbnailGridItem({
@@ -55,6 +59,8 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
   onDelete,
   onAutoRename,
   onAddColorBackground,
+  onMoveToFolder,
+  folders,
 }: ThumbnailGridItemProps) {
   const isSelectionMode = useSelectionStore((s) => s.isSelectionMode);
   const selectedIds = useSelectionStore((s) => s.selectedIds);
@@ -255,6 +261,12 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
           <Pencil className="mr-2 size-4" />
           Rename
         </ContextMenuItem>
+        {folders.length > 0 && (
+          <ContextMenuItem onClick={() => onMoveToFolder(thumbnail)}>
+            <FolderOpen className="mr-2 size-4" />
+            Move to Folder
+          </ContextMenuItem>
+        )}
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => onExportClick(thumbnail)}>
           <Download className="mr-2 size-4" />

@@ -13,7 +13,7 @@ export const GridList = forwardRef<
     ref={ref}
     style={style}
     {...props}
-    className={cn("grid gap-4 px-4 pt-4 pb-4", className)}
+    className={cn("grid gap-4 px-4 pb-4", className)}
   >
     {children}
   </div>
@@ -45,7 +45,7 @@ export function GridFooter() {
  * Header component with top padding for VirtuosoGrid.
  */
 export function GridHeader() {
-  return <div className="col-span-full h-6" />;
+  return <div className="col-span-full h-2" />;
 }
 
 /**

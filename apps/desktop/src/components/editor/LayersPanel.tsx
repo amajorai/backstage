@@ -1,14 +1,19 @@
 import {
+  ChevronDown,
+  ChevronRight,
   Copy,
   Eye,
   EyeOff,
+  Folder,
+  FolderOpen,
+  FolderPlus,
   Lock,
   Plus,
   Sparkles,
   Trash2,
   Unlock,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ScrollFadeEffect } from "@/components/scroll-fade-effect";
 import {
@@ -33,10 +38,17 @@ import {
 import { generateThumbnailName } from "@/lib/gemini-rename";
 import { getGeminiApiKey } from "@/lib/gemini-store";
 import { cn } from "@/lib/utils";
-import type { Layer } from "@/stores/use-editor-store";
+import type { GroupLayer, Layer } from "@/stores/use-editor-store";
 import { useEditorStore } from "@/stores/use-editor-store";
 
 function LayerThumbnail({ layer }: { layer: Layer }) {
+  if (layer.type === "group") {
+    return layer.collapsed ? (
+      <Folder className="size-4 shrink-0 text-muted-foreground" />
+    ) : (
+      <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
+    );
+  }
   if (layer.type === "image" || layer.type === "draw") {
     return (
       <img
@@ -90,6 +102,38 @@ function LayerThumbnail({ layer }: { layer: Layer }) {
   return <div className="size-7 shrink-0 rounded-sm bg-muted" />;
 }
 
+interface DisplayItem {
+  layer: Layer;
+  realIdx: number;
+  isGroupHeader: boolean;
+  children: Array<{ layer: Layer; realIdx: number }>;
+}
+
+function buildDisplayItems(layers: Layer[]): DisplayItem[] {
+  const childIdSet = new Set(layers.filter((l) => l.groupId).map((l) => l.id));
+  const items: DisplayItem[] = [];
+
+  for (let i = layers.length - 1; i >= 0; i--) {
+    const layer = layers[i];
+    if (childIdSet.has(layer.id)) continue;
+
+    if (layer.type === "group") {
+      const group = layer as GroupLayer;
+      const children: Array<{ layer: Layer; realIdx: number }> = [];
+      let j = i + 1;
+      while (j < layers.length && layers[j].groupId === group.id) {
+        children.unshift({ layer: layers[j], realIdx: j });
+        j++;
+      }
+      items.push({ layer, realIdx: i, isGroupHeader: true, children });
+    } else {
+      items.push({ layer, realIdx: i, isGroupHeader: false, children: [] });
+    }
+  }
+
+  return items;
+}
+
 export function LayersPanel() {
   const {
     layers,
@@ -104,10 +148,15 @@ export function LayersPanel() {
     copyLayers,
     pasteLayers,
     pushHistory,
+    createGroup,
+    ungroup,
+    toggleGroupCollapse,
+    moveLayerToGroup,
   } = useEditorStore();
 
   const [draggingRealIdx, setDraggingRealIdx] = useState<number | null>(null);
   const [dropRealIdx, setDropRealIdx] = useState<number | null>(null);
+  const [dropIntoGroupId, setDropIntoGroupId] = useState<string | null>(null);
   const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [pasteMenuPos, setPasteMenuPos] = useState<{
@@ -123,28 +172,45 @@ export function LayersPanel() {
     fromRealIdx: number;
     startY: number;
     currentDropRealIdx: number;
+    currentDropIntoGroupId: string | null;
   } | null>(null);
 
-  const getRealIdxAtY = useCallback((clientY: number): number | null => {
-    const container = listRef.current;
-    if (!container) return null;
-    const rows = container.querySelectorAll<HTMLElement>("[data-real-idx]");
-    for (const row of rows) {
-      const rect = row.getBoundingClientRect();
-      if (clientY >= rect.top && clientY < rect.bottom) {
-        return Number(row.getAttribute("data-real-idx"));
+  const displayItems = useMemo(() => buildDisplayItems(layers), [layers]);
+
+  const getRealIdxAtY = useCallback(
+    (
+      clientY: number
+    ): { realIdx: number; isGroup: boolean; groupId: string | null } | null => {
+      const container = listRef.current;
+      if (!container) return null;
+      const rows = container.querySelectorAll<HTMLElement>("[data-real-idx]");
+      for (const row of rows) {
+        const rect = row.getBoundingClientRect();
+        if (clientY >= rect.top && clientY < rect.bottom) {
+          const idx = Number(row.getAttribute("data-real-idx"));
+          const isGroup = row.getAttribute("data-is-group") === "true";
+          const gid = row.getAttribute("data-group-id");
+          return { realIdx: idx, isGroup, groupId: gid };
+        }
       }
-    }
-    if (rows.length > 0) {
-      const firstRect = rows[0].getBoundingClientRect();
-      if (clientY < firstRect.top)
-        return Number(rows[0].getAttribute("data-real-idx"));
-      const lastRect = rows[rows.length - 1].getBoundingClientRect();
-      if (clientY >= lastRect.bottom)
-        return Number(rows[rows.length - 1].getAttribute("data-real-idx"));
-    }
-    return null;
-  }, []);
+      if (rows.length > 0) {
+        const firstRect = rows[0].getBoundingClientRect();
+        if (clientY < firstRect.top) {
+          const idx = Number(rows[0].getAttribute("data-real-idx"));
+          return { realIdx: idx, isGroup: false, groupId: null };
+        }
+        const lastRect = rows[rows.length - 1].getBoundingClientRect();
+        if (clientY >= lastRect.bottom) {
+          const idx = Number(
+            rows[rows.length - 1].getAttribute("data-real-idx")
+          );
+          return { realIdx: idx, isGroup: false, groupId: null };
+        }
+      }
+      return null;
+    },
+    []
+  );
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>, realIdx: number) => {
@@ -155,6 +221,7 @@ export function LayersPanel() {
         fromRealIdx: realIdx,
         startY: e.clientY,
         currentDropRealIdx: realIdx,
+        currentDropIntoGroupId: null,
       };
     },
     [editingLayerId]
@@ -168,26 +235,58 @@ export function LayersPanel() {
         dragState.current.active = true;
         setDraggingRealIdx(dragState.current.fromRealIdx);
         setDropRealIdx(dragState.current.fromRealIdx);
+        setDropIntoGroupId(null);
       }
       if (dragState.current.active) {
-        const idx = getRealIdxAtY(e.clientY);
-        if (idx !== null && idx !== dragState.current.currentDropRealIdx) {
+        const hit = getRealIdxAtY(e.clientY);
+        if (!hit) return;
+        const { realIdx: idx, isGroup, groupId } = hit;
+        const draggingLayer = layers[dragState.current.fromRealIdx];
+        const targetIsGroupOfDragging =
+          draggingLayer && draggingLayer.groupId === groupId;
+
+        // Drop INTO group only if target is a group header (not the dragging layer's own group)
+        const newGroupId =
+          isGroup && groupId && !targetIsGroupOfDragging ? groupId : null;
+
+        if (
+          idx !== dragState.current.currentDropRealIdx ||
+          newGroupId !== dragState.current.currentDropIntoGroupId
+        ) {
           dragState.current.currentDropRealIdx = idx;
+          dragState.current.currentDropIntoGroupId = newGroupId;
           setDropRealIdx(idx);
+          setDropIntoGroupId(newGroupId);
         }
       }
     };
 
     const onUp = () => {
       if (dragState.current?.active) {
-        const { fromRealIdx, currentDropRealIdx } = dragState.current;
-        if (fromRealIdx !== currentDropRealIdx) {
+        const { fromRealIdx, currentDropRealIdx, currentDropIntoGroupId } =
+          dragState.current;
+        const draggingLayer = layers[fromRealIdx];
+        if (
+          currentDropIntoGroupId &&
+          draggingLayer &&
+          draggingLayer.id !== currentDropIntoGroupId
+        ) {
+          moveLayerToGroup(draggingLayer.id, currentDropIntoGroupId);
+        } else if (
+          !currentDropIntoGroupId &&
+          draggingLayer?.groupId &&
+          fromRealIdx !== currentDropRealIdx
+        ) {
+          // Dragging a child layer out of its group onto a non-group row
+          moveLayerToGroup(draggingLayer.id, null);
+        } else if (fromRealIdx !== currentDropRealIdx) {
           reorderLayers(fromRealIdx, currentDropRealIdx);
         }
       }
       dragState.current = null;
       setDraggingRealIdx(null);
       setDropRealIdx(null);
+      setDropIntoGroupId(null);
     };
 
     window.addEventListener("pointermove", onMove);
@@ -196,7 +295,7 @@ export function LayersPanel() {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [getRealIdxAtY, reorderLayers]);
+  }, [getRealIdxAtY, reorderLayers, moveLayerToGroup, layers]);
 
   const startEditing = useCallback((layerId: string, currentName: string) => {
     setEditingLayerId(layerId);
@@ -313,6 +412,241 @@ export function LayersPanel() {
     }
   }, [layers, updateLayer]);
 
+  const handleCreateGroup = useCallback(() => {
+    if (activeLayerIds.length >= 1) {
+      createGroup(activeLayerIds, "Group");
+    }
+  }, [activeLayerIds, createGroup]);
+
+  function renderLayerRow(
+    layer: Layer,
+    realIdx: number,
+    depth: number,
+    isChildRow = false
+  ) {
+    const isEditing = editingLayerId === layer.id;
+    const isSelected = activeLayerIds.includes(layer.id);
+    const isDragging = draggingRealIdx === realIdx;
+    const isReorderTarget =
+      draggingRealIdx !== null &&
+      dropRealIdx === realIdx &&
+      dropIntoGroupId === null &&
+      draggingRealIdx !== realIdx;
+    const isGroupDropTarget =
+      layer.type === "group" && dropIntoGroupId === layer.id;
+
+    const isGroup = layer.type === "group";
+    const group = isGroup ? (layer as GroupLayer) : null;
+
+    const rowContent = (
+      <div
+        className={cn(
+          "flex cursor-grab items-center gap-1.5 rounded-md px-1.5 py-1 text-xs transition-colors",
+          isSelected ? "bg-primary/20 text-primary" : "hover:bg-muted/50",
+          isReorderTarget ? "ring-1 ring-primary" : "",
+          isGroupDropTarget ? "bg-accent/10 ring-2 ring-accent" : "",
+          isDragging ? "opacity-50" : "",
+          depth > 0 ? "ml-4" : ""
+        )}
+        data-group-id={isGroup ? layer.id : null}
+        data-is-group={isGroup ? "true" : "false"}
+        data-layer-item="true"
+        data-real-idx={realIdx}
+        onClick={(e) => {
+          if (draggingRealIdx !== null) return;
+          if (isGroup) {
+            if (e.metaKey || e.ctrlKey || e.shiftKey) {
+              toggleLayerSelection(layer.id);
+            } else {
+              setActiveLayers([layer.id]);
+            }
+            return;
+          }
+          if (e.metaKey || e.ctrlKey || e.shiftKey) {
+            toggleLayerSelection(layer.id);
+          } else {
+            setActiveLayers([layer.id]);
+          }
+        }}
+        onKeyDown={(e) => e.key === "Enter" && setActiveLayers([layer.id])}
+        onPointerDown={(e) => handlePointerDown(e, realIdx)}
+        role="button"
+        tabIndex={0}
+      >
+        {/* Collapse toggle for groups */}
+        {isGroup ? (
+          <button
+            className="flex size-4 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleGroupCollapse(layer.id);
+            }}
+            type="button"
+          >
+            {group?.collapsed ? (
+              <ChevronRight className="size-3" />
+            ) : (
+              <ChevronDown className="size-3" />
+            )}
+          </button>
+        ) : (
+          <div className="w-4 shrink-0" />
+        )}
+
+        {/* Visibility + Lock */}
+        <div className="flex shrink-0">
+          <button
+            className="flex size-5 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation();
+              pushHistory(layer.visible ? "Hide Layer" : "Show Layer");
+              updateLayer(layer.id, { visible: !layer.visible });
+            }}
+            type="button"
+          >
+            {layer.visible ? (
+              <Eye className="size-3" />
+            ) : (
+              <EyeOff className="size-3" />
+            )}
+          </button>
+          <button
+            className={cn(
+              "flex size-5 items-center justify-center rounded",
+              layer.locked
+                ? "text-destructive"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              pushHistory(layer.locked ? "Unlock Layer" : "Lock Layer");
+              updateLayer(layer.id, { locked: !layer.locked });
+            }}
+            type="button"
+          >
+            {layer.locked ? (
+              <Lock className="size-3" />
+            ) : (
+              <Unlock className="size-3" />
+            )}
+          </button>
+        </div>
+
+        {/* Thumbnail */}
+        <LayerThumbnail layer={layer} />
+
+        {/* Name */}
+        {isEditing ? (
+          <Input
+            autoFocus
+            className="h-5 flex-1 border-0 bg-transparent px-1 text-xs shadow-none ring-0 focus-visible:ring-0 md:text-xs dark:bg-transparent"
+            onBlur={finishEditing}
+            onChange={(e) => setEditingName(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") finishEditing();
+              if (e.key === "Escape") cancelEditing();
+            }}
+            ref={inputRef}
+            value={editingName}
+          />
+        ) : (
+          <span
+            className="flex-1 select-none truncate"
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              startEditing(layer.id, layer.name);
+            }}
+          >
+            {layer.name}
+          </span>
+        )}
+      </div>
+    );
+
+    const contextMenuContent = (
+      <ContextMenuContent className="w-48">
+        {isGroup ? (
+          <>
+            <ContextMenuItem
+              onClick={() => {
+                setActiveLayers([layer.id]);
+                duplicateLayer(layer.id);
+              }}
+            >
+              Duplicate Group
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem onClick={() => ungroup(layer.id)}>
+              Ungroup
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              onClick={() => removeLayer(layer.id)}
+              variant="destructive"
+            >
+              Delete Group &amp; Contents
+            </ContextMenuItem>
+          </>
+        ) : (
+          <>
+            <ContextMenuItem
+              onClick={() => {
+                setActiveLayers([layer.id]);
+                duplicateLayer(layer.id);
+              }}
+            >
+              Duplicate
+            </ContextMenuItem>
+            <ContextMenuItem
+              onClick={() => {
+                setActiveLayers([layer.id]);
+                copyLayers();
+              }}
+            >
+              Copy
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => pasteLayers()}>
+              Paste
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            {activeLayerIds.length >= 2 && (
+              <ContextMenuItem
+                onClick={() => createGroup(activeLayerIds, "Group")}
+              >
+                Group Selection ({activeLayerIds.length} layers)
+              </ContextMenuItem>
+            )}
+            <ContextMenuItem onClick={() => createGroup([layer.id], "Group")}>
+              New Group from Layer
+            </ContextMenuItem>
+            {isChildRow && layer.groupId && (
+              <ContextMenuItem onClick={() => moveLayerToGroup(layer.id, null)}>
+                Remove from Group
+              </ContextMenuItem>
+            )}
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              disabled={layers.length <= 1}
+              onClick={() => removeLayer(layer.id)}
+              variant="destructive"
+            >
+              Delete
+            </ContextMenuItem>
+          </>
+        )}
+      </ContextMenuContent>
+    );
+
+    return (
+      <ContextMenu key={layer.id}>
+        <ContextMenuTrigger>{rowContent}</ContextMenuTrigger>
+        {contextMenuContent}
+      </ContextMenu>
+    );
+  }
+
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col border-border border-l bg-background">
       <ScrollFadeEffect
@@ -333,150 +667,22 @@ export function LayersPanel() {
         ref={listRef}
       >
         <div className="flex flex-col gap-1">
-          {[...layers].reverse().map((layer, displayIdx) => {
-            const realIdx = layers.length - 1 - displayIdx;
-            const isEditing = editingLayerId === layer.id;
-            const isSelected = activeLayerIds.includes(layer.id);
-            const isDragging = draggingRealIdx === realIdx;
-            const isDropTarget =
-              draggingRealIdx !== null &&
-              dropRealIdx === realIdx &&
-              draggingRealIdx !== realIdx;
+          {displayItems.map((item) => {
+            const { layer, realIdx, isGroupHeader, children } = item;
+            const group = isGroupHeader ? (layer as GroupLayer) : null;
 
             return (
-              <ContextMenu key={layer.id}>
-                <ContextMenuTrigger data-layer-item="true">
-                  <div
-                    className={cn(
-                      "flex cursor-grab items-center gap-1.5 rounded-md px-1.5 py-1 text-xs transition-colors",
-                      isSelected
-                        ? "bg-primary/20 text-primary"
-                        : "hover:bg-muted/50",
-                      isDropTarget ? "ring-1 ring-primary" : "",
-                      isDragging ? "opacity-50" : ""
-                    )}
-                    data-real-idx={realIdx}
-                    onClick={(e) => {
-                      if (draggingRealIdx !== null) return;
-                      if (e.metaKey || e.ctrlKey || e.shiftKey) {
-                        toggleLayerSelection(layer.id);
-                      } else {
-                        setActiveLayers([layer.id]);
-                      }
-                    }}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && setActiveLayers([layer.id])
-                    }
-                    onPointerDown={(e) => handlePointerDown(e, realIdx)}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    {/* Visibility + Lock */}
-                    <div className="flex shrink-0">
-                      <button
-                        className="flex size-5 items-center justify-center rounded text-muted-foreground hover:text-foreground"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          pushHistory(
-                            layer.visible ? "Hide Layer" : "Show Layer"
-                          );
-                          updateLayer(layer.id, { visible: !layer.visible });
-                        }}
-                        type="button"
-                      >
-                        {layer.visible ? (
-                          <Eye className="size-3" />
-                        ) : (
-                          <EyeOff className="size-3" />
-                        )}
-                      </button>
-                      <button
-                        className={cn(
-                          "flex size-5 items-center justify-center rounded",
-                          layer.locked
-                            ? "text-destructive"
-                            : "text-muted-foreground hover:text-foreground"
-                        )}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          pushHistory(
-                            layer.locked ? "Unlock Layer" : "Lock Layer"
-                          );
-                          updateLayer(layer.id, { locked: !layer.locked });
-                        }}
-                        type="button"
-                      >
-                        {layer.locked ? (
-                          <Lock className="size-3" />
-                        ) : (
-                          <Unlock className="size-3" />
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Thumbnail */}
-                    <LayerThumbnail layer={layer} />
-
-                    {/* Name */}
-                    {isEditing ? (
-                      <Input
-                        autoFocus
-                        className="h-5 flex-1 border-0 bg-transparent px-1 text-xs shadow-none ring-0 focus-visible:ring-0 md:text-xs dark:bg-transparent"
-                        onBlur={finishEditing}
-                        onChange={(e) => setEditingName(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => {
-                          e.stopPropagation();
-                          if (e.key === "Enter") finishEditing();
-                          if (e.key === "Escape") cancelEditing();
-                        }}
-                        ref={inputRef}
-                        value={editingName}
-                      />
-                    ) : (
-                      <span
-                        className="flex-1 select-none truncate"
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          startEditing(layer.id, layer.name);
-                        }}
-                      >
-                        {layer.name}
-                      </span>
+              <div key={layer.id}>
+                {renderLayerRow(layer, realIdx, 0, false)}
+                {/* Render children if group is expanded */}
+                {group && !group.collapsed && children.length > 0 && (
+                  <div className="mt-0.5 flex flex-col gap-1">
+                    {children.map((child) =>
+                      renderLayerRow(child.layer, child.realIdx, 1, true)
                     )}
                   </div>
-                </ContextMenuTrigger>
-
-                <ContextMenuContent className="w-44">
-                  <ContextMenuItem
-                    onClick={() => {
-                      setActiveLayers([layer.id]);
-                      duplicateLayer(layer.id);
-                    }}
-                  >
-                    Duplicate
-                  </ContextMenuItem>
-                  <ContextMenuItem
-                    onClick={() => {
-                      setActiveLayers([layer.id]);
-                      copyLayers();
-                    }}
-                  >
-                    Copy
-                  </ContextMenuItem>
-                  <ContextMenuItem onClick={() => pasteLayers()}>
-                    Paste
-                  </ContextMenuItem>
-                  <ContextMenuSeparator />
-                  <ContextMenuItem
-                    disabled={layers.length <= 1}
-                    onClick={() => removeLayer(layer.id)}
-                    variant="destructive"
-                  >
-                    Delete
-                  </ContextMenuItem>
-                </ContextMenuContent>
-              </ContextMenu>
+                )}
+              </div>
             );
           })}
         </div>
@@ -524,6 +730,25 @@ export function LayersPanel() {
             </button>
           </TooltipTrigger>
           <TooltipContent>Delete layer</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+              disabled={activeLayerIds.length === 0}
+              onClick={handleCreateGroup}
+              type="button"
+            >
+              <FolderPlus className="size-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {activeLayerIds.length >= 2
+              ? `Group ${activeLayerIds.length} selected layers`
+              : activeLayerIds.length === 1
+                ? "Group selected layer"
+                : "New group"}
+          </TooltipContent>
         </Tooltip>
         <DropdownMenu>
           <Tooltip>
@@ -579,6 +804,19 @@ export function LayersPanel() {
             >
               Paste
               <span className="ml-auto text-muted-foreground text-xs">⌘V</span>
+            </button>
+            <button
+              className="flex w-full items-center rounded-md px-1.5 py-1 text-sm hover:bg-accent hover:text-accent-foreground"
+              onClick={() => {
+                createGroup(
+                  activeLayerIds.length >= 2 ? activeLayerIds : [],
+                  "Group"
+                );
+                setPasteMenuPos(null);
+              }}
+              type="button"
+            >
+              New Group
             </button>
           </div>
         </>

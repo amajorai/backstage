@@ -12,6 +12,7 @@ interface BaseLayer {
   scaleX: number;
   scaleY: number;
   opacity: number;
+  groupId?: string;
 }
 export interface LayerAdjustments {
   brightness: number; // -100 to 100, default 0
@@ -125,13 +126,20 @@ export interface SvgLayer extends BaseLayer {
   width: number;
   height: number;
 }
+// Group layer: a folder that contains other layers (children have groupId === group.id)
+// Children are stored contiguously in the flat layers array immediately after this header.
+export interface GroupLayer extends BaseLayer {
+  type: "group";
+  collapsed: boolean;
+}
 export type Layer =
   | ImageLayer
   | TextLayer
   | ShapeLayer
   | AnimatedImageLayer
   | DrawLayer
-  | SvgLayer;
+  | SvgLayer
+  | GroupLayer;
 
 export interface EditorSnapshot {
   pages: Page[];
@@ -256,6 +264,10 @@ interface EditorState {
   addSvgLayer: (svgString: string, width: number, height: number) => void;
   removeLayer: (id: string) => void;
   removeLayers: (ids: string[]) => void;
+  createGroup: (layerIds: string[], name?: string) => void;
+  ungroup: (groupId: string) => void;
+  toggleGroupCollapse: (groupId: string) => void;
+  moveLayerToGroup: (layerId: string, targetGroupId: string | null) => void;
   copyLayers: () => void;
   pasteLayers: () => void;
   duplicateLayer: (id: string) => void;
@@ -658,16 +670,25 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const { pages, activePageIndex, activeLayerIds } = get();
     const newPages = [...pages];
     const currentCallback = newPages[activePageIndex];
+    const isGroup =
+      currentCallback.layers.find((l) => l.id === id)?.type === "group";
 
-    newPages[activePageIndex] = {
-      ...currentCallback,
-      layers: currentCallback.layers.filter((l) => l.id !== id),
-    };
+    const newLayers = isGroup
+      ? currentCallback.layers.filter((l) => l.id !== id && l.groupId !== id)
+      : currentCallback.layers.filter((l) => l.id !== id);
+
+    const removedIds = new Set(
+      currentCallback.layers
+        .filter((l) => !newLayers.find((nl) => nl.id === l.id))
+        .map((l) => l.id)
+    );
+
+    newPages[activePageIndex] = { ...currentCallback, layers: newLayers };
 
     set(() => ({
       pages: newPages,
-      layers: newPages[activePageIndex].layers,
-      activeLayerIds: activeLayerIds.filter((currentId) => currentId !== id),
+      layers: newLayers,
+      activeLayerIds: activeLayerIds.filter((aid) => !removedIds.has(aid)),
     }));
   },
 
@@ -688,9 +709,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return;
     }
 
+    // Also remove children of any groups being removed
+    const groupIdsToRemove = new Set(
+      layersToRemove.filter((l) => l.type === "group").map((l) => l.id)
+    );
+
     newPages[activePageIndex] = {
       ...currentCallback,
-      layers: currentCallback.layers.filter((l) => !safeIdsToRemove.has(l.id)),
+      layers: currentCallback.layers.filter(
+        (l) =>
+          !(
+            safeIdsToRemove.has(l.id) ||
+            (l.groupId && groupIdsToRemove.has(l.groupId))
+          )
+      ),
     };
 
     set(() => ({
@@ -733,13 +765,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const newPages = [...pages];
     const currentCallback = newPages[activePageIndex];
 
-    // Create new layers with offset
-    const newLayers = clipboard.map((layer) => ({
-      ...layer,
-      id: crypto.randomUUID(),
-      x: layer.x + 20,
-      y: layer.y + 20,
-    }));
+    // Remap group IDs so pasted children still reference pasted group headers
+    const groupIdMap = new Map<string, string>();
+    const newLayers = clipboard
+      .map((layer) => {
+        const newId = crypto.randomUUID();
+        if (layer.type === "group") groupIdMap.set(layer.id, newId);
+        return { ...layer, id: newId, x: layer.x + 20, y: layer.y + 20 };
+      })
+      .map((layer) => {
+        if (layer.groupId && groupIdMap.has(layer.groupId)) {
+          return { ...layer, groupId: groupIdMap.get(layer.groupId) };
+        }
+        return layer;
+      }) as Layer[];
 
     newPages[activePageIndex] = {
       ...currentCallback,
@@ -749,7 +788,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set(() => ({
       pages: newPages,
       layers: newPages[activePageIndex].layers,
-      activeLayerIds: newLayers.map((l) => l.id), // Select pasted layers
+      activeLayerIds: newLayers.map((l) => l.id),
     }));
   },
 
@@ -758,6 +797,43 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const { layers, pages, activePageIndex } = get();
     const layer = layers.find((l) => l.id === id);
     if (!layer) return;
+
+    if (layer.type === "group") {
+      const newGroupId = crypto.randomUUID();
+      const newGroup = {
+        ...JSON.parse(JSON.stringify(layer)),
+        id: newGroupId,
+      } as GroupLayer;
+      const children = layers.filter((l) => l.groupId === id);
+      const newChildren = children.map((c) => ({
+        ...JSON.parse(JSON.stringify(c)),
+        id: crypto.randomUUID(),
+        groupId: newGroupId,
+      })) as Layer[];
+      // Find span end (group header + all its children)
+      const groupIdx = layers.findIndex((l) => l.id === id);
+      let spanEnd = groupIdx + 1;
+      while (spanEnd < layers.length && layers[spanEnd].groupId === id)
+        spanEnd++;
+      const newPages = [...pages];
+      const cur = newPages[activePageIndex];
+      newPages[activePageIndex] = {
+        ...cur,
+        layers: [
+          ...cur.layers.slice(0, spanEnd),
+          newGroup,
+          ...newChildren,
+          ...cur.layers.slice(spanEnd),
+        ],
+      };
+      set({
+        pages: newPages,
+        layers: newPages[activePageIndex].layers,
+        activeLayerIds: [newGroupId],
+      });
+      return;
+    }
+
     const newLayer = {
       ...JSON.parse(JSON.stringify(layer)),
       id: crypto.randomUUID(),
@@ -873,6 +949,28 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const currentCallback = newPages[activePageIndex];
     const layers = [...currentCallback.layers];
 
+    const movingLayer = layers[fromIndex];
+    if (movingLayer?.type === "group") {
+      // Move entire span: group header + all contiguous children
+      let spanEnd = fromIndex + 1;
+      while (
+        spanEnd < layers.length &&
+        layers[spanEnd].groupId === movingLayer.id
+      ) {
+        spanEnd++;
+      }
+      const span = layers.slice(fromIndex, spanEnd);
+      const without = [...layers.slice(0, fromIndex), ...layers.slice(spanEnd)];
+      const adjustedTo =
+        toIndex > fromIndex
+          ? Math.max(0, toIndex - span.length + 1)
+          : Math.min(without.length, toIndex);
+      without.splice(adjustedTo, 0, ...span);
+      newPages[activePageIndex] = { ...currentCallback, layers: without };
+      set({ pages: newPages, layers: without });
+      return;
+    }
+
     const [removed] = layers.splice(fromIndex, 1);
     layers.splice(toIndex, 0, removed);
 
@@ -881,6 +979,142 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       layers,
     };
 
+    set({ pages: newPages, layers });
+  },
+
+  createGroup: (layerIds, name = "Group") => {
+    get().pushHistory("Group Layers");
+    const { pages, activePageIndex } = get();
+    const layers = pages[activePageIndex].layers;
+
+    const selectedIndices = layerIds
+      .map((id) => layers.findIndex((l) => l.id === id))
+      .filter((idx) => idx !== -1)
+      .sort((a, b) => a - b);
+
+    if (selectedIndices.length === 0) return;
+
+    const groupId = crypto.randomUUID();
+    const groupLayer: GroupLayer = {
+      id: groupId,
+      type: "group",
+      name,
+      visible: true,
+      locked: false,
+      x: 0,
+      y: 0,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1,
+      opacity: 1,
+      collapsed: false,
+    };
+
+    // Extract selected layers in ascending index order (low z → high z)
+    const selectedLayers = selectedIndices.map((idx) => ({
+      ...layers[idx],
+      groupId,
+    }));
+
+    // Remove selected from flat array
+    const toRemove = new Set(layerIds);
+    const filtered = layers.filter((l) => !toRemove.has(l.id));
+
+    // Insertion point: where the topmost (highest index) selected layer maps to after removal
+    const originalMaxIdx = selectedIndices[selectedIndices.length - 1];
+    const removedBeforeMax = selectedIndices.filter(
+      (i) => i < originalMaxIdx
+    ).length;
+    const insertAt = originalMaxIdx - removedBeforeMax;
+
+    const newLayers = [
+      ...filtered.slice(0, insertAt),
+      groupLayer,
+      ...selectedLayers,
+      ...filtered.slice(insertAt),
+    ];
+
+    const newPages = [...pages];
+    newPages[activePageIndex] = {
+      ...newPages[activePageIndex],
+      layers: newLayers,
+    };
+    set({ pages: newPages, layers: newLayers, activeLayerIds: [groupId] });
+  },
+
+  ungroup: (groupId) => {
+    get().pushHistory("Ungroup");
+    const { pages, activePageIndex } = get();
+    const layers = pages[activePageIndex].layers;
+
+    const newLayers = layers
+      .filter((l) => l.id !== groupId)
+      .map((l) => {
+        if (l.groupId !== groupId) return l;
+        const { groupId: _g, ...rest } = l;
+        return rest as Layer;
+      });
+
+    const newPages = [...pages];
+    newPages[activePageIndex] = {
+      ...newPages[activePageIndex],
+      layers: newLayers,
+    };
+    set({ pages: newPages, layers: newLayers, activeLayerIds: [] });
+  },
+
+  toggleGroupCollapse: (groupId) => {
+    const { pages, activePageIndex } = get();
+    const newLayers = pages[activePageIndex].layers.map((l) =>
+      l.id === groupId && l.type === "group"
+        ? { ...l, collapsed: !l.collapsed }
+        : l
+    );
+    const newPages = [...pages];
+    newPages[activePageIndex] = {
+      ...newPages[activePageIndex],
+      layers: newLayers,
+    };
+    set({ pages: newPages, layers: newLayers });
+  },
+
+  moveLayerToGroup: (layerId, targetGroupId) => {
+    get().pushHistory("Move to Group");
+    const { pages, activePageIndex } = get();
+    const layers = [...pages[activePageIndex].layers];
+
+    const layerIdx = layers.findIndex((l) => l.id === layerId);
+    if (layerIdx === -1) return;
+
+    const [movedLayer] = layers.splice(layerIdx, 1);
+
+    let updatedLayer: Layer;
+    if (targetGroupId) {
+      updatedLayer = { ...movedLayer, groupId: targetGroupId };
+    } else {
+      const { groupId: _g, ...rest } = movedLayer;
+      updatedLayer = rest as Layer;
+    }
+
+    if (targetGroupId) {
+      // Insert just after the last child of targetGroup (or after header if no children)
+      let insertAt = -1;
+      for (let i = 0; i < layers.length; i++) {
+        if (
+          layers[i].id === targetGroupId ||
+          layers[i].groupId === targetGroupId
+        ) {
+          insertAt = i + 1;
+        }
+      }
+      if (insertAt === -1) layers.push(updatedLayer);
+      else layers.splice(insertAt, 0, updatedLayer);
+    } else {
+      layers.push(updatedLayer);
+    }
+
+    const newPages = [...pages];
+    newPages[activePageIndex] = { ...newPages[activePageIndex], layers };
     set({ pages: newPages, layers });
   },
 

@@ -59,6 +59,22 @@ async function initDb(): Promise<Database> {
     // Index likely already exists
   }
 
+  // Folders table
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS folders (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      createdAt INTEGER NOT NULL
+    )
+  `);
+
+  // folderId column on thumbnails (ignore if already exists)
+  try {
+    await database.execute("ALTER TABLE thumbnails ADD COLUMN folderId TEXT");
+  } catch {
+    // column already exists
+  }
+
   logger.info("[DB] Tables verified");
   return database;
 }
