@@ -31,7 +31,7 @@ export function LicenseActivation() {
       <div className="flex w-full max-w-md flex-col items-center gap-8">
         {/* Icon */}
         <div className="flex size-20 w-full items-center justify-start">
-          <DoorOpen className="size-10 text-primary" />
+          <DoorOpen className="size-10 text-foreground" />
         </div>
 
         {/* Header */}
@@ -96,7 +96,7 @@ export function LicenseActivation() {
           <p className="text-muted-foreground text-sm">
             Don't have a license?{" "}
             <button
-              className="cursor-pointer bg-transparent p-0 text-primary hover:underline"
+              className="cursor-pointer bg-transparent p-0 text-foreground hover:underline"
               onClick={() => openUrl(POLAR_CONFIG.purchaseUrl)}
               type="button"
             >
@@ -111,7 +111,7 @@ export function LicenseActivation() {
           <p className="text-muted-foreground text-sm">
             Already have a key?{" "}
             <button
-              className="cursor-pointer bg-transparent p-0 text-primary hover:underline"
+              className="cursor-pointer bg-transparent p-0 text-foreground hover:underline"
               onClick={() => openUrl(POLAR_CONFIG.customerPortalUrl)}
               type="button"
             >

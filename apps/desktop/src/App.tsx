@@ -110,7 +110,7 @@ export default function App() {
     return (
       <div className="flex h-screen items-center justify-center bg-muted">
         <div className="flex flex-col items-center gap-4">
-          <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <div className="size-8 animate-spin rounded-full border-4 border-foreground border-t-transparent" />
           <p className="text-muted-foreground text-sm">Checking license...</p>
         </div>
       </div>
