@@ -117,6 +117,8 @@ export function ImageEditor({
   >(new Map());
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeToastIdsRef = useRef<Set<string | number>>(new Set());
+  const [isDraggingFilesOnEditor, setIsDraggingFilesOnEditor] = useState(false);
+  const editorDragCounterRef = useRef(0);
   const [projectId, setProjectId] = useState<string | null>(thumbnail.id);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showColorBgDialog, setShowColorBgDialog] = useState(false);
@@ -142,7 +144,14 @@ export function ImageEditor({
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanMode, setIsPanMode] = useState(false);
   const [isCurrentlyPanning, setIsCurrentlyPanning] = useState(false);
+  const [isMiddleClickPanning, setIsMiddleClickPanning] = useState(false);
   const panStartRef = useRef<{
+    mouseX: number;
+    mouseY: number;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
+  const middlePanStartRef = useRef<{
     mouseX: number;
     mouseY: number;
     offsetX: number;
@@ -211,6 +220,60 @@ export function ImageEditor({
   projectIdRef.current = projectId;
   const canvasSizeRef = useRef(canvasSize);
   canvasSizeRef.current = canvasSize;
+
+  useEffect(() => {
+    if (isMiddleClickPanning) {
+      document.body.style.cursor = "grabbing";
+      return () => {
+        document.body.style.cursor = "";
+      };
+    }
+  }, [isMiddleClickPanning]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onMiddleDown = (e: MouseEvent) => {
+      if (e.button !== 1) return;
+      const mode = editorViewModeRef.current;
+      if (mode !== "single" && mode !== "horizontal") return;
+      e.stopPropagation();
+      e.preventDefault();
+      setIsMiddleClickPanning(true);
+      middlePanStartRef.current = {
+        mouseX: e.clientX,
+        mouseY: e.clientY,
+        offsetX: panOffsetRef.current.x,
+        offsetY: panOffsetRef.current.y,
+      };
+    };
+
+    const onMiddleMove = (e: MouseEvent) => {
+      if (!middlePanStartRef.current) return;
+      const dx = e.clientX - middlePanStartRef.current.mouseX;
+      const dy = e.clientY - middlePanStartRef.current.mouseY;
+      setPanOffset({
+        x: middlePanStartRef.current.offsetX + dx,
+        y: middlePanStartRef.current.offsetY + dy,
+      });
+    };
+
+    const onMiddleUp = (e: MouseEvent) => {
+      if (e.button !== 1 || !middlePanStartRef.current) return;
+      setIsMiddleClickPanning(false);
+      middlePanStartRef.current = null;
+    };
+
+    el.addEventListener("mousedown", onMiddleDown, { capture: true });
+    window.addEventListener("mousemove", onMiddleMove);
+    window.addEventListener("mouseup", onMiddleUp);
+    return () => {
+      el.removeEventListener("mousedown", onMiddleDown, { capture: true });
+      window.removeEventListener("mousemove", onMiddleMove);
+      window.removeEventListener("mouseup", onMiddleUp);
+    };
+  }, []);
 
   // Initialize / re-initialize when the active tab changes
   useEffect(() => {
@@ -632,6 +695,43 @@ export function ImageEditor({
       setShowGalleryPicker(false);
     },
     [addImageLayer, canvasSize]
+  );
+
+  const handleEditorFileDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      editorDragCounterRef.current = 0;
+      setIsDraggingFilesOnEditor(false);
+      if (!e.dataTransfer.files.length) return;
+      const { loadDroppedImageFiles } = await import("@/lib/image-file-utils");
+      const images = await loadDroppedImageFiles(e.dataTransfer.files);
+      for (const { dataUrl, fileName } of images) {
+        await addThumbnail(dataUrl, fileName);
+        const img = new window.Image();
+        await new Promise<void>((resolve) => {
+          img.onload = () => {
+            let w = img.width;
+            let h = img.height;
+            const maxSize = Math.min(canvasSize.width, canvasSize.height) * 0.4;
+            if (w > maxSize || h > maxSize) {
+              const scale = Math.min(maxSize / w, maxSize / h);
+              w *= scale;
+              h *= scale;
+            }
+            addImageLayer(dataUrl, w, h);
+            resolve();
+          };
+          img.onerror = () => resolve();
+          img.src = dataUrl;
+        });
+      }
+      if (images.length > 0) {
+        toast.success(
+          `Added ${images.length} image${images.length > 1 ? "s" : ""}`
+        );
+      }
+    },
+    [addImageLayer, addThumbnail, canvasSize]
   );
 
   const handleRemoveBackground = useCallback(async () => {
@@ -1179,7 +1279,37 @@ export function ImageEditor({
   }, []);
 
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div
+      className="relative flex h-full flex-col bg-background"
+      onDragEnter={(e) => {
+        if (!e.dataTransfer.types.includes("Files")) return;
+        editorDragCounterRef.current += 1;
+        setIsDraggingFilesOnEditor(true);
+      }}
+      onDragLeave={() => {
+        editorDragCounterRef.current -= 1;
+        if (editorDragCounterRef.current <= 0) {
+          editorDragCounterRef.current = 0;
+          setIsDraggingFilesOnEditor(false);
+        }
+      }}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes("Files")) e.preventDefault();
+      }}
+      onDrop={handleEditorFileDrop}
+    >
+      {isDraggingFilesOnEditor && (
+        <div className="pointer-events-none absolute inset-0 z-[200] flex flex-col items-center justify-center gap-3 border-2 border-primary border-dashed bg-background/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-2">
+            <p className="font-medium text-primary text-sm">
+              Drop images to add to canvas
+            </p>
+            <p className="text-muted-foreground text-xs">
+              Also saves to gallery
+            </p>
+          </div>
+        </div>
+      )}
       <EditorHeader
         hasUnsavedChanges={hasUnsavedChanges}
         onClose={onClose}
@@ -1426,9 +1556,9 @@ export function ImageEditor({
         </div>
 
         <ResizablePanel
-          defaultWidth={700}
-          maxWidth={900}
-          minWidth={260}
+          defaultWidth={280}
+          maxWidth={400}
+          minWidth={200}
           side="right"
         >
           <VerticalResizablePanel

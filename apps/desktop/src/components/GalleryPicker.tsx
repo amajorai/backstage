@@ -1,7 +1,8 @@
-import { Image, Loader2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { Image, Loader2, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useGalleryStore } from "@/stores/use-gallery-store";
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 
 interface GalleryPickerProps {
   onSelect: (dataUrl: string, name: string) => void;
@@ -30,7 +31,6 @@ function PickerThumbnail({
   const [isLoading, setIsLoading] = useState(!previewUrl);
   const [isSelecting, setIsSelecting] = useState(false);
 
-  // Load preview on mount
   useEffect(() => {
     if (previewUrl) {
       setIsLoading(false);
@@ -61,7 +61,6 @@ function PickerThumbnail({
   const handleClick = useCallback(async () => {
     setIsSelecting(true);
     try {
-      // Load full image for the editor
       const fullUrl = await loadFullImageForId(id);
       if (fullUrl) {
         onSelect(fullUrl, name);
@@ -99,6 +98,20 @@ function PickerThumbnail({
 
 export function GalleryPicker({ onSelect, onClose }: GalleryPickerProps) {
   const thumbnails = useGalleryStore((s) => s.thumbnails);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Debounce search input by 300ms
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchQuery(searchInput), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const filteredThumbnails = useMemo(() => {
+    if (!searchQuery.trim()) return thumbnails;
+    const q = searchQuery.toLowerCase();
+    return thumbnails.filter((t) => t.name.toLowerCase().includes(q));
+  }, [thumbnails, searchQuery]);
 
   if (thumbnails.length === 0) {
     return (
@@ -129,24 +142,48 @@ export function GalleryPicker({ onSelect, onClose }: GalleryPickerProps) {
       onKeyDown={(e) => e.key === "Escape" && onClose()}
     >
       <div
-        className="max-h-[80vh] w-150 overflow-hidden rounded-xl border border-border bg-card"
+        className="flex max-h-[80vh] w-150 flex-col overflow-hidden rounded-xl border border-border bg-card"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={() => {}}
       >
         <div className="border-border border-b px-5 py-4">
           <h3 className="font-semibold">Add Image from Gallery</h3>
         </div>
-        <div className="grid max-h-[60vh] grid-cols-3 gap-2 overflow-y-auto p-4">
-          {thumbnails.map((thumb) => (
-            <PickerThumbnail
-              id={thumb.id}
-              key={thumb.id}
-              name={thumb.name}
-              onSelect={onSelect}
-              previewUrl={thumb.previewUrl}
+
+        {/* Search bar */}
+        <div className="border-border border-b px-4 py-2">
+          <div className="relative">
+            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search images..."
+              value={searchInput}
             />
-          ))}
+          </div>
         </div>
+
+        {/* Scrollable grid */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {filteredThumbnails.length === 0 ? (
+            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
+              No images match your search
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              {filteredThumbnails.map((thumb) => (
+                <PickerThumbnail
+                  id={thumb.id}
+                  key={thumb.id}
+                  name={thumb.name}
+                  onSelect={onSelect}
+                  previewUrl={thumb.previewUrl}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="flex justify-end border-border border-t px-5 py-4">
           <Button onClick={onClose} variant="ghost">
             Cancel

@@ -159,6 +159,7 @@ export function KonvaCanvas({
   >([]);
   const justFinishedCustomDragRef = useRef(false);
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
+  const altHeldRef = useRef(false);
 
   // Crop tool state
   const cropRectNodeRef = useRef<Konva.Rect>(null);
@@ -454,6 +455,18 @@ export function KonvaCanvas({
     },
     [addImageLayer, updateLayer, width, height]
   );
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      altHeldRef.current = e.altKey;
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKey);
+    };
+  }, []);
 
   useEffect(() => {
     const handleViewShortcuts = (e: KeyboardEvent) => {
@@ -922,19 +935,51 @@ export function KonvaCanvas({
       )
         return newBox;
 
-      const newLeft = newBox.x;
-      const newRight = newBox.x + newBox.width;
-      const newTop = newBox.y;
-      const newBottom = newBox.y + newBox.height;
-      const leftMoving = Math.abs(newLeft - oldBox.x) > 0.01;
-      const rightMoving = Math.abs(newRight - (oldBox.x + oldBox.width)) > 0.01;
-      const topMoving = Math.abs(newTop - oldBox.y) > 0.01;
-      const bottomMoving =
-        Math.abs(newBottom - (oldBox.y + oldBox.height)) > 0.01;
+      // Alt = resize from center: double the delta and keep the center fixed.
+      // Compute workBox from the transformer's newBox; snap operates on workBox.
+      const δW = newBox.width - oldBox.width;
+      const δH = newBox.height - oldBox.height;
+      const isAlt = altHeldRef.current;
+      const workBox: BoundBox = isAlt
+        ? {
+            x: oldBox.x - δW,
+            y: oldBox.y - δH,
+            width: oldBox.width + 2 * δW,
+            height: oldBox.height + 2 * δH,
+            rotation: newBox.rotation,
+          }
+        : newBox;
 
-      let { x, y, rotation } = newBox;
-      let w = newBox.width;
-      let h = newBox.height;
+      const newLeft = workBox.x;
+      const newRight = workBox.x + workBox.width;
+      const newTop = workBox.y;
+      const newBottom = workBox.y + workBox.height;
+
+      // When alt held, snap only the primary dragged edge (detected from original
+      // newBox) so we don't snap both mirrored edges simultaneously.
+      const origLeftMoved = Math.abs(newBox.x - oldBox.x) > 0.01;
+      const origRightMoved =
+        Math.abs(newBox.x + newBox.width - (oldBox.x + oldBox.width)) > 0.01;
+      const origTopMoved = Math.abs(newBox.y - oldBox.y) > 0.01;
+      const origBottomMoved =
+        Math.abs(newBox.y + newBox.height - (oldBox.y + oldBox.height)) > 0.01;
+
+      const leftMoving = isAlt
+        ? origLeftMoved
+        : Math.abs(newLeft - oldBox.x) > 0.01;
+      const rightMoving = isAlt
+        ? origRightMoved
+        : Math.abs(newRight - (oldBox.x + oldBox.width)) > 0.01;
+      const topMoving = isAlt
+        ? origTopMoved
+        : Math.abs(newTop - oldBox.y) > 0.01;
+      const bottomMoving = isAlt
+        ? origBottomMoved
+        : Math.abs(newBottom - (oldBox.y + oldBox.height)) > 0.01;
+
+      let { x, y, rotation } = workBox;
+      let w = workBox.width;
+      let h = workBox.height;
 
       // boundBoxFunc receives absolute stage-pixel coords, so convert canvas
       // snap points (canvas units) → stage pixels before comparing
@@ -1004,6 +1049,34 @@ export function KonvaCanvas({
             h = p - y;
           }
         }
+      }
+
+      // If transformer enforced an aspect ratio (keepRatio / shift-drag corner),
+      // the incoming newBox already has the correct ratio. After snapping axes
+      // independently that ratio breaks, so re-enforce it here.
+      const originalRatio = oldBox.width / oldBox.height;
+      const incomingRatio = workBox.width / workBox.height;
+      if (Math.abs(incomingRatio - originalRatio) < 0.001) {
+        const xChange = Math.abs(w - workBox.width);
+        const yChange = Math.abs(h - workBox.height);
+        if (xChange >= yChange) {
+          const clampedH = w / originalRatio;
+          if (topMoving) y = newBottom - clampedH;
+          h = clampedH;
+        } else {
+          const clampedW = h * originalRatio;
+          if (leftMoving) x = newRight - clampedW;
+          w = clampedW;
+        }
+      }
+
+      // Alt: after all snapping/ratio logic, re-center around the original center
+      // so both sides always expand/contract symmetrically.
+      if (isAlt) {
+        const oldCx = oldBox.x + oldBox.width / 2;
+        const oldCy = oldBox.y + oldBox.height / 2;
+        x = oldCx - w / 2;
+        y = oldCy - h / 2;
       }
 
       if (w < 10 || h < 10) return oldBox;

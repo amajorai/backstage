@@ -5,8 +5,9 @@ import {
   ImagePlus,
   Layers,
   Loader2,
+  Search,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { GeminiPromptPanel } from "@/components/gemini/GeminiPromptPanel";
 import { GeneratedImageGrid } from "@/components/gemini/GeneratedImageGrid";
@@ -24,6 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ResizablePanel } from "@/components/ui/resizable-panel";
@@ -116,11 +118,28 @@ export function GeminiImagePage({
   const [loadingProjectIds, setLoadingProjectIds] = useState<Set<string>>(
     new Set()
   );
+  const [gallerySearchInput, setGallerySearchInput] = useState("");
+  const [gallerySearchQuery, setGallerySearchQuery] = useState("");
 
   const galleryThumbnails = useGalleryStore((s) => s.thumbnails);
   const loadPreviewForId = useGalleryStore((s) => s.loadPreviewForId);
   const loadFullImageForId = useGalleryStore((s) => s.loadFullImageForId);
   const previewCache = useGalleryStore((s) => s.previewCache);
+
+  // Debounce gallery search by 300ms
+  useEffect(() => {
+    const timer = setTimeout(
+      () => setGallerySearchQuery(gallerySearchInput),
+      300
+    );
+    return () => clearTimeout(timer);
+  }, [gallerySearchInput]);
+
+  const filteredGalleryThumbnails = useMemo(() => {
+    if (!gallerySearchQuery.trim()) return galleryThumbnails;
+    const q = gallerySearchQuery.toLowerCase();
+    return galleryThumbnails.filter((t) => t.name.toLowerCase().includes(q));
+  }, [galleryThumbnails, gallerySearchQuery]);
 
   useEffect(() => {
     getGeminiApiKey().then(setApiKey);
@@ -464,27 +483,48 @@ export function GeminiImagePage({
           No projects in gallery.
         </p>
       ) : (
-        <div className="max-h-40 overflow-y-auto rounded-md border border-border">
-          <div className="grid grid-cols-2 gap-1 p-1">
-            {galleryThumbnails.map((thumb) => (
-              <ProjectThumbnailCheckbox
-                id={thumb.id}
-                isLoading={loadingProjectIds.has(thumb.id)}
-                isSelected={selectedProjectIds.has(thumb.id)}
-                key={thumb.id}
-                loadPreview={loadPreviewForId}
-                name={thumb.name}
-                onToggle={(id, selected) => {
-                  setSelectedProjectIds((prev) => {
-                    const next = new Set(prev);
-                    if (selected) next.add(id);
-                    else next.delete(id);
-                    return next;
-                  });
-                }}
-                previewUrl={previewCache.get(thumb.id) ?? thumb.previewUrl}
+        <div className="flex flex-col gap-1 rounded-md border border-border">
+          {/* Search bar */}
+          <div className="border-border border-b px-2 py-1.5">
+            <div className="relative">
+              <Search className="absolute top-1/2 left-2 size-3 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="h-6 pl-6 text-xs"
+                onChange={(e) => setGallerySearchInput(e.target.value)}
+                placeholder="Search projects..."
+                value={gallerySearchInput}
               />
-            ))}
+            </div>
+          </div>
+          {/* Scrollable grid */}
+          <div className="max-h-40 overflow-y-auto p-1">
+            {filteredGalleryThumbnails.length === 0 ? (
+              <div className="flex h-16 items-center justify-center text-[10px] text-muted-foreground">
+                No projects match your search
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-1">
+                {filteredGalleryThumbnails.map((thumb) => (
+                  <ProjectThumbnailCheckbox
+                    id={thumb.id}
+                    isLoading={loadingProjectIds.has(thumb.id)}
+                    isSelected={selectedProjectIds.has(thumb.id)}
+                    key={thumb.id}
+                    loadPreview={loadPreviewForId}
+                    name={thumb.name}
+                    onToggle={(id, selected) => {
+                      setSelectedProjectIds((prev) => {
+                        const next = new Set(prev);
+                        if (selected) next.add(id);
+                        else next.delete(id);
+                        return next;
+                      });
+                    }}
+                    previewUrl={previewCache.get(thumb.id) ?? thumb.previewUrl}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

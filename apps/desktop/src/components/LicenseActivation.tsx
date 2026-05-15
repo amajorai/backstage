@@ -79,6 +79,7 @@ export function LicenseActivation() {
             disabled={!licenseKey.trim() || isValidating}
             onClick={handleActivate}
             size="lg"
+            variant="contrast"
           >
             {isValidating ? (
               <>

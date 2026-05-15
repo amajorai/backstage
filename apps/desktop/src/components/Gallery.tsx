@@ -12,7 +12,7 @@ import {
   SquareDashedMousePointer,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type GridStateSnapshot, VirtuosoGrid } from "react-virtuoso";
 import { toast } from "sonner";
 import type { ViewMode } from "@/App";
@@ -53,7 +53,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { VideoExtractor } from "@/components/VideoExtractor";
 import { useDragSelection } from "@/hooks/use-drag-selection";
-import { openAndLoadImages } from "@/lib/image-file-utils";
+import {
+  loadDroppedImageFiles,
+  openAndLoadImages,
+} from "@/lib/image-file-utils";
 import { cn } from "@/lib/utils";
 import { useAutoRenameQueue } from "@/stores/use-auto-rename-queue";
 import { useFolderStore } from "@/stores/use-folder-store";
@@ -90,6 +93,8 @@ export function Gallery({
   const [selectedThumbnail, setSelectedThumbnail] =
     useState<ThumbnailItem | null>(null);
   const [newName, setNewName] = useState("");
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const dragCounterRef = useRef(0);
 
   const [moveFolderThumbnail, setMoveFolderThumbnail] =
     useState<ThumbnailItem | null>(null);
@@ -97,6 +102,7 @@ export function Gallery({
     null
   );
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [draggingFolderId, setDraggingFolderId] = useState<string | null>(null);
 
   const addToRenameQueue = useAutoRenameQueue((s) => s.addToQueue);
   const addThumbnail = useGalleryStore((s) => s.addThumbnail);
@@ -110,6 +116,7 @@ export function Gallery({
 
   const folders = useFolderStore((s) => s.folders);
   const deleteFolder = useFolderStore((s) => s.deleteFolder);
+  const reorderFolders = useFolderStore((s) => s.reorderFolders);
 
   const isSelectionMode = useSelectionStore((s) => s.isSelectionMode);
   const selectAll = useSelectionStore((s) => s.selectAll);
@@ -128,6 +135,14 @@ export function Gallery({
   const setBulkMoveFolderOpen = useGalleryUIStore(
     (s) => s.setBulkMoveFolderOpen
   );
+
+  const folderCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const t of rawThumbnails) {
+      if (t.folderId) counts[t.folderId] = (counts[t.folderId] ?? 0) + 1;
+    }
+    return counts;
+  }, [rawThumbnails]);
 
   const filteredThumbnails = useMemo(() => {
     let filtered = rawThumbnails;
@@ -185,6 +200,25 @@ export function Gallery({
       addThumbnail(dataUrl, fileName);
     }
   }, [addThumbnail]);
+
+  const handleFileDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      dragCounterRef.current = 0;
+      setIsDraggingFiles(false);
+      if (!e.dataTransfer.files.length) return;
+      const images = await loadDroppedImageFiles(e.dataTransfer.files);
+      for (const { dataUrl, fileName } of images) {
+        await addThumbnail(dataUrl, fileName);
+      }
+      if (images.length > 0) {
+        toast.success(
+          `Added ${images.length} image${images.length > 1 ? "s" : ""} to gallery`
+        );
+      }
+    },
+    [addThumbnail]
+  );
 
   const loadFullImageForId = useGalleryStore((s) => s.loadFullImageForId);
 
@@ -351,7 +385,33 @@ export function Gallery({
   const selectedFolder = folders.find((f) => f.id === selectedFolderId) ?? null;
 
   return (
-    <div className="relative flex flex-1 select-none flex-col overflow-hidden">
+    <div
+      className="relative flex flex-1 select-none flex-col overflow-hidden"
+      onDragEnter={(e) => {
+        if (!e.dataTransfer.types.includes("Files")) return;
+        dragCounterRef.current += 1;
+        setIsDraggingFiles(true);
+      }}
+      onDragLeave={() => {
+        dragCounterRef.current -= 1;
+        if (dragCounterRef.current <= 0) {
+          dragCounterRef.current = 0;
+          setIsDraggingFiles(false);
+        }
+      }}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes("Files")) e.preventDefault();
+      }}
+      onDrop={handleFileDrop}
+    >
+      {isDraggingFiles && (
+        <div className="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-primary border-dashed bg-background/80 backdrop-blur-sm">
+          <ImagePlus className="size-10 text-primary" />
+          <p className="font-medium text-primary text-sm">
+            Drop images to add to gallery
+          </p>
+        </div>
+      )}
       {folders.length > 0 && (
         <div className="scrollbar-none absolute top-0 right-0 left-0 z-20 flex items-center gap-1.5 overflow-x-auto px-5 py-3">
           <button
@@ -365,36 +425,87 @@ export function Gallery({
             type="button"
           >
             All
+            <span
+              className={cn(
+                "rounded px-1 py-0.5 text-xs tabular-nums",
+                selectedFolderId === null
+                  ? "bg-primary-foreground/20 text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
+              )}
+            >
+              {rawThumbnails.length}
+            </span>
           </button>
           {folders.map((folder) => (
             <div
               className={cn(
-                "group flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-sm transition-all",
+                "group flex shrink-0 cursor-grab items-center gap-1 rounded-md px-2.5 py-1 text-sm transition-all active:cursor-grabbing",
                 selectedFolderId === folder.id
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground",
+                draggingFolderId === folder.id && "opacity-40",
                 dragOverFolderId === folder.id &&
+                  draggingFolderId !== folder.id &&
+                  draggingFolderId !== null &&
+                  "ring-2 ring-dashed ring-primary/60",
+                dragOverFolderId === folder.id &&
+                  draggingFolderId === null &&
                   "scale-110 ring-2 ring-primary"
               )}
+              draggable
               key={folder.id}
-              onDragLeave={() => setDragOverFolderId(null)}
+              onDragEnd={() => {
+                setDraggingFolderId(null);
+                setDragOverFolderId(null);
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                setDragOverFolderId(folder.id);
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setDragOverFolderId(null);
+                }
+              }}
               onDragOver={(e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = "move";
                 setDragOverFolderId(folder.id);
               }}
+              onDragStart={(e) => {
+                e.stopPropagation();
+                setDraggingFolderId(folder.id);
+                e.dataTransfer.setData("text/plain", `f:${folder.id}`);
+                e.dataTransfer.effectAllowed = "move";
+              }}
               onDrop={async (e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 setDragOverFolderId(null);
-                const raw = e.dataTransfer.getData("application/thumbnail-ids");
+                setDraggingFolderId(null);
+                const raw = e.dataTransfer.getData("text/plain");
                 if (!raw) return;
-                const ids = JSON.parse(raw) as string[];
-                await Promise.all(
-                  ids.map((id) => setThumbnailFolder(id, folder.id))
-                );
-                toast.success(
-                  `Moved ${ids.length} item${ids.length > 1 ? "s" : ""} to "${folder.name}"`
-                );
+                if (raw.startsWith("t:")) {
+                  const ids = JSON.parse(raw.slice(2)) as string[];
+                  await Promise.all(
+                    ids.map((id) => setThumbnailFolder(id, folder.id))
+                  );
+                  toast.success(
+                    `Moved ${ids.length} item${ids.length > 1 ? "s" : ""} to "${folder.name}"`
+                  );
+                } else if (raw.startsWith("f:")) {
+                  const draggedId = raw.slice(2);
+                  if (draggedId === folder.id) return;
+                  const current = useFolderStore.getState().folders;
+                  const without = current.filter((f) => f.id !== draggedId);
+                  const targetIdx = without.findIndex(
+                    (f) => f.id === folder.id
+                  );
+                  const dragged = current.find((f) => f.id === draggedId);
+                  if (!dragged) return;
+                  without.splice(targetIdx, 0, dragged);
+                  await reorderFolders(without.map((f) => f.id));
+                }
               }}
             >
               <button
@@ -408,6 +519,16 @@ export function Gallery({
               >
                 <FolderOpen className="size-3.5" />
                 {folder.name}
+                <span
+                  className={cn(
+                    "rounded px-1 py-0.5 text-xs tabular-nums",
+                    selectedFolderId === folder.id
+                      ? "bg-primary-foreground/20 text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {folderCounts[folder.id] ?? 0}
+                </span>
               </button>
               <button
                 className={cn(
@@ -703,6 +824,11 @@ export function Gallery({
                 {folder.name}
               </button>
             ))}
+            {folders.length === 0 && (
+              <p className="px-3 py-2 text-muted-foreground text-sm">
+                No folders yet. Right-click the gallery to create one.
+              </p>
+            )}
           </div>
           <DialogFooter>
             <DialogClose render={<Button variant="ghost" />}>

@@ -272,9 +272,9 @@ export default function App() {
           {editorRightPanel && (
             <ResizablePanel
               className="ml-1"
-              defaultWidth={380}
-              maxWidth={700}
-              minWidth={280}
+              defaultWidth={600}
+              maxWidth={1100}
+              minWidth={400}
               side="right"
             >
               <div className="flex h-full flex-col overflow-hidden rounded-xl border-2 border-border bg-background">

@@ -1,3 +1,4 @@
+import { applySvgColorMap } from "@/components/editor/svg-properties";
 import type { Layer, LayerAdjustments } from "@/stores/use-editor-store";
 
 function wordWrapLines(
@@ -191,6 +192,18 @@ export async function renderLayersToCanvas(
           resolve(null);
         };
         img.onerror = () => resolve(null);
+      });
+    } else if (layer.type === "svg") {
+      const modified = applySvgColorMap(layer.svgString, layer.colorMap);
+      const dataUrl = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(modified)))}`;
+      const img = new Image();
+      await new Promise((resolve) => {
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, layer.width, layer.height);
+          resolve(null);
+        };
+        img.onerror = () => resolve(null);
+        img.src = dataUrl;
       });
     } else if (layer.type === "text") {
       const fontStyle = layer.fontStyle || "normal";

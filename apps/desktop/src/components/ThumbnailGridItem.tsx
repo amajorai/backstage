@@ -171,7 +171,7 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
             isSelectionMode && wiggleClass
           )}
           data-thumbnail-id={thumbnail.id}
-          draggable={!(isProcessing || isSelectionMode)}
+          draggable={!isProcessing}
           onClick={handleClick}
           onDragOver={(e) => {
             e.preventDefault();
@@ -182,10 +182,7 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
               isSelectionMode && selectedIds.has(thumbnail.id)
                 ? Array.from(selectedIds)
                 : [thumbnail.id];
-            e.dataTransfer.setData(
-              "application/thumbnail-ids",
-              JSON.stringify(ids)
-            );
+            e.dataTransfer.setData("text/plain", `t:${JSON.stringify(ids)}`);
             e.dataTransfer.effectAllowed = "move";
           }}
           onKeyDown={() => {}}
