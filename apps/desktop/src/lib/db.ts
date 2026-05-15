@@ -75,6 +75,15 @@ async function initDb(): Promise<Database> {
     // column already exists
   }
 
+  // sortOrder column on folders (ignore if already exists)
+  try {
+    await database.execute(
+      "ALTER TABLE folders ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0"
+    );
+  } catch {
+    // column already exists
+  }
+
   logger.info("[DB] Tables verified");
   return database;
 }

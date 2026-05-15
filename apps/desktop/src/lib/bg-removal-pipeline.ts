@@ -24,29 +24,28 @@ export async function runBgRemovalPipeline(
   if (bgRemovalGeminiEnabled) {
     const { getGeminiApiKey } = await import("@/lib/gemini-store");
     const apiKey = await getGeminiApiKey();
-    if (!apiKey) {
-      throw new Error("Gemini API key not set. Add it in Settings → API Keys.");
-    }
-    const { generateImageWithGemini, base64ToDataUrl } = await import(
-      "@/lib/gemini-image"
-    );
-    const prompt = `Replace the background of this image with a solid flat ${bgRemovalGeminiColor} color. Keep the subject (person, object, or foreground element) exactly as-is. Output the full image with the new background.`;
-    const geminiResult = await generateImageWithGemini(
-      apiKey,
-      bgRemovalGeminiModel as import("@/lib/gemini-image").GeminiImageModel,
-      prompt,
-      [workingUrl]
-    );
-    const geminiDataUrl = base64ToDataUrl(
-      geminiResult.imageBase64,
-      geminiResult.mimeType
-    );
+    if (apiKey) {
+      const { generateImageWithGemini, base64ToDataUrl } = await import(
+        "@/lib/gemini-image"
+      );
+      const prompt = `Replace the background of this image with a solid flat ${bgRemovalGeminiColor} color. Keep the subject (person, object, or foreground element) exactly as-is. Output the full image with the new background.`;
+      const geminiResult = await generateImageWithGemini(
+        apiKey,
+        bgRemovalGeminiModel as import("@/lib/gemini-image").GeminiImageModel,
+        prompt,
+        [workingUrl]
+      );
+      const geminiDataUrl = base64ToDataUrl(
+        geminiResult.imageBase64,
+        geminiResult.mimeType
+      );
 
-    if (!bgRemovalGeminiAutoRemove) {
-      return { kind: "gemini-only", dataUrl: geminiDataUrl };
-    }
+      if (!bgRemovalGeminiAutoRemove) {
+        return { kind: "gemini-only", dataUrl: geminiDataUrl };
+      }
 
-    workingUrl = geminiDataUrl;
+      workingUrl = geminiDataUrl;
+    }
   }
 
   let resultDataUrl: string;

@@ -26,6 +26,35 @@ export function getFileNameFromPath(filePath: string): string {
 }
 
 /**
+ * Load image files dropped via HTML drag-and-drop as data URLs.
+ * Returns an array of objects with dataUrl and fileName.
+ */
+export async function loadDroppedImageFiles(
+  files: FileList | File[]
+): Promise<Array<{ dataUrl: string; fileName: string }>> {
+  const arr = Array.from(files);
+  const results: Array<{ dataUrl: string; fileName: string }> = [];
+
+  for (const file of arr) {
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    if (!IMAGE_EXTENSIONS.includes(ext)) continue;
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      results.push({ dataUrl, fileName: file.name });
+    } catch {
+      // skip unreadable files
+    }
+  }
+
+  return results;
+}
+
+/**
  * Open a file picker dialog and load the selected image files as data URLs.
  * Returns an array of objects with dataUrl and fileName.
  */

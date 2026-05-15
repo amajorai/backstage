@@ -6,6 +6,7 @@ export interface Folder {
   id: string;
   name: string;
   createdAt: number;
+  sortOrder: number;
 }
 
 interface FolderState {
@@ -15,6 +16,7 @@ interface FolderState {
   createFolder: (name: string) => Promise<Folder>;
   renameFolder: (id: string, name: string) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
+  reorderFolders: (orderedIds: string[]) => Promise<void>;
 }
 
 export const useFolderStore = create<FolderState>()((set, get) => ({
@@ -25,7 +27,7 @@ export const useFolderStore = create<FolderState>()((set, get) => ({
     try {
       const db = await getDb();
       const rows = await db.select<Folder[]>(
-        "SELECT id, name, createdAt FROM folders ORDER BY createdAt ASC"
+        "SELECT id, name, createdAt, sortOrder FROM folders ORDER BY sortOrder ASC, createdAt ASC"
       );
       set({ folders: rows, isLoaded: true });
     } catch (error) {
@@ -37,13 +39,14 @@ export const useFolderStore = create<FolderState>()((set, get) => ({
   createFolder: async (name) => {
     const id = crypto.randomUUID();
     const createdAt = Date.now();
-    const folder: Folder = { id, name, createdAt };
+    const sortOrder = get().folders.length;
+    const folder: Folder = { id, name, createdAt, sortOrder };
     set((s) => ({ folders: [...s.folders, folder] }));
     try {
       const db = await getDb();
       await db.execute(
-        "INSERT INTO folders (id, name, createdAt) VALUES ($1, $2, $3)",
-        [id, name, createdAt]
+        "INSERT INTO folders (id, name, createdAt, sortOrder) VALUES ($1, $2, $3, $4)",
+        [id, name, createdAt, sortOrder]
       );
       logger.info({ id, name }, "[Folders] Created");
     } catch (error) {
@@ -66,6 +69,29 @@ export const useFolderStore = create<FolderState>()((set, get) => ({
       logger.info({ id, name }, "[Folders] Renamed");
     } catch (error) {
       logger.error({ err: error }, "[Folders] Failed to rename");
+    }
+  },
+
+  reorderFolders: async (orderedIds) => {
+    const currentFolders = get().folders;
+    const folderMap = new Map(currentFolders.map((f) => [f.id, f]));
+    const reordered = orderedIds.flatMap((fid, i) => {
+      const f = folderMap.get(fid);
+      return f ? [{ ...f, sortOrder: i }] : [];
+    });
+    set({ folders: reordered });
+    try {
+      const db = await getDb();
+      for (let i = 0; i < orderedIds.length; i++) {
+        await db.execute("UPDATE folders SET sortOrder = $1 WHERE id = $2", [
+          i,
+          orderedIds[i],
+        ]);
+      }
+      logger.info("[Folders] Reordered");
+    } catch (error) {
+      logger.error({ err: error }, "[Folders] Failed to reorder");
+      set({ folders: currentFolders });
     }
   },
 
