@@ -5,6 +5,28 @@ export type GeminiImageModel =
   | "gemini-3-pro-image-preview"
   | "gemini-2.5-flash-image";
 
+// Pricing as of mid-2025 (Vertex AI / Gemini API). Per-image costs at ~1K resolution (1280×720).
+// Source: cloud.google.com/vertex-ai/generative-ai/pricing
+export const GEMINI_IMAGE_PRICING: Record<
+  GeminiImageModel,
+  { perImage: number; inputPerMToken: number }
+> = {
+  "gemini-2.5-flash-image": { perImage: 0.039, inputPerMToken: 0.3 },
+  "gemini-3.1-flash-image-preview": { perImage: 0.067, inputPerMToken: 0.5 },
+  "gemini-3-pro-image-preview": { perImage: 0.134, inputPerMToken: 2.0 },
+};
+
+export function estimateGenerationCost(
+  model: GeminiImageModel,
+  generationCount: number,
+  promptTokens = 100
+): number {
+  const p = GEMINI_IMAGE_PRICING[model];
+  return (
+    p.perImage * generationCount + (promptTokens / 1_000_000) * p.inputPerMToken
+  );
+}
+
 export const GEMINI_IMAGE_MODELS: { value: GeminiImageModel; label: string }[] =
   [
     {

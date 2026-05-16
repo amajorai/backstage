@@ -93,6 +93,29 @@ async function initDb(): Promise<Database> {
     // column already exists
   }
 
+  // color column on folders (ignore if already exists)
+  try {
+    await database.execute("ALTER TABLE folders ADD COLUMN color TEXT");
+  } catch {
+    // column already exists
+  }
+
+  // YouTube favourites table
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS yt_favourites (
+      videoId TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      channelTitle TEXT NOT NULL,
+      thumbnailUrl TEXT NOT NULL,
+      viewCount INTEGER NOT NULL DEFAULT 0,
+      likeCount INTEGER NOT NULL DEFAULT 0,
+      commentCount INTEGER NOT NULL DEFAULT 0,
+      publishedAt TEXT NOT NULL,
+      durationSeconds INTEGER NOT NULL DEFAULT 0,
+      savedAt INTEGER NOT NULL
+    )
+  `);
+
   logger.info("[DB] Tables verified");
   return database;
 }

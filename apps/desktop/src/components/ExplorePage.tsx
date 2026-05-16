@@ -1,249 +1,516 @@
-import { Eye, Loader2, Search, ThumbsUp, Wand2, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { open as openUrl } from "@tauri-apps/plugin-opener";
+import {
+  ArrowLeft,
+  ExternalLink,
+  Eye,
+  Heart,
+  Loader2,
+  Search,
+  ThumbsUp,
+  Wand2,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { sileo } from "sileo";
+import type { ViewMode } from "@/App";
+import { EmptyState } from "@/components/gallery/EmptyState";
+import { SearchHistoryDropdown } from "@/components/SearchHistoryDropdown";
+import { ScrollFadeEffect } from "@/components/scroll-fade-effect";
+import { ViewModeButtons } from "@/components/toolbar/view-mode-buttons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { usePersistedViewMode } from "@/hooks/use-persisted-view-mode";
+import { cn } from "@/lib/utils";
 import {
   fetchTrendingVideos,
   formatCount,
   searchVideos,
+  TRENDING_CATEGORIES,
   type YoutubeVideo,
 } from "@/lib/youtube-api";
 import { getYoutubeApiKey } from "@/lib/youtube-store";
+import { useAppSettingsStore } from "@/stores/use-app-settings-store";
+import { useSearchHistoryStore } from "@/stores/use-search-history-store";
+import { useYtFavouritesStore } from "@/stores/use-yt-favourites-store";
+
+const SAVED_CATEGORY_ID = "saved" as const;
+
+const CATEGORIES = [
+  { id: undefined, label: "Trending" },
+  { id: SAVED_CATEGORY_ID, label: "Saved" },
+  { id: "10", label: "Music" },
+  { id: "20", label: "Gaming" },
+  { id: "17", label: "Sports" },
+  { id: "24", label: "Entertainment" },
+  { id: "28", label: "Science & Tech" },
+  { id: "1", label: "Film" },
+  { id: "25", label: "News" },
+  { id: "22", label: "Vlogs" },
+  { id: "2", label: "Autos" },
+] as const;
+
+type CategoryId = (typeof CATEGORIES)[number]["id"];
 
 interface ExplorePageProps {
   onRemix: (thumbnailUrl: string, title: string) => void;
   onClose: () => void;
+  onSettings: () => void;
 }
 
-export function ExplorePage({ onRemix, onClose }: ExplorePageProps) {
+export function ExplorePage({
+  onRemix,
+  onClose,
+  onSettings,
+}: ExplorePageProps) {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [videos, setVideos] = useState<YoutubeVideo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState("");
-  const [activeQuery, setActiveQuery] = useState("");
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [selectedCategory, setSelectedCategory] =
+    useState<CategoryId>(undefined);
+  const [viewMode, setViewMode] = usePersistedViewMode(
+    "view-mode:explore",
+    "3"
+  );
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const apiKeyRef = useRef<string | null>(null);
+  const activeQueryRef = useRef("");
+  const selectedCategoryRef = useRef<CategoryId>(undefined);
+  const nextPageTokenRef = useRef<string | undefined>();
+  const categoryIndexRef = useRef(0);
+  const seenIdsRef = useRef(new Set<string>());
+  const isLoadingMoreRef = useRef(false);
+  const isLoadingRef = useRef(false);
+
+  const saveSearchHistory = useAppSettingsStore((s) => s.saveSearchHistory);
+  const exploreHistory = useSearchHistoryStore((s) => s.histories.explore);
+  const addSearch = useSearchHistoryStore((s) => s.addSearch);
+  const removeSearch = useSearchHistoryStore((s) => s.removeSearch);
+  const clearHistory = useSearchHistoryStore((s) => s.clearHistory);
+
+  const toggleFavourite = useYtFavouritesStore((s) => s.toggleFavourite);
+  const favouriteIds = useYtFavouritesStore((s) => s.favouriteIds);
+  const favourites = useYtFavouritesStore((s) => s.favourites);
 
   useEffect(() => {
     getYoutubeApiKey().then((key) => {
+      apiKeyRef.current = key;
       setApiKey(key);
     });
   }, []);
 
-  const load = useCallback(
-    async (query: string) => {
-      if (!apiKey) return;
+  const fetchNextChunk = useCallback(async (append: boolean) => {
+    const key = apiKeyRef.current;
+    if (!key) return;
+    if (isLoadingRef.current || isLoadingMoreRef.current) return;
+
+    if (append) {
+      setIsLoadingMore(true);
+      isLoadingMoreRef.current = true;
+    } else {
       setIsLoading(true);
+      isLoadingRef.current = true;
       setError(null);
-      try {
-        const results = query.trim()
-          ? await searchVideos(apiKey, query.trim())
-          : await fetchTrendingVideos(apiKey);
-        setVideos(results);
-      } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : "Failed to load videos";
+    }
+
+    try {
+      const query = activeQueryRef.current;
+      let result: Awaited<ReturnType<typeof fetchTrendingVideos>>;
+
+      if (query) {
+        result = await searchVideos(key, query, 50, nextPageTokenRef.current);
+      } else {
+        const catId = selectedCategoryRef.current;
+        if (catId !== undefined) {
+          result = await fetchTrendingVideos(
+            key,
+            "US",
+            50,
+            nextPageTokenRef.current,
+            catId
+          );
+          if (!result.nextPageToken) {
+            nextPageTokenRef.current = undefined;
+            seenIdsRef.current = new Set();
+          }
+        } else {
+          result = await fetchTrendingVideos(
+            key,
+            "US",
+            50,
+            nextPageTokenRef.current,
+            TRENDING_CATEGORIES[categoryIndexRef.current]
+          );
+          if (!result.nextPageToken) {
+            const nextIdx = categoryIndexRef.current + 1;
+            categoryIndexRef.current =
+              nextIdx < TRENDING_CATEGORIES.length ? nextIdx : 0;
+          }
+        }
+      }
+
+      nextPageTokenRef.current = result.nextPageToken;
+
+      const fresh = result.videos.filter((v) => !seenIdsRef.current.has(v.id));
+      for (const v of fresh) seenIdsRef.current.add(v.id);
+
+      if (append) {
+        setVideos((prev) => [...prev, ...fresh]);
+      } else {
+        setVideos(fresh);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to load videos";
+      if (append) {
+        sileo.error({ title: msg });
+      } else {
         setError(msg);
         setVideos([]);
-      } finally {
-        setIsLoading(false);
       }
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+      isLoadingRef.current = false;
+      isLoadingMoreRef.current = false;
+    }
+  }, []);
+
+  const resetAndFetch = useCallback(() => {
+    nextPageTokenRef.current = undefined;
+    categoryIndexRef.current = 0;
+    seenIdsRef.current = new Set();
+    fetchNextChunk(false);
+  }, [fetchNextChunk]);
+
+  useEffect(() => {
+    if (!apiKey) return;
+    activeQueryRef.current = "";
+    selectedCategoryRef.current = undefined;
+    resetAndFetch();
+  }, [apiKey, resetAndFetch]);
+
+  useEffect(() => {
+    if (isLoading || isLoadingMore) return;
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 400;
+    if (nearBottom) fetchNextChunk(true);
+  }, [isLoading, isLoadingMore, fetchNextChunk]);
+
+  const handleScroll = useCallback(() => {
+    if (isLoadingMoreRef.current || isLoadingRef.current) return;
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 400;
+    if (nearBottom) fetchNextChunk(true);
+  }, [fetchNextChunk]);
+
+  const handleSelectCategory = useCallback(
+    (id: CategoryId) => {
+      setSelectedCategory(id);
+      selectedCategoryRef.current = id;
+      setSearchInput("");
+      activeQueryRef.current = "";
+      if (id !== SAVED_CATEGORY_ID) resetAndFetch();
     },
-    [apiKey]
+    [resetAndFetch]
   );
 
-  // Load trending on mount when key is available
-  useEffect(() => {
-    if (apiKey) load("");
-  }, [apiKey, load]);
-
-  const handleSearch = useCallback(() => {
-    const q = searchInput.trim();
-    setActiveQuery(q);
-    load(q);
-  }, [searchInput, load]);
+  const handleSearch = useCallback(
+    (query?: string) => {
+      const q = (query ?? searchInput).trim();
+      if (!q) return;
+      activeQueryRef.current = q;
+      if (saveSearchHistory) addSearch("explore", q);
+      setSearchInput(q);
+      setSearchFocused(false);
+      resetAndFetch();
+    },
+    [searchInput, resetAndFetch, saveSearchHistory, addSearch]
+  );
 
   const handleClearSearch = useCallback(() => {
     setSearchInput("");
-    setActiveQuery("");
-    load("");
-  }, [load]);
+    activeQueryRef.current = "";
+    resetAndFetch();
+  }, [resetAndFetch]);
 
   const handleRemix = useCallback(
     (video: YoutubeVideo) => {
-      if (!video.thumbnailUrl) {
-        sileo.error({ title: "No thumbnail available for this video" });
-        return;
-      }
       onRemix(video.thumbnailUrl, video.title);
     },
     [onRemix]
   );
 
+  const gridColClass = useMemo(() => {
+    const map: Record<ViewMode, string> = {
+      "3": "grid-cols-3",
+      "4": "grid-cols-4",
+      "5": "grid-cols-5",
+      row: "grid-cols-1",
+    };
+    return map[viewMode];
+  }, [viewMode]);
+
+  const showHistory =
+    searchFocused &&
+    !searchInput &&
+    saveSearchHistory &&
+    exploreHistory.length > 0;
+
+  const bottomToolbar = (
+    <div className="mx-1 mb-1">
+      <div className="relative flex h-12 items-center justify-between rounded-xl bg-muted px-4">
+        <div className="flex items-center gap-1">
+          <Button
+            aria-label="Back to Gallery"
+            onClick={onClose}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div className="mx-1 h-4 w-px bg-border" />
+          <ViewModeButtons onViewModeChange={setViewMode} viewMode={viewMode} />
+        </div>
+
+        <div className="absolute left-1/2 -translate-x-1/2">
+          <div className="relative">
+            {showHistory && (
+              <SearchHistoryDropdown
+                items={exploreHistory}
+                onClearAll={() => clearHistory("explore")}
+                onRemove={(q) => removeSearch("explore", q)}
+                onSelect={(q) => handleSearch(q)}
+              />
+            )}
+            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/50" />
+            <Input
+              className="h-8 w-72 border-none bg-background pr-8 pl-9 transition-all focus-visible:w-96 focus-visible:ring-1 focus-visible:ring-primary/20"
+              onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSearch();
+              }}
+              placeholder="Search YouTube"
+              value={searchInput}
+            />
+            {videos.length > 0 && !searchInput && (
+              <span className="absolute top-1/2 right-2 -translate-y-1/2 rounded bg-primary/10 px-1.5 py-0.5 font-bold text-[10px] text-primary">
+                {videos.length}
+              </span>
+            )}
+            {searchInput && (
+              <button
+                className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
+                onClick={handleClearSearch}
+                type="button"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   if (!apiKey) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-        <Search className="size-10 text-muted-foreground/40" />
-        <p className="font-medium text-sm">YouTube API key required</p>
-        <p className="max-w-xs text-muted-foreground text-xs">
-          Add your YouTube Data API v3 key in Settings → API Keys to explore
-          trending thumbnails.
-        </p>
-      </div>
+      <>
+        <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+          <EmptyState
+            action={{ label: "Open Settings", onClick: onSettings }}
+            description="Add your YouTube Data API v3 key in Settings to explore trending thumbnails."
+            icon={<Search className="size-10" />}
+            title="YouTube API key required"
+          />
+        </div>
+        {bottomToolbar}
+      </>
     );
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
-      {/* Page header with back button */}
-      <div className="flex h-10 shrink-0 items-center gap-2 border-border border-b px-3">
-        <button
-          className="flex items-center gap-1.5 rounded px-1.5 py-1 text-muted-foreground text-xs hover:bg-muted hover:text-foreground"
-          onClick={onClose}
-          type="button"
-        >
-          <ArrowLeft className="size-3.5" />
-          Back
-        </button>
-        <span className="font-medium text-sm">Explore</span>
-      </div>
-      {/* Search header */}
-      <div className="flex items-center gap-3 border-border border-b px-4 py-3">
-        <div className="relative flex-1">
-          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/60" />
-          <Input
-            className="pr-8 pl-9"
-            onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleSearch();
-            }}
-            placeholder="Search YouTube thumbnails..."
-            ref={searchInputRef}
-            value={searchInput}
-          />
-          {searchInput && (
-            <button
-              className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
-              onClick={handleClearSearch}
-              type="button"
-            >
-              <X className="size-3.5" />
-            </button>
-          )}
-        </div>
-        <Button onClick={handleSearch} size="sm" variant="secondary">
-          Search
-        </Button>
-      </div>
-
-      {/* Status bar */}
-      <div className="flex items-center gap-2 border-border border-b px-4 py-2">
-        {activeQuery ? (
-          <span className="text-muted-foreground text-xs">
-            Results for{" "}
-            <span className="font-medium text-foreground">
-              &ldquo;{activeQuery}&rdquo;
-            </span>
-          </span>
-        ) : (
-          <span className="text-muted-foreground text-xs">Trending videos</span>
-        )}
-        {!isLoading && videos.length > 0 && (
-          <span className="text-muted-foreground text-xs">
-            · {videos.length} results
-          </span>
-        )}
-        <span className="ml-auto text-[10px] text-muted-foreground/50">
-          Uses YouTube Data API quota
-        </span>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {isLoading ? (
-          <div className="flex h-48 items-center justify-center">
-            <Loader2 className="size-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : error ? (
-          <div className="flex h-48 flex-col items-center justify-center gap-2">
-            <p className="font-medium text-destructive text-sm">Error</p>
-            <p className="max-w-sm text-center text-muted-foreground text-xs">
-              {error}
-            </p>
-            <Button
-              className="mt-2"
-              onClick={() => load(activeQuery)}
-              size="sm"
-              variant="secondary"
-            >
-              Retry
-            </Button>
-          </div>
-        ) : videos.length === 0 ? (
-          <div className="flex h-48 items-center justify-center text-muted-foreground text-sm">
-            No results
-          </div>
-        ) : (
-          <div className="grid grid-cols-3 gap-4 xl:grid-cols-4">
-            {videos.map((video) => (
-              <VideoCard key={video.id} onRemix={handleRemix} video={video} />
+    <>
+      {/* Main card */}
+      <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+        <div className="relative flex-1 overflow-hidden">
+          {/* Category tabs */}
+          <div className="scrollbar-none absolute top-0 right-0 left-0 z-20 flex items-center gap-1.5 overflow-x-auto px-5 py-3">
+            {CATEGORIES.map((cat) => (
+              <button
+                className={cn(
+                  "shrink-0 rounded-md px-2.5 py-1 text-sm transition-colors",
+                  selectedCategory === cat.id && !activeQueryRef.current
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                key={String(cat.id)}
+                onClick={() => handleSelectCategory(cat.id)}
+                type="button"
+              >
+                {cat.label}
+              </button>
             ))}
           </div>
-        )}
+
+          <ScrollFadeEffect
+            className="h-full p-4 pt-12"
+            onScroll={handleScroll}
+            ref={scrollContainerRef}
+          >
+            {isLoading && selectedCategory !== SAVED_CATEGORY_ID ? (
+              <div className="flex h-48 items-center justify-center">
+                <Loader2 className="size-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : error && selectedCategory !== SAVED_CATEGORY_ID ? (
+              <div className="flex h-48 flex-col items-center justify-center gap-2">
+                <p className="font-medium text-destructive text-sm">Error</p>
+                <p className="max-w-sm text-center text-muted-foreground text-xs">
+                  {error}
+                </p>
+                <Button
+                  className="mt-2"
+                  onClick={() => fetchNextChunk(false)}
+                  size="sm"
+                  variant="secondary"
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : selectedCategory === SAVED_CATEGORY_ID ? (
+              favourites.length === 0 ? (
+                <div className="flex h-48 flex-col items-center justify-center gap-2 text-muted-foreground text-sm">
+                  <Heart className="size-8 opacity-30" />
+                  <span>No saved videos yet</span>
+                </div>
+              ) : (
+                <div className={`grid gap-4 ${gridColClass}`}>
+                  {favourites.map((video) => (
+                    <VideoCard
+                      isFavourite={true}
+                      key={video.id}
+                      onRemix={handleRemix}
+                      onToggleFavourite={toggleFavourite}
+                      video={video}
+                    />
+                  ))}
+                </div>
+              )
+            ) : videos.length === 0 ? (
+              <div className="flex h-48 items-center justify-center text-muted-foreground text-sm">
+                No results
+              </div>
+            ) : (
+              <>
+                <div className={`grid gap-4 ${gridColClass}`}>
+                  {videos.map((video) => (
+                    <VideoCard
+                      isFavourite={favouriteIds.has(video.id)}
+                      key={video.id}
+                      onRemix={handleRemix}
+                      onToggleFavourite={toggleFavourite}
+                      video={video}
+                    />
+                  ))}
+                </div>
+                {isLoadingMore && (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+              </>
+            )}
+          </ScrollFadeEffect>
+        </div>
       </div>
-    </div>
+
+      {bottomToolbar}
+    </>
   );
 }
 
 function VideoCard({
   video,
+  isFavourite,
   onRemix,
+  onToggleFavourite,
 }: {
   video: YoutubeVideo;
+  isFavourite: boolean;
   onRemix: (video: YoutubeVideo) => void;
+  onToggleFavourite: (video: YoutubeVideo) => void;
 }) {
   const [hovered, setHovered] = useState(false);
 
   return (
     <div
-      className="group flex cursor-default flex-col gap-2"
+      className="flex cursor-default flex-col gap-2 transition-transform hover:scale-[1.02]"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Thumbnail */}
       <div className="relative aspect-video overflow-hidden rounded-lg border border-border bg-muted">
-        {video.thumbnailUrl ? (
-          <img
-            alt={video.title}
-            className="h-full w-full object-cover"
-            loading="lazy"
-            src={video.thumbnailUrl}
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <span className="text-[10px] text-muted-foreground">
-              No thumbnail
-            </span>
-          </div>
-        )}
-
-        {/* Hover overlay */}
-        {hovered && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
-            <Button
-              className="gap-1.5 shadow-lg"
-              onClick={() => onRemix(video)}
-              size="sm"
-            >
-              <Wand2 className="size-3.5" />
-              Remix
-            </Button>
+        <img
+          alt={video.title}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          src={video.thumbnailUrl}
+        />
+        {(hovered || isFavourite) && (
+          <div className="absolute inset-0 flex items-end justify-between p-2">
+            <div className="flex items-center gap-1">
+              <button
+                className={cn(
+                  "rounded-full p-1.5 shadow-lg backdrop-blur-sm transition-colors",
+                  isFavourite
+                    ? "bg-red-500/90 text-white hover:bg-red-600/90"
+                    : "bg-black/40 text-white hover:bg-black/60"
+                )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleFavourite(video);
+                }}
+                title={isFavourite ? "Remove from saved" : "Save"}
+                type="button"
+              >
+                <Heart
+                  className={cn("size-3.5", isFavourite && "fill-current")}
+                />
+              </button>
+              {hovered && (
+                <button
+                  className="rounded-full bg-black/40 p-1.5 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openUrl(`https://www.youtube.com/watch?v=${video.id}`);
+                  }}
+                  title="Open in browser"
+                  type="button"
+                >
+                  <ExternalLink className="size-3.5" />
+                </button>
+              )}
+            </div>
+            {hovered && (
+              <Button
+                className="gap-1.5 shadow-lg"
+                onClick={() => onRemix(video)}
+                size="sm"
+              >
+                <Wand2 className="size-3.5" />
+                Remix
+              </Button>
+            )}
           </div>
         )}
       </div>
 
-      {/* Info */}
       <div className="flex flex-col gap-1">
         <p
           className="line-clamp-2 font-medium text-xs leading-snug"

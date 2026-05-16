@@ -1,8 +1,18 @@
-import { Loader2, Search, Settings, Sparkles, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import {
+  Compass,
+  Loader2,
+  Search,
+  Settings,
+  Sparkles,
+  Tag,
+  Trash2,
+  Zap,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { sileo } from "sileo";
 import type { ViewMode } from "@/App";
 import { AddColorBackgroundDialog } from "@/components/editor/AddColorBackgroundDialog";
+import { SearchHistoryDropdown } from "@/components/SearchHistoryDropdown";
 import { AddMenu } from "@/components/toolbar/add-menu";
 import { SelectionToolbar } from "@/components/toolbar/selection-toolbar";
 import { SortMenu } from "@/components/toolbar/sort-menu";
@@ -20,12 +30,45 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import { useAutoRenameQueue } from "@/stores/use-auto-rename-queue";
 import { useBackgroundRemovalQueue } from "@/stores/use-background-removal-queue";
+import { useEmbeddingStore } from "@/stores/use-embedding-store";
 import { useGalleryStore } from "@/stores/use-gallery-store";
 import { useGalleryUIStore } from "@/stores/use-gallery-ui-store";
+import { useSearchHistoryStore } from "@/stores/use-search-history-store";
 import { useSelectionStore } from "@/stores/use-selection-store";
 import { useTrashStore } from "@/stores/use-trash-store";
+
+function FolderBadgeToggle() {
+  const showFolderBadges = useAppSettingsStore((s) => s.showFolderBadges);
+  const setShowFolderBadges = useAppSettingsStore((s) => s.setShowFolderBadges);
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          className={
+            showFolderBadges ? "text-primary" : "text-muted-foreground"
+          }
+          onClick={() => setShowFolderBadges(!showFolderBadges)}
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+        >
+          <Tag className="size-4" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>
+        {showFolderBadges ? "Hide folder badges" : "Show folder badges"}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 interface BottomToolbarProps {
   viewMode: ViewMode;
@@ -56,6 +99,7 @@ export function BottomToolbar({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [colorBgDialogOpen, setColorBgDialogOpen] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const thumbnails = useGalleryStore((s) => s.thumbnails);
   const duplicateThumbnailsBatch = useGalleryStore(
@@ -214,8 +258,29 @@ export function BottomToolbar({
   const semanticSearchEnabled = useAppSettingsStore(
     (s) => s.semanticSearchEnabled
   );
+  const saveSearchHistory = useAppSettingsStore((s) => s.saveSearchHistory);
   const performSemanticSearch = useEmbeddingStore(
     (s) => s.performSemanticSearch
+  );
+
+  const galleryHistory = useSearchHistoryStore((s) => s.histories.gallery);
+  const addSearch = useSearchHistoryStore((s) => s.addSearch);
+  const removeSearch = useSearchHistoryStore((s) => s.removeSearch);
+  const clearHistory = useSearchHistoryStore((s) => s.clearHistory);
+
+  const handleSearchBlur = useCallback(() => {
+    setTimeout(() => setSearchFocused(false), 150);
+    if (saveSearchHistory && searchQuery.trim()) {
+      addSearch("gallery", searchQuery.trim());
+    }
+  }, [saveSearchHistory, searchQuery, addSearch]);
+
+  const handleHistorySelect = useCallback(
+    (q: string) => {
+      setSearchQuery(q);
+      setSearchFocused(false);
+    },
+    [setSearchQuery]
   );
 
   // Debounced semantic search trigger
@@ -267,6 +332,11 @@ export function BottomToolbar({
   ]);
 
   const showDefaultToolbar = !isSelectionMode || selectedIds.size === 0;
+  const showHistory =
+    searchFocused &&
+    !searchQuery &&
+    saveSearchHistory &&
+    galleryHistory.length > 0;
 
   return (
     <header className="flex h-12 items-center justify-between bg-muted px-4">
@@ -292,6 +362,7 @@ export function BottomToolbar({
             viewMode={viewMode}
           />
           <SortMenu />
+          <FolderBadgeToggle />
         </div>
       )}
 
@@ -299,6 +370,14 @@ export function BottomToolbar({
       {showDefaultToolbar && (
         <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1.5">
           <div className="relative">
+            {showHistory && (
+              <SearchHistoryDropdown
+                items={galleryHistory}
+                onClearAll={() => clearHistory("gallery")}
+                onRemove={(q) => removeSearch("gallery", q)}
+                onSelect={handleHistorySelect}
+              />
+            )}
             {isSemanticSearching ? (
               <Loader2 className="absolute top-1/2 left-3 size-4 -translate-y-1/2 animate-spin text-primary/60" />
             ) : (
@@ -306,11 +385,13 @@ export function BottomToolbar({
             )}
             <Input
               className="h-8 w-72 border-none bg-background pr-8 pl-9 transition-all focus-visible:w-96 focus-visible:ring-1 focus-visible:ring-primary/20"
+              onBlur={handleSearchBlur}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
               placeholder={
                 semanticSearchEnabled && searchMode === "semantic"
-                  ? "Describe what you're looking for..."
-                  : "Search projects..."
+                  ? "Describe what you're looking for"
+                  : "Search projects"
               }
               type="text"
               value={searchQuery}

@@ -1,7 +1,8 @@
-import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { Loader2, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { VirtuosoGrid } from "react-virtuoso";
 import { sileo } from "sileo";
+import type { ViewMode } from "@/App";
 import { EmptyState } from "@/components/gallery/EmptyState";
 import { gridComponents } from "@/components/gallery/VirtuosoGridComponents";
 import {
@@ -12,8 +13,8 @@ import {
 } from "@/components/trash/TrashDialogs";
 import { TrashItemCard } from "@/components/trash/TrashItemCard";
 import { TrashToolbar } from "@/components/trash/trash-toolbar";
-import { Button } from "@/components/ui/button";
 import { useDragSelection } from "@/hooks/use-drag-selection";
+import { usePersistedViewMode } from "@/hooks/use-persisted-view-mode";
 import { useGalleryStore } from "@/stores/use-gallery-store";
 import { type TrashItem, useTrashStore } from "@/stores/use-trash-store";
 
@@ -38,12 +39,31 @@ export function TrashPage({ onClose }: TrashPageProps) {
     useState(false);
   const [selectedItem, setSelectedItem] = useState<TrashItem | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-
-  // Selection state (local to trash page)
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = usePersistedViewMode("view-mode:trash", "4");
 
-  // Selection helpers
+  const filteredItems = useMemo(
+    () =>
+      searchQuery
+        ? trashItems.filter((item) =>
+            item.name.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+        : trashItems,
+    [trashItems, searchQuery]
+  );
+
+  const gridColClass = useMemo(() => {
+    const map: Record<ViewMode, string> = {
+      "3": "grid-cols-3",
+      "4": "grid-cols-4",
+      "5": "grid-cols-5",
+      row: "grid-cols-1",
+    };
+    return map[viewMode];
+  }, [viewMode]);
+
   const toggleSelection = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -65,7 +85,6 @@ export function TrashPage({ onClose }: TrashPageProps) {
     setSelectedIds(new Set());
   }, []);
 
-  // Drag selection hook
   const { selectionBox, containerRef, scrollerRef, handleMouseDown } =
     useDragSelection({
       dataAttribute: "data-trash-id",
@@ -75,7 +94,6 @@ export function TrashPage({ onClose }: TrashPageProps) {
       onClearSelection: clearSelection,
     });
 
-  // Handle item click
   const handleItemClick = useCallback(
     (item: TrashItem) => {
       if (isSelectionMode) {
@@ -185,12 +203,9 @@ export function TrashPage({ onClose }: TrashPageProps) {
     }
   }, [emptyTrash]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Shortcuts that work in selection mode only
       if (isSelectionMode) {
-        // Delete selected items
         if (
           (e.key === "Delete" || e.key === "Backspace") &&
           selectedIds.size > 0
@@ -198,17 +213,14 @@ export function TrashPage({ onClose }: TrashPageProps) {
           e.preventDefault();
           setDeleteSelectedDialogOpen(true);
         }
-        // Escape - exit selection mode
         if (e.key === "Escape") {
           e.preventDefault();
           exitSelectionMode();
         }
-        // Ctrl+A - select all
         if ((e.ctrlKey || e.metaKey) && e.key === "a") {
           e.preventDefault();
           setSelectedIds(new Set(trashItems.map((item) => item.id)));
         }
-        // Ctrl+E - restore selected
         if (
           (e.ctrlKey || e.metaKey) &&
           e.key === "e" &&
@@ -220,14 +232,11 @@ export function TrashPage({ onClose }: TrashPageProps) {
         }
       }
 
-      // Shortcuts that work without selection mode (for the whole trash)
       if (trashItems.length > 0) {
-        // Ctrl+Shift+E - restore all
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "E") {
           e.preventDefault();
           setRestoreAllDialogOpen(true);
         }
-        // Ctrl+Shift+D - empty trash
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "D") {
           e.preventDefault();
           setEmptyTrashDialogOpen(true);
@@ -246,94 +255,91 @@ export function TrashPage({ onClose }: TrashPageProps) {
   ]);
 
   return (
-    <div className="flex h-full flex-col bg-background">
-      {/* Header */}
-      <div className="flex h-12 shrink-0 items-center px-4">
-        <Button onClick={onClose} size="icon-sm" type="button" variant="ghost">
-          <ArrowLeft className="size-4" />
-        </Button>
-      </div>
-
-      {/* Content */}
-      <div className="relative flex-1 select-none">
-        {isLoaded ? (
-          trashItems.length === 0 ? (
-            <EmptyState
-              action={{
-                label: "Back to Gallery",
-                icon: <ArrowLeft className="mr-2 size-4" />,
-                onClick: onClose,
-              }}
-              description="Deleted items will appear here for 30 days"
-              icon={<Trash2 className="size-10" />}
-              title="Trash is empty"
-            />
-          ) : (
-            <div
-              className="absolute inset-0 overflow-hidden"
-              onMouseDown={handleMouseDown}
-              ref={containerRef}
-            >
-              {/* Selection box */}
-              {selectionBox && (
-                <div
-                  className="pointer-events-none absolute z-50 border border-primary/50 bg-primary/20"
-                  style={{
-                    left: selectionBox.x,
-                    top: selectionBox.y,
-                    width: selectionBox.width,
-                    height: selectionBox.height,
-                  }}
-                />
-              )}
-              <VirtuosoGrid
-                components={gridComponents}
-                itemContent={(index) => {
-                  const item = trashItems[index];
-                  return (
-                    <TrashItemCard
-                      isSelected={selectedIds.has(item.id)}
-                      isSelectionMode={isSelectionMode}
-                      item={item}
-                      key={item.id}
-                      onClick={handleItemClick}
-                      onDelete={handleDeleteClick}
-                      onRestore={handleRestore}
-                    />
-                  );
-                }}
-                listClassName="grid-cols-4"
-                overscan={600}
-                scrollerRef={(ref) => {
-                  scrollerRef.current = ref as HTMLDivElement;
-                }}
-                style={{ height: "100%", width: "100%" }}
-                totalCount={trashItems.length}
+    <>
+      {/* Card */}
+      <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+        {/* Content */}
+        <div className="relative flex-1 select-none">
+          {isLoaded ? (
+            trashItems.length === 0 ? (
+              <EmptyState
+                description="Deleted items will appear here for 30 days"
+                icon={<Trash2 className="size-10" />}
+                title="Trash is empty"
               />
+            ) : (
+              <div
+                className="absolute inset-0 overflow-hidden"
+                onMouseDown={handleMouseDown}
+                ref={containerRef}
+              >
+                {selectionBox && (
+                  <div
+                    className="pointer-events-none absolute z-50 border border-primary/50 bg-primary/20"
+                    style={{
+                      left: selectionBox.x,
+                      top: selectionBox.y,
+                      width: selectionBox.width,
+                      height: selectionBox.height,
+                    }}
+                  />
+                )}
+                <VirtuosoGrid
+                  components={gridComponents}
+                  itemContent={(index) => {
+                    const item = filteredItems[index];
+                    return (
+                      <TrashItemCard
+                        isSelected={selectedIds.has(item.id)}
+                        isSelectionMode={isSelectionMode}
+                        item={item}
+                        key={item.id}
+                        onClick={handleItemClick}
+                        onDelete={handleDeleteClick}
+                        onRestore={handleRestore}
+                      />
+                    );
+                  }}
+                  listClassName={gridColClass}
+                  overscan={600}
+                  scrollerRef={(ref) => {
+                    scrollerRef.current = ref as HTMLDivElement;
+                  }}
+                  style={{ height: "100%", width: "100%" }}
+                  totalCount={filteredItems.length}
+                />
+              </div>
+            )
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <Loader2 className="size-8 animate-spin text-muted-foreground" />
             </div>
-          )
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <Loader2 className="size-8 animate-spin text-muted-foreground" />
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Bottom Toolbar */}
-      <TrashToolbar
-        isProcessing={isProcessing}
-        isSelectionMode={isSelectionMode}
-        onDeleteSelected={() => setDeleteSelectedDialogOpen(true)}
-        onEmptyTrash={() => setEmptyTrashDialogOpen(true)}
-        onEnterSelectionMode={() => setIsSelectionMode(true)}
-        onExitSelectionMode={exitSelectionMode}
-        onRestoreAll={() => setRestoreAllDialogOpen(true)}
-        onRestoreSelected={handleRestoreSelected}
-        selectedCount={selectedIds.size}
-        trashItemCount={trashItems.length}
-      />
+      <div className="mx-1 mb-1">
+        <TrashToolbar
+          filteredCount={filteredItems.length}
+          isProcessing={isProcessing}
+          isSelectionMode={isSelectionMode}
+          onBack={onClose}
+          onDeleteSelected={() => setDeleteSelectedDialogOpen(true)}
+          onEmptyTrash={() => setEmptyTrashDialogOpen(true)}
+          onEnterSelectionMode={() => setIsSelectionMode(true)}
+          onExitSelectionMode={exitSelectionMode}
+          onRestoreAll={() => setRestoreAllDialogOpen(true)}
+          onRestoreSelected={handleRestoreSelected}
+          onSearchChange={setSearchQuery}
+          onViewModeChange={setViewMode}
+          searchQuery={searchQuery}
+          selectedCount={selectedIds.size}
+          trashItemCount={trashItems.length}
+          viewMode={viewMode}
+        />
+      </div>
 
-      {/* Dialogs */}
       <RestoreAllDialog
         isProcessing={isProcessing}
         itemCount={trashItems.length}
@@ -361,6 +367,6 @@ export function TrashPage({ onClose }: TrashPageProps) {
         open={deleteSelectedDialogOpen}
         selectedCount={selectedIds.size}
       />
-    </div>
+    </>
   );
 }

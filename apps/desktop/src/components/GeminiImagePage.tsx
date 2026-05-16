@@ -45,6 +45,7 @@ import {
 import { renderLayersToCanvas } from "@/lib/canvas-renderer";
 import {
   base64ToDataUrl,
+  estimateGenerationCost,
   GEMINI_IMAGE_MODELS,
   type GeminiImageModel,
   generateImageWithGemini,
@@ -55,6 +56,8 @@ import type { Layer } from "@/stores/use-editor-store";
 import { useFolderStore } from "@/stores/use-folder-store";
 import { useGalleryStore } from "@/stores/use-gallery-store";
 
+const GENERATION_COUNTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+
 type EditorInputMode = "none" | "composite" | "layers";
 
 interface GeminiImagePageProps {
@@ -62,9 +65,9 @@ interface GeminiImagePageProps {
   canvasWidth: number;
   canvasHeight: number;
   onClose: () => void;
+  onSettings: () => void;
   onSaveAsLayer?: (dataUrl: string) => void;
   onSaveAsImage: (dataUrl: string) => void;
-  /** YouTube (or any remote) thumbnail URL to use as remix source */
   remixSourceUrl?: string;
   remixTitle?: string;
 }
@@ -91,6 +94,7 @@ export function GeminiImagePage({
   canvasWidth,
   canvasHeight,
   onClose,
+  onSettings,
   onSaveAsLayer,
   onSaveAsImage,
   remixSourceUrl,
@@ -114,7 +118,6 @@ export function GeminiImagePage({
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [useSelectedAsInput, setUseSelectedAsInput] = useState(false);
 
-  // Editor mode state
   const [editorInputMode, setEditorInputMode] = useState<EditorInputMode>(
     isEditorMode ? "composite" : "none"
   );
@@ -123,7 +126,6 @@ export function GeminiImagePage({
   );
   const [inputPreviewUrl, setInputPreviewUrl] = useState<string | null>(null);
 
-  // Gallery mode state — track which project thumbnails are selected
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(
     new Set()
   );
@@ -137,11 +139,9 @@ export function GeminiImagePage({
   const [gallerySearchQuery, setGallerySearchQuery] = useState("");
   const [galleryFolderId, setGalleryFolderId] = useState<string | null>(null);
 
-  // Remix source state
   const [remixDataUrl, setRemixDataUrl] = useState<string | null>(null);
   const [isLoadingRemix, setIsLoadingRemix] = useState(false);
 
-  // Character set state
   const [characterSetFolderId, setCharacterSetFolderId] = useState<
     string | null
   >(null);
@@ -165,13 +165,11 @@ export function GeminiImagePage({
     [folders]
   );
 
-  // Thumbnails in the selected character set folder
   const characterSetThumbnails = useMemo(() => {
     if (!characterSetFolderId) return [];
     return galleryThumbnails.filter((t) => t.folderId === characterSetFolderId);
   }, [galleryThumbnails, characterSetFolderId]);
 
-  // Debounce gallery search by 300ms
   useEffect(() => {
     const timer = setTimeout(
       () => setGallerySearchQuery(gallerySearchInput),
@@ -179,14 +177,6 @@ export function GeminiImagePage({
     );
     return () => clearTimeout(timer);
   }, [gallerySearchInput]);
-
-  const galleryFolderCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const t of galleryThumbnails) {
-      if (t.folderId) counts[t.folderId] = (counts[t.folderId] ?? 0) + 1;
-    }
-    return counts;
-  }, [galleryThumbnails]);
 
   const filteredGalleryThumbnails = useMemo(() => {
     let filtered = galleryThumbnails;
@@ -202,7 +192,6 @@ export function GeminiImagePage({
     getGeminiApiKey().then(setApiKey);
   }, []);
 
-  // Load remix source URL → data URL on mount
   useEffect(() => {
     if (!remixSourceUrl) return;
     let cancelled = false;
@@ -226,7 +215,6 @@ export function GeminiImagePage({
     };
   }, [remixSourceUrl]);
 
-  // Auto-select all thumbnails in character set folder when folder changes
   useEffect(() => {
     if (!characterSetFolderId) {
       setCharacterSetImageIds(new Set());
@@ -237,7 +225,6 @@ export function GeminiImagePage({
     setCharacterSetImageIds(new Set(ids));
   }, [characterSetFolderId, characterSetThumbnails]);
 
-  // Load full images for selected character set items
   useEffect(() => {
     for (const id of characterSetImageIds) {
       if (characterSetImages.has(id) || loadingCharacterSetIds.has(id))
@@ -254,7 +241,6 @@ export function GeminiImagePage({
         }
       });
     }
-    // Prune deselected items
     setCharacterSetImages((prev) => {
       const next = new Map(prev);
       for (const id of next.keys()) {
@@ -264,7 +250,6 @@ export function GeminiImagePage({
     });
   }, [characterSetImageIds, loadFullImageForId]);
 
-  // Keyboard navigation for generated images
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (generatedImages.length <= 1) return;
@@ -281,9 +266,8 @@ export function GeminiImagePage({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [generatedImages.length]);
 
-  // Render input preview whenever editor input mode or layer selection changes
   useEffect(() => {
-    if (remixSourceUrl) return; // remix source handled separately
+    if (remixSourceUrl) return;
     if (!isEditorMode || editorInputMode === "none") {
       setInputPreviewUrl(null);
       return;
@@ -320,7 +304,6 @@ export function GeminiImagePage({
     canvasHeight,
   ]);
 
-  // Load full images for newly selected projects
   useEffect(() => {
     if (isEditorMode) return;
 
@@ -340,7 +323,6 @@ export function GeminiImagePage({
       }
     }
 
-    // Remove deselected projects from cache
     setProjectImages((prev) => {
       const next = new Map(prev);
       for (const id of next.keys()) {
@@ -383,18 +365,15 @@ export function GeminiImagePage({
         );
       }
     } else {
-      // Gallery mode: composite of each selected project
       inputImages = Array.from(selectedProjectIds)
         .map((id) => projectImages.get(id))
         .filter((url): url is string => url !== undefined);
     }
 
-    // Prepend remix source if available
     if (remixDataUrl) {
       inputImages = [remixDataUrl, ...inputImages];
     }
 
-    // Append character set images
     const charImages = Array.from(characterSetImageIds)
       .map((id) => characterSetImages.get(id))
       .filter((url): url is string => url !== undefined);
@@ -547,7 +526,12 @@ export function GeminiImagePage({
   const showCompareSlider =
     hasGeneratedImages && effectiveInputCount === 1 && inputPreviewUrl !== null;
 
-  // --- Character set section (shown in both modes) ---
+  const estimatedCost = estimateGenerationCost(
+    model,
+    generationCount,
+    Math.ceil(prompt.length / 4) || 25
+  );
+
   const characterSetSection = (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-1.5">
@@ -613,7 +597,6 @@ export function GeminiImagePage({
     </div>
   );
 
-  // --- Remix source section ---
   const remixSourceSection = remixSourceUrl ? (
     <div className="flex flex-col gap-2">
       <Label className="text-xs">Remix Source</Label>
@@ -626,6 +609,7 @@ export function GeminiImagePage({
           <img
             alt="Remix source"
             className="aspect-video w-full object-cover"
+            draggable={false}
             src={remixDataUrl}
           />
         ) : null}
@@ -638,7 +622,6 @@ export function GeminiImagePage({
     </div>
   ) : null;
 
-  // --- Editor input section ---
   const editorInputSection = isEditorMode ? (
     <div className="flex flex-col gap-2">
       <Label className="text-xs">Input Images</Label>
@@ -711,7 +694,6 @@ export function GeminiImagePage({
         </p>
       ) : (
         <div className="flex flex-col gap-1 rounded-md border border-border">
-          {/* Search bar */}
           <div className="border-border border-b px-2 py-1.5">
             <div className="relative">
               <Search className="absolute top-1/2 left-2 size-3 -translate-y-1/2 text-muted-foreground" />
@@ -723,7 +705,6 @@ export function GeminiImagePage({
               />
             </div>
           </div>
-          {/* Scrollable grid */}
           <div className="max-h-40 overflow-y-auto p-1">
             {filteredGalleryThumbnails.length === 0 ? (
               <div className="flex h-16 items-center justify-center text-[10px] text-muted-foreground">
@@ -804,25 +785,93 @@ export function GeminiImagePage({
           minWidth={200}
           side="left"
         >
-          <GeminiPromptPanel
-            error={error}
-            generationCount={generationCount}
-            hasApiKey={hasApiKey}
-            hasGeneratedImages={hasGeneratedImages}
-            hasSelection={hasSelection}
-            inputSection={inputSection}
-            isGenerating={isGenerating}
-            model={model}
-            onGenerate={handleGenerate}
-            onGenerationCountChange={setGenerationCount}
-            onModelChange={setModel}
-            onPromptChange={setPrompt}
-            onUseSelectedAsInputChange={setUseSelectedAsInput}
-            progress={progress}
-            prompt={prompt}
-            selectedCount={selectedIndices.size}
-            useSelectedAsInput={useSelectedAsInput}
-          />
+          <div className="flex h-full flex-col">
+            {/* Scrollable prompt + input area */}
+            <div className="min-h-0 flex-1">
+              <GeminiPromptPanel
+                error={error}
+                hasApiKey={hasApiKey}
+                inputSection={inputSection}
+                isGenerating={isGenerating}
+                onPromptChange={setPrompt}
+                onSettings={onSettings}
+                prompt={prompt}
+              />
+            </div>
+
+            {/* Bottom toolbar — generate controls */}
+            <div className="flex shrink-0 flex-col gap-2 border-border border-t px-3 py-3">
+              {hasGeneratedImages && hasSelection && (
+                <label className="flex cursor-pointer items-center gap-1.5 text-muted-foreground text-xs hover:text-foreground">
+                  <Checkbox
+                    checked={useSelectedAsInput}
+                    onCheckedChange={(checked) =>
+                      setUseSelectedAsInput(checked === true)
+                    }
+                  />
+                  <span>Use {selectedIndices.size} selected as input</span>
+                </label>
+              )}
+              <Button
+                className="w-full"
+                disabled={!(hasApiKey && prompt.trim()) || isGenerating}
+                onClick={handleGenerate}
+                size="lg"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    {progress.total > 1
+                      ? `Generating ${progress.current}/${progress.total}...`
+                      : "Generating..."}
+                  </>
+                ) : (
+                  <>Generate</>
+                )}
+              </Button>
+              <div className="-mt-1 flex items-center">
+                <Select
+                  onValueChange={(v) => setModel(v as GeminiImageModel)}
+                  value={model}
+                >
+                  <SelectTrigger className="!h-7 !bg-transparent min-w-0 flex-1 border-0 px-2">
+                    <SelectValue>
+                      {
+                        GEMINI_IMAGE_MODELS.find((m) => m.value === model)
+                          ?.label
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {GEMINI_IMAGE_MODELS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  disabled={isGenerating}
+                  onValueChange={(v) => setGenerationCount(Number(v))}
+                  value={String(generationCount)}
+                >
+                  <SelectTrigger className="!h-7 !bg-transparent w-14 shrink-0 border-0 px-2">
+                    <SelectValue>{generationCount}×</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {GENERATION_COUNTS.map((count) => (
+                      <SelectItem key={count} value={String(count)}>
+                        {count}×
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="shrink-0 pr-1 text-[10px] text-muted-foreground">
+                  ~${estimatedCost.toFixed(3)}
+                </span>
+              </div>
+            </div>
+          </div>
         </ResizablePanel>
 
         {/* Right panel - Preview */}
@@ -830,7 +879,6 @@ export function GeminiImagePage({
           <div className="relative flex flex-1 items-center justify-center overflow-auto bg-background p-6">
             {hasGeneratedImages ? (
               <div className="flex h-full w-full flex-col gap-4">
-                {/* Main preview / compare slider */}
                 <div className="relative flex-1">
                   {showCompareSlider ? (
                     <CompareSlider className="h-full w-full overflow-hidden rounded-lg border border-border">
@@ -838,6 +886,7 @@ export function GeminiImagePage({
                         <img
                           alt="Generated"
                           className="h-full w-full object-contain"
+                          draggable={false}
                           src={viewingImage?.url}
                         />
                       </CompareSliderAfter>
@@ -845,6 +894,7 @@ export function GeminiImagePage({
                         <img
                           alt="Input"
                           className="h-full w-full object-contain"
+                          draggable={false}
                           src={inputPreviewUrl!}
                         />
                       </CompareSliderBefore>
@@ -862,6 +912,7 @@ export function GeminiImagePage({
                       <img
                         alt="Generated"
                         className="h-full w-full object-contain"
+                        draggable={false}
                         src={viewingImage?.url}
                       />
                       <span className="pointer-events-none absolute top-3 right-3 z-30 rounded-md border border-border bg-background/80 px-2 py-1 font-medium text-xs backdrop-blur-sm">
@@ -871,7 +922,6 @@ export function GeminiImagePage({
                     </div>
                   )}
 
-                  {/* Navigation arrows */}
                   {generatedImages.length > 1 && (
                     <>
                       <Button
@@ -911,6 +961,7 @@ export function GeminiImagePage({
                 <img
                   alt="Input"
                   className="max-h-[70vh] w-auto object-contain"
+                  draggable={false}
                   src={inputPreviewUrl}
                 />
               </div>
@@ -984,7 +1035,6 @@ export function GeminiImagePage({
   );
 }
 
-// Small helper component for gallery project thumbnail with checkbox
 function ProjectThumbnailCheckbox({
   id,
   name,
@@ -1025,7 +1075,12 @@ function ProjectThumbnailCheckbox({
       type="button"
     >
       {preview ? (
-        <img alt={name} className="h-full w-full object-cover" src={preview} />
+        <img
+          alt={name}
+          className="h-full w-full object-cover"
+          draggable={false}
+          src={preview}
+        />
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-muted">
           {isLoading ? (
@@ -1056,7 +1111,6 @@ function ProjectThumbnailCheckbox({
   );
 }
 
-// Small helper for character set thumbnail checkbox row
 function CharacterSetThumb({
   id,
   name,
@@ -1089,7 +1143,12 @@ function CharacterSetThumb({
         onCheckedChange={(checked) => onToggle(id, checked === true)}
       />
       {preview && (
-        <img alt={name} className="size-5 rounded object-cover" src={preview} />
+        <img
+          alt={name}
+          className="size-5 rounded object-cover"
+          draggable={false}
+          src={preview}
+        />
       )}
       <span className="truncate">{name}</span>
     </label>

@@ -69,6 +69,11 @@ import {
 import { getHfToken, removeHfToken, setHfToken } from "@/lib/hf-store";
 import { POLAR_CONFIG } from "@/lib/polar-config";
 import {
+  getYoutubeApiKey,
+  removeYoutubeApiKey,
+  setYoutubeApiKey,
+} from "@/lib/youtube-store";
+import {
   type AcpAgent,
   type AcpAgentEnvVar,
   type BgRemovalProvider,
@@ -81,169 +86,119 @@ interface SettingsPageProps {
   onClose: () => void;
 }
 
+const TRIGGER_CLASS =
+  "flex-none h-auto justify-start border-none px-3 py-2 data-[state=active]:bg-background/70 data-[state=active]:shadow-none";
+
 export function SettingsPage({ onClose }: SettingsPageProps) {
   return (
-    <div className="flex h-full flex-col bg-background">
-      {/* Header */}
-      <div className="flex h-12 shrink-0 items-center px-4">
-        <Button onClick={onClose} size="icon-sm" type="button" variant="ghost">
-          <ArrowLeft className="size-4" />
-        </Button>
-      </div>
-
-      {/* Content */}
-      <div className="flex flex-1 overflow-hidden">
-        <Tabs
-          className="flex flex-1"
-          defaultValue="api-key"
-          orientation="vertical"
-        >
-          {/* Left sidebar tabs */}
-          <TabsList className="flex h-full w-56 flex-col items-stretch justify-start gap-1 rounded-none border-none bg-transparent p-4">
-            <TabsTrigger
-              className="justify-start border-none px-3 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none"
-              value="api-key"
-            >
-              API Key
+    <div className="mx-1 flex flex-1">
+      <Tabs
+        className="flex flex-1"
+        defaultValue="general"
+        orientation="vertical"
+      >
+        {/* Left sidebar — sits in muted bg, flush with outer edge */}
+        <div className="flex w-52 flex-col">
+          <TabsList className="flex flex-1 flex-col items-stretch justify-start gap-1 rounded-none border-none bg-transparent p-4">
+            <TabsTrigger className={TRIGGER_CLASS} value="general">
+              General
             </TabsTrigger>
-            <TabsTrigger
-              className="justify-start border-none px-3 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none"
-              value="appearance"
-            >
-              Appearance
+            <TabsTrigger className={TRIGGER_CLASS} value="ai">
+              AI
             </TabsTrigger>
-            <TabsTrigger
-              className="justify-start border-none px-3 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none"
-              value="processing"
-            >
-              Processing
+            <TabsTrigger className={TRIGGER_CLASS} value="explore">
+              Explore
             </TabsTrigger>
-            <TabsTrigger
-              className="justify-start border-none px-3 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none"
-              value="billing"
-            >
-              Billing
-            </TabsTrigger>
-            <TabsTrigger
-              className="justify-start border-none px-3 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none"
-              value="storage"
-            >
+            <TabsTrigger className={TRIGGER_CLASS} value="storage">
               Storage
             </TabsTrigger>
-            <TabsTrigger
-              className="justify-start border-none px-3 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none"
-              value="updates"
-            >
+            <TabsTrigger className={TRIGGER_CLASS} value="updates">
               Updates
             </TabsTrigger>
-            <TabsTrigger
-              className="justify-start border-none px-3 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none"
-              value="privacy"
-            >
+            <TabsTrigger className={TRIGGER_CLASS} value="privacy">
               Privacy
             </TabsTrigger>
-            <TabsTrigger
-              className="justify-start border-none px-3 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none"
-              value="data-transfer"
-            >
+            <TabsTrigger className={TRIGGER_CLASS} value="data-transfer">
               Data Transfer
             </TabsTrigger>
-            <TabsTrigger
-              className="justify-start border-none px-3 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none"
-              value="agents"
-            >
-              Agents
-            </TabsTrigger>
           </TabsList>
-
-          {/* Content area */}
-          <div className="flex-1 overflow-auto p-6">
-            <div className="max-w-2xl">
-              <TabsContent className="mt-0" value="api-key">
-                <ApiKeySettings />
-              </TabsContent>
-
-              <TabsContent className="mt-0" value="appearance">
-                <AppearanceSettings />
-              </TabsContent>
-
-              <TabsContent className="mt-0" value="processing">
-                <ProcessingSettings />
-              </TabsContent>
-
-              <TabsContent className="mt-0" value="billing">
-                <BillingSettings />
-              </TabsContent>
-
-              <TabsContent className="mt-0" value="storage">
-                <StorageSettings />
-              </TabsContent>
-
-              <TabsContent className="mt-0" value="updates">
-                <UpdateSettings />
-              </TabsContent>
-
-              <TabsContent className="mt-0" value="privacy">
-                <PrivacySettings />
-              </TabsContent>
-
-              <TabsContent className="mt-0" value="data-transfer">
-                <DataTransferSettings />
-              </TabsContent>
-
-              <TabsContent className="mt-0" value="agents">
-                <AgentSettings />
-              </TabsContent>
-            </div>
+          <div className="p-4 pt-0">
+            <Button
+              onClick={onClose}
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+            >
+              <ArrowLeft className="size-4" />
+            </Button>
           </div>
-        </Tabs>
-      </div>
+        </div>
+
+        {/* Content card — border lives here, flush to bottom like gallery */}
+        <div className="flex-1 overflow-auto rounded-xl border-2 border-border bg-background p-6">
+          <div className="max-w-2xl">
+            <TabsContent className="mt-0" value="general">
+              <GeneralSettings />
+            </TabsContent>
+            <TabsContent className="mt-0" value="ai">
+              <AiSettings />
+            </TabsContent>
+            <TabsContent className="mt-0" value="explore">
+              <ExploreSettings />
+            </TabsContent>
+            <TabsContent className="mt-0" value="storage">
+              <StorageSettings />
+            </TabsContent>
+            <TabsContent className="mt-0" value="updates">
+              <UpdateSettings />
+            </TabsContent>
+            <TabsContent className="mt-0" value="privacy">
+              <PrivacySettings />
+            </TabsContent>
+            <TabsContent className="mt-0" value="data-transfer">
+              <DataTransferSettings />
+            </TabsContent>
+          </div>
+        </div>
+      </Tabs>
     </div>
   );
 }
 
 interface SettingRowProps {
   title: string;
-  description?: string;
+  description?: React.ReactNode;
   children: React.ReactNode;
 }
 
 function SettingRow({ title, description, children }: SettingRowProps) {
   return (
-    <div className="flex items-center justify-between rounded-lg bg-muted/50 p-4">
-      <div className="space-y-0.5">
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between rounded-lg bg-muted/50 p-4">
         <p className="font-medium">{title}</p>
-        {description && (
-          <p className="text-muted-foreground text-sm leading-tight">
-            {description}
-          </p>
-        )}
+        <div className="flex items-center gap-2">{children}</div>
       </div>
-      <div className="flex items-center gap-2">{children}</div>
+      {description && (
+        <p className="pl-2 text-muted-foreground text-xs leading-snug">
+          {description}
+        </p>
+      )}
     </div>
   );
 }
 
-function ApiKeySettings() {
+function GeminiKeySection() {
   const [apiKey, setApiKey] = useState("");
   const [hasKey, setHasKey] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [youtubeKey, setYoutubeKey] = useState("");
-  const [hasYoutubeKey, setHasYoutubeKey] = useState(false);
-
   useEffect(() => {
-    setIsLoading(true);
-    Promise.all([
-      getGeminiApiKey().then((key) => {
+    getGeminiApiKey()
+      .then((key) => {
         setHasKey(!!key);
         setApiKey("");
-      }),
-      getYoutubeApiKey().then((key) => {
-        setHasYoutubeKey(!!key);
-        setYoutubeKey("");
-      }),
-    ]).finally(() => setIsLoading(false));
+      })
+      .finally(() => setIsLoading(false));
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -256,7 +211,7 @@ function ApiKeySettings() {
       setHasKey(true);
       setApiKey("");
       sileo.success({ title: "API key saved securely" });
-    } catch (error) {
+    } catch {
       sileo.error({ title: "Failed to save API key" });
     }
   }, [apiKey]);
@@ -266,12 +221,90 @@ function ApiKeySettings() {
       await removeGeminiApiKey();
       setHasKey(false);
       sileo.success({ title: "API key removed" });
-    } catch (error) {
+    } catch {
       sileo.error({ title: "Failed to remove API key" });
     }
   }, []);
 
-  const handleYoutubeSave = useCallback(async () => {
+  if (isLoading) {
+    return (
+      <div className="py-4 text-center text-muted-foreground text-sm">
+        Loading…
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
+        API Keys
+      </p>
+      <SettingRow
+        description={
+          <>
+            Required for AI image generation.{" "}
+            <button
+              className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
+              onClick={() => openUrl("https://aistudio.google.com/apikey")}
+              type="button"
+            >
+              <ExternalLink className="size-3" />
+              Get your key from Google AI Studio
+            </button>
+          </>
+        }
+        title="Gemini"
+      >
+        {hasKey ? (
+          <Button onClick={handleRemove} size="sm" variant="destructive">
+            <Trash2 className="mr-2 size-4" />
+            Remove
+          </Button>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Input
+              className="w-64"
+              id="gemini-api-key"
+              onChange={(e) => setApiKey(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSave();
+              }}
+              placeholder="Enter your API key"
+              type="password"
+              value={apiKey}
+            />
+            {apiKey.trim().length > 0 && (
+              <Button
+                className="size-8 text-muted-foreground hover:text-foreground"
+                onClick={handleSave}
+                size="icon"
+                variant="ghost"
+              >
+                <Check className="size-4" />
+              </Button>
+            )}
+          </div>
+        )}
+      </SettingRow>
+    </div>
+  );
+}
+
+function ExploreSettings() {
+  const [youtubeKey, setYoutubeKey] = useState("");
+  const [hasYoutubeKey, setHasYoutubeKey] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    getYoutubeApiKey()
+      .then((key) => {
+        setHasYoutubeKey(!!key);
+        setYoutubeKey("");
+      })
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const handleSave = useCallback(async () => {
     if (!youtubeKey.trim()) {
       sileo.error({ title: "Please enter an API key" });
       return;
@@ -281,56 +314,73 @@ function ApiKeySettings() {
       setHasYoutubeKey(true);
       setYoutubeKey("");
       sileo.success({ title: "API key saved securely" });
-    } catch (error) {
+    } catch {
       sileo.error({ title: "Failed to save API key" });
     }
   }, [youtubeKey]);
 
-  const handleYoutubeRemove = useCallback(async () => {
+  const handleRemove = useCallback(async () => {
     try {
       await removeYoutubeApiKey();
       setHasYoutubeKey(false);
       sileo.success({ title: "API key removed" });
-    } catch (error) {
+    } catch {
       sileo.error({ title: "Failed to remove API key" });
     }
   }, []);
 
   if (isLoading) {
     return (
-      <div className="py-8 text-center text-muted-foreground">Loading...</div>
+      <div className="py-8 text-center text-muted-foreground">Loading…</div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <h2 className="pl-2 font-semibold text-lg">Gemini API Key</h2>
-
+      <h2 className="pl-2 font-semibold text-lg">Explore</h2>
       <div className="space-y-4">
-        {hasKey ? (
-          <SettingRow title="API Key">
+        <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
+          API Keys
+        </p>
+        <SettingRow
+          description={
+            <>
+              Required for the Explore page.{" "}
+              <button
+                className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
+                onClick={() =>
+                  openUrl(
+                    "https://console.cloud.google.com/apis/library/youtube.googleapis.com"
+                  )
+                }
+                type="button"
+              >
+                <ExternalLink className="size-3" />
+                Enable YouTube Data API v3 in Google Cloud Console
+              </button>
+            </>
+          }
+          title="YouTube"
+        >
+          {hasYoutubeKey ? (
             <Button onClick={handleRemove} size="sm" variant="destructive">
               <Trash2 className="mr-2 size-4" />
               Remove
             </Button>
-          </SettingRow>
-        ) : (
-          <SettingRow title="API Key">
+          ) : (
             <div className="flex items-center gap-2">
               <Input
                 className="w-64"
-                id="api-key"
-                onChange={(e) => setApiKey(e.target.value)}
+                id="youtube-api-key"
+                onChange={(e) => setYoutubeKey(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleSave();
-                  }
+                  if (e.key === "Enter") handleSave();
                 }}
                 placeholder="Enter your API key"
                 type="password"
-                value={apiKey}
+                value={youtubeKey}
               />
-              {apiKey.trim().length > 0 && (
+              {youtubeKey.trim().length > 0 && (
                 <Button
                   className="size-8 text-muted-foreground hover:text-foreground"
                   onClick={handleSave}
@@ -341,71 +391,30 @@ function ApiKeySettings() {
                 </Button>
               )}
             </div>
-          </SettingRow>
-        )}
-
-        <p className="-mt-2 pl-2 text-muted-foreground text-xs">
-          Required for AI image generation features.{" "}
-          <button
-            className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
-            onClick={() => openUrl("https://aistudio.google.com/apikey")}
-            type="button"
-          >
-            <ExternalLink className="size-3" />
-            Get your API key from Google AI Studio
-          </button>
-        </p>
+          )}
+        </SettingRow>
       </div>
+    </div>
+  );
+}
 
-      <h2 className="pl-2 font-semibold text-lg">YouTube Data API v3 Key</h2>
+function GeneralSettings() {
+  return (
+    <div className="space-y-6">
+      <h2 className="pl-2 font-semibold text-lg">General</h2>
+      <AppearanceSettings />
+      <BillingSettings />
+    </div>
+  );
+}
 
-      <div className="space-y-4">
-        {hasYoutubeKey ? (
-          <SettingRow title="API Key">
-            <Button
-              onClick={handleYoutubeRemove}
-              size="sm"
-              variant="destructive"
-            >
-              <Trash2 className="mr-2 size-4" />
-              Remove
-            </Button>
-          </SettingRow>
-        ) : (
-          <SettingRow title="API Key">
-            <div className="flex items-center gap-2">
-              <Input
-                className="w-64"
-                id="youtube-api-key"
-                onChange={(e) => setYoutubeKey(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleYoutubeSave();
-                  }
-                }}
-                placeholder="Enter your API key"
-                type="password"
-                value={youtubeKey}
-              />
-              {youtubeKey.trim().length > 0 && (
-                <Button
-                  className="size-8 text-muted-foreground hover:text-foreground"
-                  onClick={handleYoutubeSave}
-                  size="icon"
-                  variant="ghost"
-                >
-                  <Check className="size-4" />
-                </Button>
-              )}
-            </div>
-          </SettingRow>
-        )}
-
-        <p className="-mt-2 pl-2 text-muted-foreground text-xs">
-          Required for the Explore page. Get your free key from Google Cloud
-          Console (YouTube Data API v3).
-        </p>
-      </div>
+function AiSettings() {
+  return (
+    <div className="space-y-6">
+      <h2 className="pl-2 font-semibold text-lg">AI</h2>
+      <GeminiKeySection />
+      <ProcessingSettings />
+      <AgentSettings />
     </div>
   );
 }
@@ -418,80 +427,118 @@ function AppearanceSettings() {
     setTheme,
     persistTabs,
     setPersistTabs,
+    rememberWindowBounds,
+    setRememberWindowBounds,
   } = useAppSettingsStore();
 
+  const [launchAtStartup, setLaunchAtStartupState] = useState<boolean | null>(
+    null
+  );
+
+  useEffect(() => {
+    import("@tauri-apps/plugin-autostart").then(({ isEnabled }) => {
+      isEnabled()
+        .then((v) => setLaunchAtStartupState(v))
+        .catch(() => setLaunchAtStartupState(false));
+    });
+  }, []);
+
+  const handleLaunchAtStartup = useCallback(async (enabled: boolean) => {
+    try {
+      const { enable, disable } = await import("@tauri-apps/plugin-autostart");
+      if (enabled) {
+        await enable();
+      } else {
+        await disable();
+      }
+      setLaunchAtStartupState(enabled);
+    } catch {
+      sileo.error({ title: "Failed to update launch at startup" });
+    }
+  }, []);
+
   return (
-    <div className="space-y-6">
-      <h2 className="pl-2 font-semibold text-lg">Appearance</h2>
-
-      <div className="space-y-4">
-        <SettingRow title="Theme">
-          <Select onValueChange={(val: any) => setTheme(val)} value={theme}>
-            <SelectTrigger
-              className="w-32 border-none bg-transparent shadow-none focus:bg-transparent dark:bg-transparent"
-              size="sm"
-            >
-              <SelectValue>
-                {theme === "light" && (
-                  <>
-                    <Sun className="size-4" />
-                    Light
-                  </>
-                )}
-                {theme === "dark" && (
-                  <>
-                    <Moon className="size-4" />
-                    Dark
-                  </>
-                )}
-                {theme === "system" && (
-                  <>
-                    <Monitor className="size-4" />
-                    System
-                  </>
-                )}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="light">
-                <Sun className="size-4" />
-                Light
-              </SelectItem>
-              <SelectItem value="dark">
-                <Moon className="size-4" />
-                Dark
-              </SelectItem>
-              <SelectItem value="system">
-                <Monitor className="size-4" />
-                System
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingRow>
-
-        <div className="pt-4">
-          <p className="mb-4 pl-2 font-medium text-muted-foreground text-xs">
-            Miscellaneous
-          </p>
-          <SettingRow
-            description="Reopen your last open projects when launching the app."
-            title="Restore tabs on startup"
+    <div className="space-y-4">
+      <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
+        Appearance
+      </p>
+      <SettingRow title="Theme">
+        <Select onValueChange={(val: any) => setTheme(val)} value={theme}>
+          <SelectTrigger
+            className="w-32 border-none bg-transparent shadow-none focus:bg-transparent dark:bg-transparent"
+            size="sm"
           >
-            <Switch checked={persistTabs} onCheckedChange={setPersistTabs} />
-          </SettingRow>
-          <div className="h-2" />
-          <SettingRow title="December Snowfall">
-            <Switch
-              checked={showDecemberSnow}
-              onCheckedChange={setShowDecemberSnow}
-            />
-          </SettingRow>
-        </div>
-
-        <p className="-mt-2 pl-2 text-muted-foreground text-xs">
-          Show a festive snowfall effect in the title bar during December.
-        </p>
-      </div>
+            <SelectValue>
+              {theme === "light" && (
+                <>
+                  <Sun className="size-4" />
+                  Light
+                </>
+              )}
+              {theme === "dark" && (
+                <>
+                  <Moon className="size-4" />
+                  Dark
+                </>
+              )}
+              {theme === "system" && (
+                <>
+                  <Monitor className="size-4" />
+                  System
+                </>
+              )}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="light">
+              <Sun className="size-4" />
+              Light
+            </SelectItem>
+            <SelectItem value="dark">
+              <Moon className="size-4" />
+              Dark
+            </SelectItem>
+            <SelectItem value="system">
+              <Monitor className="size-4" />
+              System
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </SettingRow>
+      <SettingRow
+        description="Reopen your last open projects when launching the app."
+        title="Restore tabs on startup"
+      >
+        <Switch checked={persistTabs} onCheckedChange={setPersistTabs} />
+      </SettingRow>
+      <SettingRow
+        description="Save and restore window position and size between sessions."
+        title="Remember window position & size"
+      >
+        <Switch
+          checked={rememberWindowBounds}
+          onCheckedChange={setRememberWindowBounds}
+        />
+      </SettingRow>
+      <SettingRow
+        description="Open Backstage automatically when you log in to your computer."
+        title="Launch at startup"
+      >
+        <Switch
+          checked={launchAtStartup ?? false}
+          disabled={launchAtStartup === null}
+          onCheckedChange={handleLaunchAtStartup}
+        />
+      </SettingRow>
+      <SettingRow
+        description="Show a festive snowfall effect in the title bar during December."
+        title="December Snowfall"
+      >
+        <Switch
+          checked={showDecemberSnow}
+          onCheckedChange={setShowDecemberSnow}
+        />
+      </SettingRow>
     </div>
   );
 }
@@ -796,7 +843,9 @@ function ProcessingSettings() {
 
   return (
     <div className="space-y-6">
-      <h2 className="pl-2 font-semibold text-lg">Processing</h2>
+      <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
+        Processing
+      </p>
 
       <div className="space-y-4">
         {/* Provider selector, hidden in commercial builds without BRIA */}
@@ -853,9 +902,24 @@ function ProcessingSettings() {
           <>
             <SettingRow
               description={
-                hfTokenSaved
-                  ? "Token saved · used for gated model downloads"
-                  : "RMBG-2.0 is gated. Agree to the license on HuggingFace then enter your access token."
+                hfTokenSaved ? (
+                  "Token saved · used for gated model downloads"
+                ) : (
+                  <>
+                    RMBG-2.0 is gated. Agree to the license then enter your
+                    access token.{" "}
+                    <button
+                      className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
+                      onClick={() =>
+                        openUrl("https://huggingface.co/briaai/RMBG-2.0")
+                      }
+                      type="button"
+                    >
+                      <ExternalLink className="size-3" />
+                      Agree &amp; get token
+                    </button>
+                  </>
+                )
               }
               title="HuggingFace Access Token"
             >
@@ -880,7 +944,7 @@ function ProcessingSettings() {
               ) : (
                 <div className="flex items-center gap-2">
                   <Input
-                    className="h-8 w-52 text-xs"
+                    className="w-52"
                     onChange={(e) => setHfTokenState(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleSaveHfToken();
@@ -896,16 +960,6 @@ function ProcessingSettings() {
                   >
                     Save
                   </Button>
-                  <button
-                    className="inline-flex cursor-pointer items-center gap-1 bg-transparent p-0 text-muted-foreground text-xs hover:text-foreground hover:underline"
-                    onClick={() =>
-                      openUrl("https://huggingface.co/briaai/RMBG-2.0")
-                    }
-                    type="button"
-                  >
-                    <ExternalLink className="size-3" />
-                    Agree &amp; get token
-                  </button>
                 </div>
               )}
             </SettingRow>
@@ -1148,29 +1202,26 @@ function BillingSettings() {
   }, [clearLicense]);
 
   return (
-    <div className="space-y-6">
-      <h2 className="pl-2 font-semibold text-lg">Billing & License</h2>
-
-      <div className="space-y-4">
-        <SettingRow
-          description={validatedData?.customerEmail}
-          title="Lifetime License"
-        >
-          <Button onClick={handleManageLicense} size="sm" variant="ghost">
-            <ExternalLink className="mr-2 size-4" />
-            Manage
-          </Button>
-          <Button onClick={handleDeactivate} size="sm" variant="destructive">
-            Deactivate
-          </Button>
-        </SettingRow>
-
-        <p className="-mt-2 pl-2 text-muted-foreground text-xs">
-          To transfer your license to another device, deactivate it here first.
-          You can reactivate it anytime by logging into the portal with your
-          email.
-        </p>
-      </div>
+    <div className="space-y-4">
+      <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
+        Billing &amp; License
+      </p>
+      <SettingRow
+        description={
+          validatedData?.customerEmail
+            ? `${validatedData.customerEmail} · To transfer to another device, deactivate here first and reactivate via the portal.`
+            : "To transfer to another device, deactivate here first and reactivate via the portal."
+        }
+        title="Lifetime License"
+      >
+        <Button onClick={handleManageLicense} size="sm" variant="ghost">
+          <ExternalLink className="mr-2 size-4" />
+          Manage
+        </Button>
+        <Button onClick={handleDeactivate} size="sm" variant="destructive">
+          Deactivate
+        </Button>
+      </SettingRow>
     </div>
   );
 }
@@ -1181,11 +1232,27 @@ function PrivacySettings() {
     setAnalyticsEnabled,
     loggingEnabled,
     setLoggingEnabled,
+    saveSearchHistory,
+    setSaveSearchHistory,
   } = useAppSettingsStore();
 
   return (
     <div className="space-y-6">
       <h2 className="pl-2 font-semibold text-lg">Privacy</h2>
+
+      <div className="space-y-4">
+        <p className="pl-2 font-medium text-muted-foreground text-xs">Search</p>
+
+        <SettingRow
+          description="Save recent searches in Gallery, Explore, and Trash. Up to 10 per page."
+          title="Search History"
+        >
+          <Switch
+            checked={saveSearchHistory}
+            onCheckedChange={setSaveSearchHistory}
+          />
+        </SettingRow>
+      </div>
 
       <div className="space-y-4">
         <p className="pl-2 font-medium text-muted-foreground text-xs">
@@ -1402,6 +1469,15 @@ function DataTransferSettings() {
         /* not yet created */
       }
 
+      try {
+        zip.file(
+          "license.json",
+          await readFile(await join(appData, "license.json"))
+        );
+      } catch {
+        /* not yet created */
+      }
+
       for (const dir of [
         "thumbnails",
         "trash",
@@ -1552,6 +1628,7 @@ function DataTransferSettings() {
       <p className="pl-2 text-muted-foreground text-xs">
         Note: Gemini API key and HuggingFace token are stored in the OS keychain
         and are not included in the backup. Re-enter them after restoring.
+        Launch at startup is a system-level setting and is not transferred.
       </p>
     </div>
   );
@@ -1674,7 +1751,9 @@ function AgentSettings() {
 
   return (
     <div className="space-y-6">
-      <h2 className="pl-2 font-semibold text-lg">Agents</h2>
+      <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
+        Agents
+      </p>
 
       <div className="space-y-3">
         <p className="pl-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
@@ -1694,7 +1773,7 @@ function AgentSettings() {
               }
               value={acpTextGenAgentId ?? "none"}
             >
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-44" size="sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

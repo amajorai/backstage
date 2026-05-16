@@ -18,6 +18,9 @@ const LOGGING_ENABLED_FIELD = "logging_enabled";
 const SEMANTIC_SEARCH_ENABLED_FIELD = "semantic_search_enabled";
 const ACP_AGENTS_FIELD = "acp_agents";
 const ACP_TEXT_GEN_AGENT_ID_FIELD = "acp_text_gen_agent_id";
+const REMEMBER_WINDOW_BOUNDS_FIELD = "remember_window_bounds";
+const SAVE_SEARCH_HISTORY_FIELD = "save_search_history";
+const SHOW_FOLDER_BADGES_FIELD = "show_folder_badges";
 
 export type AppTheme = "light" | "dark" | "system";
 export type BgRemovalQuality = "fast" | "balanced" | "best";
@@ -58,6 +61,9 @@ interface AppSettingsState {
   semanticSearchEnabled: boolean;
   acpAgents: AcpAgent[];
   acpTextGenAgentId: string | null;
+  rememberWindowBounds: boolean;
+  saveSearchHistory: boolean;
+  showFolderBadges: boolean;
   isInitialLoadDone: boolean;
 
   // Actions
@@ -76,6 +82,9 @@ interface AppSettingsState {
   setSemanticSearchEnabled: (enabled: boolean) => Promise<void>;
   setAcpAgents: (agents: AcpAgent[]) => Promise<void>;
   setAcpTextGenAgentId: (id: string | null) => Promise<void>;
+  setRememberWindowBounds: (enabled: boolean) => Promise<void>;
+  setSaveSearchHistory: (enabled: boolean) => Promise<void>;
+  setShowFolderBadges: (enabled: boolean) => Promise<void>;
   loadSettings: () => Promise<void>;
 }
 
@@ -95,6 +104,9 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
   semanticSearchEnabled: false,
   acpAgents: [],
   acpTextGenAgentId: null,
+  rememberWindowBounds: false,
+  saveSearchHistory: true,
+  showFolderBadges: true,
   isInitialLoadDone: false,
 
   setShowDecemberSnow: async (show: boolean) => {
@@ -357,6 +369,57 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
     }
   },
 
+  setRememberWindowBounds: async (enabled: boolean) => {
+    try {
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
+      await store.set(REMEMBER_WINDOW_BOUNDS_FIELD, enabled);
+      await store.save();
+      set({ rememberWindowBounds: enabled });
+    } catch (error) {
+      logger.error(
+        { err: error },
+        "[Settings] Failed to save setting: rememberWindowBounds"
+      );
+    }
+  },
+
+  setSaveSearchHistory: async (enabled: boolean) => {
+    try {
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
+      await store.set(SAVE_SEARCH_HISTORY_FIELD, enabled);
+      await store.save();
+      set({ saveSearchHistory: enabled });
+    } catch (error) {
+      logger.error(
+        { err: error },
+        "[Settings] Failed to save setting: saveSearchHistory"
+      );
+    }
+  },
+
+  setShowFolderBadges: async (enabled: boolean) => {
+    try {
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
+      await store.set(SHOW_FOLDER_BADGES_FIELD, enabled);
+      await store.save();
+      set({ showFolderBadges: enabled });
+    } catch (error) {
+      logger.error(
+        { err: error },
+        "[Settings] Failed to save setting: showFolderBadges"
+      );
+    }
+  },
+
   loadSettings: async () => {
     try {
       logger.info("[Settings] Loading app settings...");
@@ -399,6 +462,15 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
       const acpTextGenAgentId = await store.get<string | null>(
         ACP_TEXT_GEN_AGENT_ID_FIELD
       );
+      const rememberWindowBounds = await store.get<boolean>(
+        REMEMBER_WINDOW_BOUNDS_FIELD
+      );
+      const saveSearchHistory = await store.get<boolean>(
+        SAVE_SEARCH_HISTORY_FIELD
+      );
+      const showFolderBadges = await store.get<boolean>(
+        SHOW_FOLDER_BADGES_FIELD
+      );
 
       const finalTheme = theme ?? "dark";
 
@@ -418,6 +490,9 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
         semanticSearchEnabled: semanticSearchEnabled ?? false,
         acpAgents: acpAgents ?? [],
         acpTextGenAgentId: acpTextGenAgentId ?? null,
+        rememberWindowBounds: rememberWindowBounds ?? false,
+        saveSearchHistory: saveSearchHistory ?? true,
+        showFolderBadges: showFolderBadges ?? true,
         isInitialLoadDone: true,
       });
 

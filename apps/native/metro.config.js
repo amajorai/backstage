@@ -14,6 +14,13 @@ const desktopTargetDir = path.resolve(
   "../../apps/desktop/src-tauri/target"
 );
 
+// Escape regex special chars, then replace path separators with a pattern
+// matching both / and \ so the blockList works on Windows.
+const escapedTargetDir = escapeRegex(desktopTargetDir).replace(
+  /[/\\]+/g,
+  "[/\\\\]"
+);
+
 config.resolver = {
   ...config.resolver,
   blockList: [
@@ -22,7 +29,7 @@ config.resolver = {
       : config.resolver?.blockList
         ? [config.resolver.blockList]
         : []),
-    new RegExp(`^${escapeRegex(desktopTargetDir)}(/.*)?$`),
+    new RegExp(`^${escapedTargetDir}([/\\\\].*)?$`),
   ],
 };
 

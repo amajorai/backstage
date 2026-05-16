@@ -1,5 +1,6 @@
 import {
   CheckSquare,
+  CircleUser,
   FolderOpen,
   FolderPlus,
   GalleryThumbnails,
@@ -17,6 +18,7 @@ import { type GridStateSnapshot, VirtuosoGrid } from "react-virtuoso";
 import { sileo } from "sileo";
 import type { ViewMode } from "@/App";
 import { AddColorBackgroundDialog } from "@/components/editor/AddColorBackgroundDialog";
+import { FolderColorPicker } from "@/components/FolderColorPicker";
 import { EmptyState } from "@/components/gallery/EmptyState";
 import {
   gridComponents,
@@ -101,7 +103,13 @@ export function Gallery({
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<string | null>(
     null
   );
+  const [colorFolderTarget, setColorFolderTarget] = useState<string | null>(
+    null
+  );
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [dragOverFolderPosition, setDragOverFolderPosition] = useState<
+    "before" | "after" | null
+  >(null);
   const [draggingFolderId, setDraggingFolderId] = useState<string | null>(null);
 
   const addToRenameQueue = useAutoRenameQueue((s) => s.addToQueue);
@@ -118,6 +126,7 @@ export function Gallery({
   const deleteFolder = useFolderStore((s) => s.deleteFolder);
   const reorderFolders = useFolderStore((s) => s.reorderFolders);
   const renameFolder = useFolderStore((s) => s.renameFolder);
+  const updateFolderColor = useFolderStore((s) => s.updateFolderColor);
 
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [renameFolderName, setRenameFolderName] = useState("");
@@ -472,15 +481,11 @@ export function Gallery({
               <ContextMenuTrigger asChild>
                 <div
                   className={cn(
-                    "group flex shrink-0 cursor-grab items-center gap-1 rounded-md px-2.5 py-1 text-sm transition-all active:cursor-grabbing",
+                    "group relative flex shrink-0 cursor-grab items-center gap-1 rounded-md px-2.5 py-1 text-sm transition-all active:cursor-grabbing",
                     selectedFolderId === folder.id
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground",
                     draggingFolderId === folder.id && "opacity-40",
-                    dragOverFolderId === folder.id &&
-                      draggingFolderId !== folder.id &&
-                      draggingFolderId !== null &&
-                      "ring-2 ring-dashed ring-primary/60",
                     dragOverFolderId === folder.id &&
                       draggingFolderId === null &&
                       "scale-110 ring-2 ring-primary"
@@ -489,6 +494,7 @@ export function Gallery({
                   onDragEnd={() => {
                     setDraggingFolderId(null);
                     setDragOverFolderId(null);
+                    setDragOverFolderPosition(null);
                   }}
                   onDragEnter={(e) => {
                     e.preventDefault();
@@ -497,12 +503,18 @@ export function Gallery({
                   onDragLeave={(e) => {
                     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                       setDragOverFolderId(null);
+                      setDragOverFolderPosition(null);
                     }
                   }}
                   onDragOver={(e) => {
                     e.preventDefault();
                     e.dataTransfer.dropEffect = "move";
                     setDragOverFolderId(folder.id);
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const midX = rect.left + rect.width / 2;
+                    setDragOverFolderPosition(
+                      e.clientX < midX ? "before" : "after"
+                    );
                   }}
                   onDragStart={(e) => {
                     e.stopPropagation();
@@ -513,7 +525,9 @@ export function Gallery({
                   onDrop={async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    const position = dragOverFolderPosition;
                     setDragOverFolderId(null);
+                    setDragOverFolderPosition(null);
                     setDraggingFolderId(null);
                     const raw = e.dataTransfer.getData("text/plain");
                     if (!raw) return;
@@ -530,9 +544,10 @@ export function Gallery({
                       if (draggedId === folder.id) return;
                       const current = useFolderStore.getState().folders;
                       const without = current.filter((f) => f.id !== draggedId);
-                      const targetIdx = without.findIndex(
+                      let targetIdx = without.findIndex(
                         (f) => f.id === folder.id
                       );
+                      if (position === "after") targetIdx += 1;
                       const dragged = current.find((f) => f.id === draggedId);
                       if (!dragged) return;
                       without.splice(targetIdx, 0, dragged);
@@ -540,6 +555,18 @@ export function Gallery({
                     }
                   }}
                 >
+                  {dragOverFolderId === folder.id &&
+                    draggingFolderId !== null &&
+                    draggingFolderId !== folder.id &&
+                    dragOverFolderPosition === "before" && (
+                      <div className="absolute top-1 bottom-1 -left-1 z-10 w-0.5 rounded-full bg-primary" />
+                    )}
+                  {dragOverFolderId === folder.id &&
+                    draggingFolderId !== null &&
+                    draggingFolderId !== folder.id &&
+                    dragOverFolderPosition === "after" && (
+                      <div className="absolute top-1 -right-1 bottom-1 z-10 w-0.5 rounded-full bg-primary" />
+                    )}
                   <button
                     className="flex items-center gap-1.5"
                     onClick={() =>
@@ -550,9 +577,19 @@ export function Gallery({
                     type="button"
                   >
                     {folder.isCharacterSet ? (
-                      <Users className="size-3.5 shrink-0 text-primary" />
+                      <CircleUser
+                        className="size-3.5 shrink-0"
+                        style={
+                          folder.color ? { color: folder.color } : undefined
+                        }
+                      />
                     ) : (
-                      <FolderOpen className="size-3.5 shrink-0" />
+                      <FolderOpen
+                        className="size-3.5 shrink-0"
+                        style={
+                          folder.color ? { color: folder.color } : undefined
+                        }
+                      />
                     )}
                     {renamingFolderId === folder.id ? (
                       <input
@@ -584,12 +621,17 @@ export function Gallery({
                       folder.name
                     )}
                     <span
-                      className={cn(
-                        "rounded px-1 py-0.5 text-xs tabular-nums",
-                        selectedFolderId === folder.id
-                          ? "bg-primary-foreground/20 text-primary-foreground"
-                          : "bg-muted text-muted-foreground"
-                      )}
+                      className="rounded px-1 py-0.5 text-xs tabular-nums backdrop-blur-sm"
+                      style={{
+                        backgroundColor:
+                          selectedFolderId === folder.id
+                            ? "rgba(255,255,255,0.2)"
+                            : "rgba(128,128,128,0.15)",
+                        color:
+                          selectedFolderId === folder.id
+                            ? "inherit"
+                            : undefined,
+                      }}
                     >
                       {folderCounts[folder.id] ?? 0}
                     </span>
@@ -616,18 +658,23 @@ export function Gallery({
                   </div>
                 </div>
               </ContextMenuTrigger>
-              <ContextMenuContent className="w-40">
+              <ContextMenuContent className="w-44">
                 <ContextMenuItem
-                  onSelect={() => {
+                  onClick={() => {
                     setRenameFolderName(folder.name);
                     setRenamingFolderId(folder.id);
                   }}
                 >
                   Rename
                 </ContextMenuItem>
+                <ContextMenuItem
+                  onClick={() => setColorFolderTarget(folder.id)}
+                >
+                  Change Color
+                </ContextMenuItem>
                 <ContextMenuSeparator />
                 <ContextMenuItem
-                  onSelect={() =>
+                  onClick={() =>
                     useFolderStore
                       .getState()
                       .toggleCharacterSet(folder.id, !folder.isCharacterSet)
@@ -639,7 +686,7 @@ export function Gallery({
                 </ContextMenuItem>
                 <ContextMenuSeparator />
                 <ContextMenuItem
-                  onSelect={() => setDeleteFolderTarget(folder.id)}
+                  onClick={() => setDeleteFolderTarget(folder.id)}
                   variant="destructive"
                 >
                   Delete
@@ -998,6 +1045,34 @@ export function Gallery({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) setColorFolderTarget(null);
+        }}
+        open={colorFolderTarget !== null}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Folder Color</DialogTitle>
+          </DialogHeader>
+          <FolderColorPicker
+            onChange={(color) => {
+              if (colorFolderTarget)
+                updateFolderColor(colorFolderTarget, color);
+              setColorFolderTarget(null);
+            }}
+            value={
+              folders.find((f) => f.id === colorFolderTarget)?.color ?? null
+            }
+          />
+          <DialogFooter>
+            <DialogClose render={<Button variant="ghost" />}>
+              Cancel
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog onOpenChange={setDeleteDialogOpen} open={deleteDialogOpen}>
         <AlertDialogContent>

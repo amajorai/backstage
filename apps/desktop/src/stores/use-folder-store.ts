@@ -2,23 +2,37 @@ import { create } from "zustand";
 import { getDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
 
+export const FOLDER_COLORS = [
+  "#ef4444",
+  "#f97316",
+  "#eab308",
+  "#22c55e",
+  "#14b8a6",
+  "#3b82f6",
+  "#8b5cf6",
+  "#ec4899",
+  "#6b7280",
+] as const;
+
 export interface Folder {
   id: string;
   name: string;
   createdAt: number;
   sortOrder: number;
   isCharacterSet: boolean;
+  color: string | null;
 }
 
 interface FolderState {
   folders: Folder[];
   isLoaded: boolean;
   loadFolders: () => Promise<void>;
-  createFolder: (name: string) => Promise<Folder>;
+  createFolder: (name: string, color?: string | null) => Promise<Folder>;
   renameFolder: (id: string, name: string) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
   reorderFolders: (orderedIds: string[]) => Promise<void>;
   toggleCharacterSet: (id: string, value: boolean) => Promise<void>;
+  updateFolderColor: (id: string, color: string | null) => Promise<void>;
 }
 
 export const useFolderStore = create<FolderState>()((set, get) => ({
@@ -29,14 +43,18 @@ export const useFolderStore = create<FolderState>()((set, get) => ({
     try {
       const db = await getDb();
       const rows = await db.select<
-        (Omit<Folder, "isCharacterSet"> & { isCharacterSet: number })[]
+        (Omit<Folder, "isCharacterSet"> & {
+          isCharacterSet: number;
+          color: string | null;
+        })[]
       >(
-        "SELECT id, name, createdAt, sortOrder, isCharacterSet FROM folders ORDER BY sortOrder ASC, createdAt ASC"
+        "SELECT id, name, createdAt, sortOrder, isCharacterSet, color FROM folders ORDER BY sortOrder ASC, createdAt ASC"
       );
       set({
         folders: rows.map((r) => ({
           ...r,
           isCharacterSet: r.isCharacterSet === 1,
+          color: r.color ?? null,
         })),
         isLoaded: true,
       });
@@ -46,7 +64,7 @@ export const useFolderStore = create<FolderState>()((set, get) => ({
     }
   },
 
-  createFolder: async (name) => {
+  createFolder: async (name, color = null) => {
     const id = crypto.randomUUID();
     const createdAt = Date.now();
     const sortOrder = get().folders.length;
@@ -56,13 +74,14 @@ export const useFolderStore = create<FolderState>()((set, get) => ({
       createdAt,
       sortOrder,
       isCharacterSet: false,
+      color,
     };
     set((s) => ({ folders: [...s.folders, folder] }));
     try {
       const db = await getDb();
       await db.execute(
-        "INSERT INTO folders (id, name, createdAt, sortOrder) VALUES ($1, $2, $3, $4)",
-        [id, name, createdAt, sortOrder]
+        "INSERT INTO folders (id, name, createdAt, sortOrder, color) VALUES ($1, $2, $3, $4, $5)",
+        [id, name, createdAt, sortOrder, color]
       );
       logger.info({ id, name }, "[Folders] Created");
     } catch (error) {
@@ -126,6 +145,22 @@ export const useFolderStore = create<FolderState>()((set, get) => ({
       logger.info({ id, value }, "[Folders] Character set toggled");
     } catch (error) {
       logger.error({ err: error }, "[Folders] Failed to toggle character set");
+    }
+  },
+
+  updateFolderColor: async (id, color) => {
+    set((s) => ({
+      folders: s.folders.map((f) => (f.id === id ? { ...f, color } : f)),
+    }));
+    try {
+      const db = await getDb();
+      await db.execute("UPDATE folders SET color = $1 WHERE id = $2", [
+        color,
+        id,
+      ]);
+      logger.info({ id, color }, "[Folders] Color updated");
+    } catch (error) {
+      logger.error({ err: error }, "[Folders] Failed to update color");
     }
   },
 

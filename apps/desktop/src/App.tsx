@@ -3,8 +3,10 @@ import { sileo } from "sileo";
 import { AutoRenameQueue } from "@/components/AutoRenameQueue";
 import { BackgroundRemovalQueue } from "@/components/BackgroundRemovalQueue";
 import { BottomToolbar } from "@/components/BottomToolbar";
+import { ExplorePage } from "@/components/ExplorePage";
 import { ExportDialog } from "@/components/ExportDialog";
 import { TabBar } from "@/components/editor/TabBar";
+import { FolderColorPicker } from "@/components/FolderColorPicker";
 import { Gallery } from "@/components/Gallery";
 import { GeminiImagePage } from "@/components/GeminiImagePage";
 import { NewProjectDialog } from "@/components/gallery/NewProjectDialog";
@@ -26,6 +28,8 @@ import { ResizablePanel } from "@/components/ui/resizable-panel";
 import { Toaster } from "@/components/ui/sonner";
 import { VideoExtractor } from "@/components/VideoExtractor";
 import { useAppUpdater } from "@/hooks/use-app-updater";
+import { usePersistedViewMode } from "@/hooks/use-persisted-view-mode";
+import { useWindowBounds } from "@/hooks/use-window-bounds";
 import { setAxiomLoggingEnabled } from "@/lib/logger";
 import { runMigrations } from "@/lib/migration";
 import { initPostHog, trackPage } from "@/lib/posthog";
@@ -48,13 +52,22 @@ function UpdateChecker() {
   return null;
 }
 
+function WindowBoundsManager() {
+  useWindowBounds();
+  return null;
+}
+
 export default function App() {
   const [page, setPage] = useState<Page>("gallery");
-  const [viewMode, setViewMode] = useState<ViewMode>("4");
+  const [viewMode, setViewMode] = usePersistedViewMode(
+    "view-mode:gallery",
+    "4"
+  );
   const [showExtractor, setShowExtractor] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [newFolderColor, setNewFolderColor] = useState<string | null>(null);
   const [exportingThumbnail, setExportingThumbnail] =
     useState<ThumbnailItem | null>(null);
   const [exportingThumbnails, setExportingThumbnails] = useState<
@@ -293,10 +306,10 @@ export default function App() {
               minWidth={400}
               side="right"
             >
-              <div className="flex h-full flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
-                {editorRightPanel === "settings" ? (
-                  <SettingsPage onClose={() => setEditorRightPanel(null)} />
-                ) : (
+              {editorRightPanel === "settings" ? (
+                <SettingsPage onClose={() => setEditorRightPanel(null)} />
+              ) : (
+                <div className="flex h-full flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
                   <GeminiImagePage
                     canvasHeight={aiCanvasHeight}
                     canvasWidth={aiCanvasWidth}
@@ -304,9 +317,10 @@ export default function App() {
                     onClose={handleCloseAiGenerate}
                     onSaveAsImage={handleSaveAiImage}
                     onSaveAsLayer={handleSaveAiLayer}
+                    onSettings={() => setEditorRightPanel("settings")}
                   />
-                )}
-              </div>
+                </div>
+              )}
             </ResizablePanel>
           )}
         </div>
@@ -323,6 +337,7 @@ export default function App() {
               onClose={handleCloseAiGenerate}
               onSaveAsImage={handleSaveAiImage}
               onSaveAsLayer={undefined}
+              onSettings={() => setPage("settings")}
               remixSourceUrl={remixSourceUrl ?? undefined}
               remixTitle={remixTitle ?? undefined}
             />
@@ -331,26 +346,21 @@ export default function App() {
 
       {/* Explore */}
       {page === "explore" && !editorVisible && (
-        <div className={contentClassWithBottom}>
-          <ExplorePage
-            onClose={() => setPage("gallery")}
-            onRemix={handleRemix}
-          />
-        </div>
+        <ExplorePage
+          onClose={() => setPage("gallery")}
+          onRemix={handleRemix}
+          onSettings={() => setPage("settings")}
+        />
       )}
 
       {/* Trash */}
       {page === "trash" && !editorVisible && (
-        <div className={contentClassWithBottom}>
-          <TrashPage onClose={() => setPage("gallery")} />
-        </div>
+        <TrashPage onClose={() => setPage("gallery")} />
       )}
 
       {/* Settings */}
       {page === "settings" && !editorVisible && (
-        <div className={contentClassWithBottom}>
-          <SettingsPage onClose={() => setPage("gallery")} />
-        </div>
+        <SettingsPage onClose={() => setPage("gallery")} />
       )}
 
       {showGallery && (
@@ -394,7 +404,10 @@ export default function App() {
       <Dialog
         onOpenChange={(open) => {
           setNewFolderOpen(open);
-          if (!open) setNewFolderName("");
+          if (!open) {
+            setNewFolderName("");
+            setNewFolderColor(null);
+          }
         }}
         open={newFolderOpen}
       >
@@ -409,16 +422,21 @@ export default function App() {
               if (e.key === "Enter" && newFolderName.trim()) {
                 await useFolderStore
                   .getState()
-                  .createFolder(newFolderName.trim());
+                  .createFolder(newFolderName.trim(), newFolderColor);
                 sileo.success({
                   title: `Folder "${newFolderName.trim()}" created`,
                 });
                 setNewFolderName("");
+                setNewFolderColor(null);
                 setNewFolderOpen(false);
               }
             }}
             placeholder="Folder name"
             value={newFolderName}
+          />
+          <FolderColorPicker
+            onChange={setNewFolderColor}
+            value={newFolderColor}
           />
           <DialogFooter>
             <DialogClose render={<Button variant="ghost" />}>
@@ -430,11 +448,12 @@ export default function App() {
                 if (!newFolderName.trim()) return;
                 await useFolderStore
                   .getState()
-                  .createFolder(newFolderName.trim());
+                  .createFolder(newFolderName.trim(), newFolderColor);
                 sileo.success({
                   title: `Folder "${newFolderName.trim()}" created`,
                 });
                 setNewFolderName("");
+                setNewFolderColor(null);
                 setNewFolderOpen(false);
               }}
             >
@@ -447,6 +466,7 @@ export default function App() {
       <BackgroundRemovalQueue />
       <AutoRenameQueue />
       <UpdateChecker />
+      <WindowBoundsManager />
     </div>
   );
 }

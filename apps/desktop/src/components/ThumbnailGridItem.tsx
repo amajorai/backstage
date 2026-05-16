@@ -1,4 +1,5 @@
 import {
+  CircleUser,
   Copy,
   Download,
   FolderOpen,
@@ -26,6 +27,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import type { Folder } from "@/stores/use-folder-store";
 import {
   type ThumbnailItem,
@@ -67,6 +69,7 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
   onNewFolderClick,
   folders,
 }: ThumbnailGridItemProps) {
+  const showFolderBadges = useAppSettingsStore((s) => s.showFolderBadges);
   const isSelectionMode = useSelectionStore((s) => s.isSelectionMode);
   const selectedIds = useSelectionStore((s) => s.selectedIds);
   const toggleSelection = useSelectionStore((s) => s.toggleSelection);
@@ -157,6 +160,10 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
   ]);
 
   const isSelected = selectedIds.has(thumbnail.id);
+  const folderForBadge =
+    showFolderBadges && thumbnail.folderId
+      ? (folders.find((f) => f.id === thumbnail.folderId) ?? null)
+      : null;
 
   const wiggleClass =
     itemIndex % 2 === 0 ? "animate-wiggle" : "animate-wiggle-delayed";
@@ -243,6 +250,33 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
             isSelected={isSelected}
             isSelectionMode={isSelectionMode}
           />
+
+          {folderForBadge && (
+            <div className="pointer-events-none absolute bottom-2 left-2 flex items-center gap-1.5 rounded-md bg-black/60 px-2 py-1 backdrop-blur-sm">
+              {folderForBadge.isCharacterSet ? (
+                <CircleUser
+                  className="size-3 shrink-0 text-white"
+                  style={
+                    folderForBadge.color
+                      ? { color: folderForBadge.color }
+                      : undefined
+                  }
+                />
+              ) : (
+                <FolderOpen
+                  className="size-3 shrink-0 text-white"
+                  style={
+                    folderForBadge.color
+                      ? { color: folderForBadge.color }
+                      : undefined
+                  }
+                />
+              )}
+              <span className="max-w-[100px] truncate font-medium text-white text-xs leading-none">
+                {folderForBadge.name}
+              </span>
+            </div>
+          )}
 
           {/* Gradient overlay with actions */}
           <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/40 to-transparent opacity-0 transition-opacity group-hover:opacity-100">
