@@ -69,6 +69,8 @@ import {
 import { getHfToken, removeHfToken, setHfToken } from "@/lib/hf-store";
 import { POLAR_CONFIG } from "@/lib/polar-config";
 import {
+  type AcpAgent,
+  type AcpAgentEnvVar,
   type BgRemovalProvider,
   type BgRemovalQuality,
   useAppSettingsStore,
@@ -146,6 +148,12 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
             >
               Data Transfer
             </TabsTrigger>
+            <TabsTrigger
+              className="justify-start border-none px-3 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none"
+              value="agents"
+            >
+              Agents
+            </TabsTrigger>
           </TabsList>
 
           {/* Content area */}
@@ -182,6 +190,10 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
               <TabsContent className="mt-0" value="data-transfer">
                 <DataTransferSettings />
               </TabsContent>
+
+              <TabsContent className="mt-0" value="agents">
+                <AgentSettings />
+              </TabsContent>
             </div>
           </div>
         </Tabs>
@@ -217,14 +229,21 @@ function ApiKeySettings() {
   const [hasKey, setHasKey] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [youtubeKey, setYoutubeKey] = useState("");
+  const [hasYoutubeKey, setHasYoutubeKey] = useState(false);
+
   useEffect(() => {
     setIsLoading(true);
-    getGeminiApiKey()
-      .then((key) => {
+    Promise.all([
+      getGeminiApiKey().then((key) => {
         setHasKey(!!key);
         setApiKey("");
-      })
-      .finally(() => setIsLoading(false));
+      }),
+      getYoutubeApiKey().then((key) => {
+        setHasYoutubeKey(!!key);
+        setYoutubeKey("");
+      }),
+    ]).finally(() => setIsLoading(false));
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -246,6 +265,31 @@ function ApiKeySettings() {
     try {
       await removeGeminiApiKey();
       setHasKey(false);
+      sileo.success({ title: "API key removed" });
+    } catch (error) {
+      sileo.error({ title: "Failed to remove API key" });
+    }
+  }, []);
+
+  const handleYoutubeSave = useCallback(async () => {
+    if (!youtubeKey.trim()) {
+      sileo.error({ title: "Please enter an API key" });
+      return;
+    }
+    try {
+      await setYoutubeApiKey(youtubeKey.trim());
+      setHasYoutubeKey(true);
+      setYoutubeKey("");
+      sileo.success({ title: "API key saved securely" });
+    } catch (error) {
+      sileo.error({ title: "Failed to save API key" });
+    }
+  }, [youtubeKey]);
+
+  const handleYoutubeRemove = useCallback(async () => {
+    try {
+      await removeYoutubeApiKey();
+      setHasYoutubeKey(false);
       sileo.success({ title: "API key removed" });
     } catch (error) {
       sileo.error({ title: "Failed to remove API key" });
@@ -310,6 +354,56 @@ function ApiKeySettings() {
             <ExternalLink className="size-3" />
             Get your API key from Google AI Studio
           </button>
+        </p>
+      </div>
+
+      <h2 className="pl-2 font-semibold text-lg">YouTube Data API v3 Key</h2>
+
+      <div className="space-y-4">
+        {hasYoutubeKey ? (
+          <SettingRow title="API Key">
+            <Button
+              onClick={handleYoutubeRemove}
+              size="sm"
+              variant="destructive"
+            >
+              <Trash2 className="mr-2 size-4" />
+              Remove
+            </Button>
+          </SettingRow>
+        ) : (
+          <SettingRow title="API Key">
+            <div className="flex items-center gap-2">
+              <Input
+                className="w-64"
+                id="youtube-api-key"
+                onChange={(e) => setYoutubeKey(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleYoutubeSave();
+                  }
+                }}
+                placeholder="Enter your API key"
+                type="password"
+                value={youtubeKey}
+              />
+              {youtubeKey.trim().length > 0 && (
+                <Button
+                  className="size-8 text-muted-foreground hover:text-foreground"
+                  onClick={handleYoutubeSave}
+                  size="icon"
+                  variant="ghost"
+                >
+                  <Check className="size-4" />
+                </Button>
+              )}
+            </div>
+          </SettingRow>
+        )}
+
+        <p className="-mt-2 pl-2 text-muted-foreground text-xs">
+          Required for the Explore page. Get your free key from Google Cloud
+          Console (YouTube Data API v3).
         </p>
       </div>
     </div>
@@ -1459,6 +1553,315 @@ function DataTransferSettings() {
         Note: Gemini API key and HuggingFace token are stored in the OS keychain
         and are not included in the backup. Re-enter them after restoring.
       </p>
+    </div>
+  );
+}
+
+const AGENT_PRESETS: Pick<AcpAgent, "name" | "command" | "args" | "envVars">[] =
+  [
+    { name: "Claude Code", command: "claude", args: ["--acp"], envVars: [] },
+    { name: "OpenAI Codex", command: "codex", args: ["--acp"], envVars: [] },
+    { name: "Cursor", command: "cursor-agent", args: ["--acp"], envVars: [] },
+  ];
+
+function serializeEnvVars(vars: AcpAgentEnvVar[]): string {
+  return vars.map((v) => `${v.key}=${v.value}`).join("\n");
+}
+
+function parseEnvVars(raw: string): AcpAgentEnvVar[] {
+  return raw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.includes("="))
+    .map((line) => {
+      const eqIdx = line.indexOf("=");
+      return { key: line.slice(0, eqIdx).trim(), value: line.slice(eqIdx + 1) };
+    });
+}
+
+function AgentSettings() {
+  const { acpAgents, acpTextGenAgentId, setAcpAgents, setAcpTextGenAgentId } =
+    useAppSettingsStore();
+
+  const [isAdding, setIsAdding] = useState(false);
+  const [editingAgent, setEditingAgent] = useState<AcpAgent | null>(null);
+  const [formName, setFormName] = useState("");
+  const [formCommand, setFormCommand] = useState("");
+  const [formArgs, setFormArgs] = useState("");
+  const [formEnvVars, setFormEnvVars] = useState("");
+
+  const resetForm = useCallback(() => {
+    setIsAdding(false);
+    setEditingAgent(null);
+    setFormName("");
+    setFormCommand("");
+    setFormArgs("");
+    setFormEnvVars("");
+  }, []);
+
+  const handleEdit = useCallback((agent: AcpAgent) => {
+    setEditingAgent(agent);
+    setIsAdding(true);
+    setFormName(agent.name);
+    setFormCommand(agent.command);
+    setFormArgs(agent.args.join(" "));
+    setFormEnvVars(serializeEnvVars(agent.envVars));
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    if (!(formName.trim() && formCommand.trim())) {
+      sileo.error({ title: "Name and command are required" });
+      return;
+    }
+    const envVars = parseEnvVars(formEnvVars);
+    const args = formArgs.trim() ? formArgs.trim().split(/\s+/) : [];
+
+    let updated: AcpAgent[];
+    if (editingAgent) {
+      updated = acpAgents.map((a) =>
+        a.id === editingAgent.id
+          ? {
+              ...a,
+              name: formName.trim(),
+              command: formCommand.trim(),
+              args,
+              envVars,
+            }
+          : a
+      );
+    } else {
+      const newAgent: AcpAgent = {
+        id: crypto.randomUUID(),
+        name: formName.trim(),
+        command: formCommand.trim(),
+        args,
+        envVars,
+      };
+      updated = [...acpAgents, newAgent];
+    }
+
+    await setAcpAgents(updated);
+    sileo.success({ title: editingAgent ? "Agent updated" : "Agent added" });
+    resetForm();
+  }, [
+    formName,
+    formCommand,
+    formArgs,
+    formEnvVars,
+    editingAgent,
+    acpAgents,
+    setAcpAgents,
+    resetForm,
+  ]);
+
+  const handleDelete = useCallback(
+    async (id: string) => {
+      await setAcpAgents(acpAgents.filter((a) => a.id !== id));
+      if (acpTextGenAgentId === id) {
+        await setAcpTextGenAgentId(null);
+      }
+      sileo.success({ title: "Agent removed" });
+    },
+    [acpAgents, acpTextGenAgentId, setAcpAgents, setAcpTextGenAgentId]
+  );
+
+  const applyPreset = useCallback((preset: (typeof AGENT_PRESETS)[0]) => {
+    setFormName(preset.name);
+    setFormCommand(preset.command);
+    setFormArgs(preset.args.join(" "));
+    setFormEnvVars(serializeEnvVars(preset.envVars));
+  }, []);
+
+  return (
+    <div className="space-y-6">
+      <h2 className="pl-2 font-semibold text-lg">Agents</h2>
+
+      <div className="space-y-3">
+        <p className="pl-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+          Text generation
+        </p>
+        <div className="rounded-lg bg-muted/50 p-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <p className="font-medium">Active agent</p>
+              <p className="text-muted-foreground text-sm">
+                Used for auto-rename and other text tasks
+              </p>
+            </div>
+            <Select
+              onValueChange={(v) =>
+                setAcpTextGenAgentId(v === "none" ? null : v)
+              }
+              value={acpTextGenAgentId ?? "none"}
+            >
+              <SelectTrigger className="w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Gemini (default)</SelectItem>
+                {acpAgents.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <p className="pl-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+          Configured agents
+        </p>
+
+        {acpAgents.length === 0 && !isAdding && (
+          <p className="pl-2 text-muted-foreground text-sm">
+            No agents configured yet.
+          </p>
+        )}
+
+        {acpAgents.map((agent) => (
+          <div
+            className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3"
+            key={agent.id}
+          >
+            <div className="min-w-0">
+              <p className="font-medium text-sm">{agent.name}</p>
+              <p className="truncate text-muted-foreground text-xs">
+                {agent.command} {agent.args.join(" ")}
+              </p>
+            </div>
+            <div className="ml-2 flex shrink-0 items-center gap-1">
+              <Button
+                onClick={() => handleEdit(agent)}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <Wand2 className="size-4" />
+              </Button>
+              <Button
+                onClick={() => handleDelete(agent.id)}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <Trash2 className="size-4 text-destructive" />
+              </Button>
+            </div>
+          </div>
+        ))}
+
+        {isAdding ? (
+          <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
+            <p className="font-medium text-sm">
+              {editingAgent ? "Edit agent" : "Add agent"}
+            </p>
+
+            {!editingAgent && (
+              <div className="flex flex-wrap gap-2">
+                {AGENT_PRESETS.map((p) => (
+                  <Button
+                    key={p.name}
+                    onClick={() => applyPreset(p)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    {p.name}
+                  </Button>
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label
+                className="text-muted-foreground text-xs"
+                htmlFor="agent-name"
+              >
+                Name
+              </label>
+              <Input
+                id="agent-name"
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder="Claude Code"
+                value={formName}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                className="text-muted-foreground text-xs"
+                htmlFor="agent-command"
+              >
+                Command
+              </label>
+              <Input
+                id="agent-command"
+                onChange={(e) => setFormCommand(e.target.value)}
+                placeholder="claude"
+                value={formCommand}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                className="text-muted-foreground text-xs"
+                htmlFor="agent-args"
+              >
+                Arguments{" "}
+                <span className="text-muted-foreground/60">
+                  (space-separated)
+                </span>
+              </label>
+              <Input
+                id="agent-args"
+                onChange={(e) => setFormArgs(e.target.value)}
+                placeholder="--acp"
+                value={formArgs}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                className="text-muted-foreground text-xs"
+                htmlFor="agent-env"
+              >
+                Environment variables{" "}
+                <span className="text-muted-foreground/60">
+                  (KEY=VALUE, one per line)
+                </span>
+              </label>
+              <textarea
+                className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 font-mono text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                id="agent-env"
+                onChange={(e) => setFormEnvVars(e.target.value)}
+                placeholder={
+                  "ANTHROPIC_API_KEY=sk-ant-...\nCLAUDE_CODE_MAX_THINKING_TOKENS=5000"
+                }
+                rows={3}
+                value={formEnvVars}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <Button onClick={resetForm} size="sm" variant="ghost">
+                Cancel
+              </Button>
+              <Button onClick={handleSave} size="sm">
+                Save
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            className="ml-2"
+            onClick={() => setIsAdding(true)}
+            size="sm"
+            variant="outline"
+          >
+            + Add agent
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

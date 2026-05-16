@@ -4,6 +4,8 @@ use tauri_plugin_decorum::WebviewWindowExt;
 // Declare modules
 #[cfg(feature = "bria")]
 pub mod background_removal;
+pub mod acp;
+pub mod embeddings;
 pub mod secure_storage;
 pub mod security;
 
@@ -99,9 +101,17 @@ pub fn run() {
             secure_storage::init_secure_storage(&app_name, &app_data_dir)
                 .expect("Failed to initialize secure storage");
 
+            // Initialize Embedding DB (sqlite-vec)
+            let embedding_conn = embeddings::init_embedding_db(&app_data_dir)
+                .expect("Failed to initialize embedding database");
+            app.manage(embeddings::EmbeddingDb(std::sync::Mutex::new(
+                embedding_conn,
+            )));
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            acp::acp_prompt,
             secure_storage::secure_storage_store,
             secure_storage::secure_storage_retrieve,
             secure_storage::secure_storage_remove_encrypted,
@@ -110,6 +120,14 @@ pub fn run() {
             secure_storage::secure_storage_retrieve_batch,
             secure_storage::secure_storage_list_keys,
             secure_storage::secure_storage_clear_all,
+            embeddings::store_embedding,
+            embeddings::mark_embedding_failed,
+            embeddings::delete_embedding,
+            embeddings::delete_embeddings_batch,
+            embeddings::search_similar_embeddings,
+            embeddings::get_embedded_project_ids,
+            embeddings::get_failed_embedding_ids,
+            embeddings::get_embedding_stats,
             fetch_as_base64,
             is_bria_available,
             migrate_app_data,

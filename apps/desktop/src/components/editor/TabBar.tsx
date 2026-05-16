@@ -33,13 +33,14 @@ import { useEditorStore } from "@/stores/use-editor-store";
 import type { TabEntry } from "@/stores/use-tabs-store";
 import { useTabsStore } from "@/stores/use-tabs-store";
 
-type ActivePage = "gallery" | "ai-generate" | "trash" | "settings";
+type ActivePage = "gallery" | "ai-generate" | "trash" | "settings" | "explore";
 
 const PAGE_LABELS: Record<ActivePage, string> = {
   gallery: "Gallery",
   "ai-generate": "Generate",
   trash: "Trash",
   settings: "Settings",
+  explore: "Explore",
 };
 
 const PAGE_ICONS: Record<ActivePage, React.ReactNode> = {
@@ -47,6 +48,7 @@ const PAGE_ICONS: Record<ActivePage, React.ReactNode> = {
   "ai-generate": <Sparkles className="size-3 shrink-0" />,
   trash: <Trash2 className="size-3 shrink-0" />,
   settings: <Settings className="size-3 shrink-0" />,
+  explore: <Compass className="size-3 shrink-0" />,
 };
 
 const noDrag = { WebkitAppRegion: "no-drag" } as React.CSSProperties;

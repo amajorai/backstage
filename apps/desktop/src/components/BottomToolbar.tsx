@@ -37,6 +37,7 @@ interface BottomToolbarProps {
   onNewFolderClick: () => void;
   onAiGenerateClick: () => void;
   onExportSelected?: () => void;
+  onExploreClick?: () => void;
 }
 
 export function BottomToolbar({
@@ -49,6 +50,7 @@ export function BottomToolbar({
   onNewFolderClick,
   onAiGenerateClick,
   onExportSelected,
+  onExploreClick,
 }: BottomToolbarProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -201,6 +203,68 @@ export function BottomToolbar({
   const searchQuery = useGalleryUIStore((s) => s.searchQuery);
   const setSearchQuery = useGalleryUIStore((s) => s.setSearchQuery);
   const filteredCount = useGalleryUIStore((s) => s.filteredCount);
+  const searchMode = useGalleryUIStore((s) => s.searchMode);
+  const setSearchMode = useGalleryUIStore((s) => s.setSearchMode);
+  const setSemanticResultIds = useGalleryUIStore((s) => s.setSemanticResultIds);
+  const setIsSemanticSearching = useGalleryUIStore(
+    (s) => s.setIsSemanticSearching
+  );
+  const isSemanticSearching = useGalleryUIStore((s) => s.isSemanticSearching);
+
+  const semanticSearchEnabled = useAppSettingsStore(
+    (s) => s.semanticSearchEnabled
+  );
+  const performSemanticSearch = useEmbeddingStore(
+    (s) => s.performSemanticSearch
+  );
+
+  // Debounced semantic search trigger
+  const semanticDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  useEffect(() => {
+    if (!semanticSearchEnabled || searchMode !== "semantic") return;
+
+    if (semanticDebounceRef.current) clearTimeout(semanticDebounceRef.current);
+
+    if (!searchQuery.trim()) {
+      setSemanticResultIds(null);
+      setIsSemanticSearching(false);
+      return;
+    }
+
+    setIsSemanticSearching(true);
+    semanticDebounceRef.current = setTimeout(async () => {
+      const ids = await performSemanticSearch(searchQuery);
+      setSemanticResultIds(ids);
+      setIsSemanticSearching(false);
+    }, 500);
+
+    return () => {
+      if (semanticDebounceRef.current)
+        clearTimeout(semanticDebounceRef.current);
+    };
+  }, [
+    searchQuery,
+    searchMode,
+    semanticSearchEnabled,
+    performSemanticSearch,
+    setSemanticResultIds,
+    setIsSemanticSearching,
+  ]);
+
+  // Reset semantic results when mode switches or feature disabled
+  useEffect(() => {
+    if (searchMode !== "semantic" || !semanticSearchEnabled) {
+      setSemanticResultIds(null);
+      setIsSemanticSearching(false);
+    }
+  }, [
+    searchMode,
+    semanticSearchEnabled,
+    setSemanticResultIds,
+    setIsSemanticSearching,
+  ]);
 
   const showDefaultToolbar = !isSelectionMode || selectedIds.size === 0;
 
@@ -233,17 +297,25 @@ export function BottomToolbar({
 
       {/* Search — center */}
       {showDefaultToolbar && (
-        <div className="absolute left-1/2 -translate-x-1/2">
+        <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1.5">
           <div className="relative">
-            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/50" />
+            {isSemanticSearching ? (
+              <Loader2 className="absolute top-1/2 left-3 size-4 -translate-y-1/2 animate-spin text-primary/60" />
+            ) : (
+              <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/50" />
+            )}
             <Input
               className="h-8 w-72 border-none bg-background pr-8 pl-9 transition-all focus-visible:w-96 focus-visible:ring-1 focus-visible:ring-primary/20"
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search projects..."
+              placeholder={
+                semanticSearchEnabled && searchMode === "semantic"
+                  ? "Describe what you're looking for..."
+                  : "Search projects..."
+              }
               type="text"
               value={searchQuery}
             />
-            {filteredCount > 0 && (
+            {filteredCount > 0 && searchMode === "text" && (
               <Badge
                 className="absolute top-1/2 right-2 h-5 -translate-y-1/2 border-none bg-primary/10 px-1.5 font-bold text-[10px] text-primary"
                 variant="outline"
@@ -252,6 +324,34 @@ export function BottomToolbar({
               </Badge>
             )}
           </div>
+          {semanticSearchEnabled && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  className={
+                    searchMode === "semantic"
+                      ? "text-primary"
+                      : "text-muted-foreground"
+                  }
+                  onClick={() =>
+                    setSearchMode(
+                      searchMode === "semantic" ? "text" : "semantic"
+                    )
+                  }
+                  size="icon-sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <Zap className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {searchMode === "semantic"
+                  ? "Switch to text search"
+                  : "Switch to semantic search"}
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       )}
 
@@ -293,6 +393,15 @@ export function BottomToolbar({
               variant="ghost"
             >
               <Sparkles className="size-4" />
+            </Button>
+            <Button
+              aria-label="Explore YouTube thumbnails"
+              onClick={onExploreClick}
+              size="icon-sm"
+              title="Explore"
+              variant="ghost"
+            >
+              <Compass className="size-4" />
             </Button>
             <Button
               aria-label="Settings"

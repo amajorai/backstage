@@ -9,7 +9,35 @@ import {
   saveLayerData,
   saveThumbnail,
 } from "@/lib/thumbnail-storage";
+import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import { useTrashStore } from "@/stores/use-trash-store";
+
+function scheduleEmbedIfEnabled(id: string) {
+  if (!useAppSettingsStore.getState().semanticSearchEnabled) return;
+  // Lazy import to avoid bundling embedding code when not needed
+  import("@/stores/use-embedding-store").then(({ useEmbeddingStore }) => {
+    useEmbeddingStore.getState().scheduleEmbed(id);
+  });
+}
+
+function scheduleRemoveEmbedding(id: string) {
+  import("@/stores/use-embedding-store").then(({ useEmbeddingStore }) => {
+    useEmbeddingStore
+      .getState()
+      .removeEmbedding(id)
+      .catch(() => {});
+  });
+}
+
+function scheduleRemoveEmbeddingsBatch(ids: string[]) {
+  if (ids.length === 0) return;
+  import("@/stores/use-embedding-store").then(({ useEmbeddingStore }) => {
+    useEmbeddingStore
+      .getState()
+      .removeEmbeddingsBatch(ids)
+      .catch(() => {});
+  });
+}
 
 // ThumbnailItem no longer stores dataUrl - images are loaded on demand
 export interface ThumbnailItem {
@@ -134,6 +162,7 @@ export const useGalleryStore = create<GalleryState>()((set, get) => ({
         [id, itemName, now, now]
       );
       logger.info({ thumbnailId: id }, "[Gallery] Thumbnail saved");
+      scheduleEmbedIfEnabled(id);
     } catch (error) {
       logger.error({ err: error }, "[Gallery] Failed to save thumbnail");
       set({ dbError: String(error) });
@@ -358,6 +387,7 @@ export const useGalleryStore = create<GalleryState>()((set, get) => ({
           [name, canvasWidth, canvasHeight, now, projectId]
         );
         logger.info({ projectId }, "[Gallery] Project updated");
+        scheduleEmbedIfEnabled(projectId);
       } catch (error) {
         logger.error({ err: error }, "[Gallery] Failed to update project");
         set({ dbError: String(error) });
@@ -385,6 +415,7 @@ export const useGalleryStore = create<GalleryState>()((set, get) => ({
           [projectId, name, now, now, canvasWidth, canvasHeight]
         );
         logger.info({ projectId }, "[Gallery] Project saved");
+        scheduleEmbedIfEnabled(projectId);
       } catch (error) {
         logger.error({ err: error }, "[Gallery] Failed to save project");
         set({ dbError: String(error) });
@@ -469,6 +500,7 @@ export const useGalleryStore = create<GalleryState>()((set, get) => ({
     try {
       const database = await getDb();
       await database.execute("DELETE FROM thumbnails WHERE id = $1", [id]);
+      scheduleRemoveEmbedding(id);
     } catch (error) {
       logger.error({ err: error }, "[Gallery] Failed to delete");
       set({ dbError: String(error) });
@@ -531,6 +563,7 @@ export const useGalleryStore = create<GalleryState>()((set, get) => ({
         { count: ids.length },
         "[Gallery] Batch move to trash completed"
       );
+      scheduleRemoveEmbeddingsBatch(ids);
     } catch (error) {
       logger.error({ err: error }, "[Gallery] Failed to batch delete");
       try {

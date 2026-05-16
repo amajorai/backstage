@@ -1,6 +1,8 @@
 import type { GridStateSnapshot } from "react-virtuoso";
 import { create } from "zustand";
 
+export type SearchMode = "text" | "semantic";
+
 interface GalleryUIState {
   lastClickedIndex: number | null;
   setLastClickedIndex: (index: number | null) => void;
@@ -16,6 +18,13 @@ interface GalleryUIState {
   setSelectedFolderId: (id: string | null) => void;
   bulkMoveFolderOpen: boolean;
   setBulkMoveFolderOpen: (open: boolean) => void;
+  // Semantic search
+  searchMode: SearchMode;
+  setSearchMode: (mode: SearchMode) => void;
+  semanticResultIds: string[] | null;
+  setSemanticResultIds: (ids: string[] | null) => void;
+  isSemanticSearching: boolean;
+  setIsSemanticSearching: (v: boolean) => void;
 }
 
 export const useGalleryUIStore = create<GalleryUIState>()((set) => ({
@@ -33,4 +42,10 @@ export const useGalleryUIStore = create<GalleryUIState>()((set) => ({
   setSelectedFolderId: (id) => set({ selectedFolderId: id }),
   bulkMoveFolderOpen: false,
   setBulkMoveFolderOpen: (open) => set({ bulkMoveFolderOpen: open }),
+  searchMode: "text",
+  setSearchMode: (mode) => set({ searchMode: mode }),
+  semanticResultIds: null,
+  setSemanticResultIds: (ids) => set({ semanticResultIds: ids }),
+  isSemanticSearching: false,
+  setIsSemanticSearching: (v) => set({ isSemanticSearching: v }),
 }));

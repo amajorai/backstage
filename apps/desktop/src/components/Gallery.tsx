@@ -139,6 +139,8 @@ export function Gallery({
   const setBulkMoveFolderOpen = useGalleryUIStore(
     (s) => s.setBulkMoveFolderOpen
   );
+  const searchMode = useGalleryUIStore((s) => s.searchMode);
+  const semanticResultIds = useGalleryUIStore((s) => s.semanticResultIds);
 
   const folderCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -149,6 +151,18 @@ export function Gallery({
   }, [rawThumbnails]);
 
   const filteredThumbnails = useMemo(() => {
+    // Semantic mode: use KNN results (ordered by similarity), optionally folder-filtered
+    if (searchMode === "semantic" && semanticResultIds !== null) {
+      const thumbMap = new Map(rawThumbnails.map((t) => [t.id, t]));
+      return semanticResultIds
+        .map((id) => thumbMap.get(id))
+        .filter((t): t is ThumbnailItem => {
+          if (!t) return false;
+          if (selectedFolderId !== null) return t.folderId === selectedFolderId;
+          return true;
+        });
+    }
+
     let filtered = rawThumbnails;
     if (selectedFolderId !== null) {
       filtered = filtered.filter((t) => t.folderId === selectedFolderId);
@@ -166,7 +180,15 @@ export function Gallery({
       }
       return sortOrder === "desc" ? -cmp : cmp;
     });
-  }, [rawThumbnails, sortField, sortOrder, searchQuery, selectedFolderId]);
+  }, [
+    rawThumbnails,
+    sortField,
+    sortOrder,
+    searchQuery,
+    selectedFolderId,
+    searchMode,
+    semanticResultIds,
+  ]);
 
   const projects = filteredThumbnails;
 
@@ -527,7 +549,11 @@ export function Gallery({
                     }
                     type="button"
                   >
-                    <FolderOpen className="size-3.5 shrink-0" />
+                    {folder.isCharacterSet ? (
+                      <Users className="size-3.5 shrink-0 text-primary" />
+                    ) : (
+                      <FolderOpen className="size-3.5 shrink-0" />
+                    )}
                     {renamingFolderId === folder.id ? (
                       <input
                         autoFocus
@@ -598,6 +624,18 @@ export function Gallery({
                   }}
                 >
                   Rename
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  onSelect={() =>
+                    useFolderStore
+                      .getState()
+                      .toggleCharacterSet(folder.id, !folder.isCharacterSet)
+                  }
+                >
+                  {folder.isCharacterSet
+                    ? "Unmark as Character Set"
+                    : "Mark as Character Set"}
                 </ContextMenuItem>
                 <ContextMenuSeparator />
                 <ContextMenuItem

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { sileo } from "sileo";
 import { AutoRenameQueue } from "@/components/AutoRenameQueue";
 import { BackgroundRemovalQueue } from "@/components/BackgroundRemovalQueue";
 import { BottomToolbar } from "@/components/BottomToolbar";
@@ -40,7 +41,7 @@ import { useSelectionStore } from "@/stores/use-selection-store";
 import { useTabsStore } from "@/stores/use-tabs-store";
 
 export type ViewMode = "3" | "4" | "5" | "row";
-type Page = "gallery" | "ai-generate" | "trash" | "settings";
+type Page = "gallery" | "ai-generate" | "trash" | "settings" | "explore";
 
 function UpdateChecker() {
   useAppUpdater();
@@ -63,8 +64,10 @@ export default function App() {
   const [aiCanvasWidth, setAiCanvasWidth] = useState(1280);
   const [aiCanvasHeight, setAiCanvasHeight] = useState(720);
   const [aiGenerateSource, setAiGenerateSource] = useState<
-    "editor" | "gallery"
+    "editor" | "gallery" | "remix"
   >("editor");
+  const [remixSourceUrl, setRemixSourceUrl] = useState<string | null>(null);
+  const [remixTitle, setRemixTitle] = useState<string | null>(null);
   const [editorRightPanel, setEditorRightPanel] = useState<
     "settings" | "ai-generate" | null
   >(null);
@@ -146,7 +149,17 @@ export default function App() {
 
   const handleOpenAiGenerateFromGallery = () => {
     setAiEditorLayers(null);
+    setRemixSourceUrl(null);
+    setRemixTitle(null);
     setAiGenerateSource("gallery");
+    setPage("ai-generate");
+  };
+
+  const handleRemix = (thumbnailUrl: string, title: string) => {
+    setAiEditorLayers(null);
+    setRemixSourceUrl(thumbnailUrl);
+    setRemixTitle(title);
+    setAiGenerateSource("remix");
     setPage("ai-generate");
   };
 
@@ -154,6 +167,10 @@ export default function App() {
     setAiEditorLayers(null);
     if (aiGenerateSource === "editor") {
       setEditorRightPanel(null);
+    } else if (aiGenerateSource === "remix") {
+      setRemixSourceUrl(null);
+      setRemixTitle(null);
+      setPage("explore");
     } else {
       setPage("gallery");
     }
@@ -295,16 +312,29 @@ export default function App() {
         </div>
       )}
 
-      {/* AI Generate — full page only from gallery */}
-      {page === "ai-generate" && aiGenerateSource === "gallery" && (
+      {/* AI Generate — full page from gallery or remix */}
+      {page === "ai-generate" &&
+        (aiGenerateSource === "gallery" || aiGenerateSource === "remix") && (
+          <div className={contentClassWithBottom}>
+            <GeminiImagePage
+              canvasHeight={aiCanvasHeight}
+              canvasWidth={aiCanvasWidth}
+              editorLayers={null}
+              onClose={handleCloseAiGenerate}
+              onSaveAsImage={handleSaveAiImage}
+              onSaveAsLayer={undefined}
+              remixSourceUrl={remixSourceUrl ?? undefined}
+              remixTitle={remixTitle ?? undefined}
+            />
+          </div>
+        )}
+
+      {/* Explore */}
+      {page === "explore" && !editorVisible && (
         <div className={contentClassWithBottom}>
-          <GeminiImagePage
-            canvasHeight={aiCanvasHeight}
-            canvasWidth={aiCanvasWidth}
-            editorLayers={null}
-            onClose={handleCloseAiGenerate}
-            onSaveAsImage={handleSaveAiImage}
-            onSaveAsLayer={undefined}
+          <ExplorePage
+            onClose={() => setPage("gallery")}
+            onRemix={handleRemix}
           />
         </div>
       )}
@@ -328,6 +358,7 @@ export default function App() {
           <BottomToolbar
             onAddVideoClick={() => setShowExtractor(true)}
             onAiGenerateClick={handleOpenAiGenerateFromGallery}
+            onExploreClick={() => setPage("explore")}
             onExportSelected={handleExportSelected}
             onNewFolderClick={() => setNewFolderOpen(true)}
             onNewProjectClick={() => setNewProjectOpen(true)}

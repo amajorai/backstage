@@ -7,6 +7,7 @@ export interface Folder {
   name: string;
   createdAt: number;
   sortOrder: number;
+  isCharacterSet: boolean;
 }
 
 interface FolderState {
@@ -17,6 +18,7 @@ interface FolderState {
   renameFolder: (id: string, name: string) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
   reorderFolders: (orderedIds: string[]) => Promise<void>;
+  toggleCharacterSet: (id: string, value: boolean) => Promise<void>;
 }
 
 export const useFolderStore = create<FolderState>()((set, get) => ({
@@ -26,10 +28,18 @@ export const useFolderStore = create<FolderState>()((set, get) => ({
   loadFolders: async () => {
     try {
       const db = await getDb();
-      const rows = await db.select<Folder[]>(
-        "SELECT id, name, createdAt, sortOrder FROM folders ORDER BY sortOrder ASC, createdAt ASC"
+      const rows = await db.select<
+        (Omit<Folder, "isCharacterSet"> & { isCharacterSet: number })[]
+      >(
+        "SELECT id, name, createdAt, sortOrder, isCharacterSet FROM folders ORDER BY sortOrder ASC, createdAt ASC"
       );
-      set({ folders: rows, isLoaded: true });
+      set({
+        folders: rows.map((r) => ({
+          ...r,
+          isCharacterSet: r.isCharacterSet === 1,
+        })),
+        isLoaded: true,
+      });
     } catch (error) {
       logger.error({ err: error }, "[Folders] Failed to load");
       set({ isLoaded: true });
@@ -40,7 +50,13 @@ export const useFolderStore = create<FolderState>()((set, get) => ({
     const id = crypto.randomUUID();
     const createdAt = Date.now();
     const sortOrder = get().folders.length;
-    const folder: Folder = { id, name, createdAt, sortOrder };
+    const folder: Folder = {
+      id,
+      name,
+      createdAt,
+      sortOrder,
+      isCharacterSet: false,
+    };
     set((s) => ({ folders: [...s.folders, folder] }));
     try {
       const db = await getDb();
@@ -92,6 +108,24 @@ export const useFolderStore = create<FolderState>()((set, get) => ({
     } catch (error) {
       logger.error({ err: error }, "[Folders] Failed to reorder");
       set({ folders: currentFolders });
+    }
+  },
+
+  toggleCharacterSet: async (id, value) => {
+    set((s) => ({
+      folders: s.folders.map((f) =>
+        f.id === id ? { ...f, isCharacterSet: value } : f
+      ),
+    }));
+    try {
+      const db = await getDb();
+      await db.execute("UPDATE folders SET isCharacterSet = $1 WHERE id = $2", [
+        value ? 1 : 0,
+        id,
+      ]);
+      logger.info({ id, value }, "[Folders] Character set toggled");
+    } catch (error) {
+      logger.error({ err: error }, "[Folders] Failed to toggle character set");
     }
   },
 

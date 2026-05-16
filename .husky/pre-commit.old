@@ -1,2 +1,0 @@
-#!/bin/sh
-bun x ultracite fix && git add -A

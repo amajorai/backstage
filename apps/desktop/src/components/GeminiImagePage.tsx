@@ -6,6 +6,7 @@ import {
   Layers,
   Loader2,
   Search,
+  Users,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { sileo } from "sileo";
@@ -30,6 +31,13 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ResizablePanel } from "@/components/ui/resizable-panel";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -42,7 +50,9 @@ import {
   generateImageWithGemini,
 } from "@/lib/gemini-image";
 import { getGeminiApiKey } from "@/lib/gemini-store";
+import { thumbnailUrlToDataUrl } from "@/lib/youtube-api";
 import type { Layer } from "@/stores/use-editor-store";
+import { useFolderStore } from "@/stores/use-folder-store";
 import { useGalleryStore } from "@/stores/use-gallery-store";
 
 type EditorInputMode = "none" | "composite" | "layers";
@@ -54,6 +64,9 @@ interface GeminiImagePageProps {
   onClose: () => void;
   onSaveAsLayer?: (dataUrl: string) => void;
   onSaveAsImage: (dataUrl: string) => void;
+  /** YouTube (or any remote) thumbnail URL to use as remix source */
+  remixSourceUrl?: string;
+  remixTitle?: string;
 }
 
 interface GeneratedImage {
@@ -80,6 +93,8 @@ export function GeminiImagePage({
   onClose,
   onSaveAsLayer,
   onSaveAsImage,
+  remixSourceUrl,
+  remixTitle,
 }: GeminiImagePageProps) {
   const isEditorMode = editorLayers !== null;
 
@@ -122,11 +137,39 @@ export function GeminiImagePage({
   const [gallerySearchQuery, setGallerySearchQuery] = useState("");
   const [galleryFolderId, setGalleryFolderId] = useState<string | null>(null);
 
+  // Remix source state
+  const [remixDataUrl, setRemixDataUrl] = useState<string | null>(null);
+  const [isLoadingRemix, setIsLoadingRemix] = useState(false);
+
+  // Character set state
+  const [characterSetFolderId, setCharacterSetFolderId] = useState<
+    string | null
+  >(null);
+  const [characterSetImageIds, setCharacterSetImageIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [characterSetImages, setCharacterSetImages] = useState<
+    Map<string, string>
+  >(new Map());
+  const [loadingCharacterSetIds, setLoadingCharacterSetIds] = useState<
+    Set<string>
+  >(new Set());
+
   const galleryThumbnails = useGalleryStore((s) => s.thumbnails);
   const loadPreviewForId = useGalleryStore((s) => s.loadPreviewForId);
   const loadFullImageForId = useGalleryStore((s) => s.loadFullImageForId);
   const previewCache = useGalleryStore((s) => s.previewCache);
   const folders = useFolderStore((s) => s.folders);
+  const characterSetFolders = useMemo(
+    () => folders.filter((f) => f.isCharacterSet),
+    [folders]
+  );
+
+  // Thumbnails in the selected character set folder
+  const characterSetThumbnails = useMemo(() => {
+    if (!characterSetFolderId) return [];
+    return galleryThumbnails.filter((t) => t.folderId === characterSetFolderId);
+  }, [galleryThumbnails, characterSetFolderId]);
 
   // Debounce gallery search by 300ms
   useEffect(() => {
@@ -159,6 +202,68 @@ export function GeminiImagePage({
     getGeminiApiKey().then(setApiKey);
   }, []);
 
+  // Load remix source URL → data URL on mount
+  useEffect(() => {
+    if (!remixSourceUrl) return;
+    let cancelled = false;
+    setIsLoadingRemix(true);
+    thumbnailUrlToDataUrl(remixSourceUrl)
+      .then((url) => {
+        if (!cancelled) {
+          setRemixDataUrl(url);
+          setInputPreviewUrl(url);
+        }
+      })
+      .catch(() => {
+        if (!cancelled)
+          sileo.error({ title: "Failed to load remix thumbnail" });
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingRemix(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [remixSourceUrl]);
+
+  // Auto-select all thumbnails in character set folder when folder changes
+  useEffect(() => {
+    if (!characterSetFolderId) {
+      setCharacterSetImageIds(new Set());
+      setCharacterSetImages(new Map());
+      return;
+    }
+    const ids = characterSetThumbnails.map((t) => t.id);
+    setCharacterSetImageIds(new Set(ids));
+  }, [characterSetFolderId, characterSetThumbnails]);
+
+  // Load full images for selected character set items
+  useEffect(() => {
+    for (const id of characterSetImageIds) {
+      if (characterSetImages.has(id) || loadingCharacterSetIds.has(id))
+        continue;
+      setLoadingCharacterSetIds((prev) => new Set(prev).add(id));
+      loadFullImageForId(id).then((url) => {
+        setLoadingCharacterSetIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+        if (url) {
+          setCharacterSetImages((prev) => new Map(prev).set(id, url));
+        }
+      });
+    }
+    // Prune deselected items
+    setCharacterSetImages((prev) => {
+      const next = new Map(prev);
+      for (const id of next.keys()) {
+        if (!characterSetImageIds.has(id)) next.delete(id);
+      }
+      return next;
+    });
+  }, [characterSetImageIds, loadFullImageForId]);
+
   // Keyboard navigation for generated images
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -178,6 +283,7 @@ export function GeminiImagePage({
 
   // Render input preview whenever editor input mode or layer selection changes
   useEffect(() => {
+    if (remixSourceUrl) return; // remix source handled separately
     if (!isEditorMode || editorInputMode === "none") {
       setInputPreviewUrl(null);
       return;
@@ -195,8 +301,6 @@ export function GeminiImagePage({
           setInputPreviewUrl(null);
           return;
         }
-        // Composite all selected layers into one preview
-        // (individual generation happens at generate time)
       }
       const url = await renderToDataUrl(layers, canvasWidth, canvasHeight);
       if (!cancelled) setInputPreviewUrl(url);
@@ -207,6 +311,7 @@ export function GeminiImagePage({
       cancelled = true;
     };
   }, [
+    remixSourceUrl,
     isEditorMode,
     editorInputMode,
     editorLayers,
@@ -257,7 +362,6 @@ export function GeminiImagePage({
 
     let inputImages: string[] = [];
 
-    // useSelectedAsInput overrides all other input sources
     if (useSelectedAsInput && selectedIndices.size > 0) {
       inputImages = generatedImages
         .filter((_, idx) => selectedIndices.has(idx))
@@ -283,6 +387,19 @@ export function GeminiImagePage({
       inputImages = Array.from(selectedProjectIds)
         .map((id) => projectImages.get(id))
         .filter((url): url is string => url !== undefined);
+    }
+
+    // Prepend remix source if available
+    if (remixDataUrl) {
+      inputImages = [remixDataUrl, ...inputImages];
+    }
+
+    // Append character set images
+    const charImages = Array.from(characterSetImageIds)
+      .map((id) => characterSetImages.get(id))
+      .filter((url): url is string => url !== undefined);
+    if (charImages.length > 0) {
+      inputImages = [...inputImages, ...charImages];
     }
 
     setIsGenerating(true);
@@ -350,6 +467,9 @@ export function GeminiImagePage({
     canvasHeight,
     selectedProjectIds,
     projectImages,
+    remixDataUrl,
+    characterSetImageIds,
+    characterSetImages,
   ]);
 
   const toggleSelection = useCallback((idx: number) => {
@@ -414,7 +534,6 @@ export function GeminiImagePage({
   const hasSelection = selectedIndices.size > 0;
   const viewingImage = generatedImages[viewingIndex];
 
-  // Single input image → show compare slider
   const effectiveInputCount =
     useSelectedAsInput && selectedIndices.size > 0
       ? selectedIndices.size
@@ -424,12 +543,102 @@ export function GeminiImagePage({
           : editorInputMode === "composite"
             ? 1
             : selectedLayerIds.size
-        : selectedProjectIds.size;
+        : selectedProjectIds.size + (remixDataUrl ? 1 : 0);
   const showCompareSlider =
     hasGeneratedImages && effectiveInputCount === 1 && inputPreviewUrl !== null;
 
-  // --- Input section UI ---
+  // --- Character set section (shown in both modes) ---
+  const characterSetSection = (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-1.5">
+        <Users className="size-3 text-muted-foreground" />
+        <Label className="text-xs">Character Set</Label>
+      </div>
+      {characterSetFolders.length === 0 ? (
+        <p className="text-[10px] text-muted-foreground">
+          No character set folders. Right-click a folder → Mark as Character
+          Set.
+        </p>
+      ) : (
+        <Select
+          onValueChange={(v) =>
+            setCharacterSetFolderId(v === "none" ? null : v)
+          }
+          value={characterSetFolderId ?? "none"}
+        >
+          <SelectTrigger className="h-7 text-xs">
+            <SelectValue placeholder="None" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">None</SelectItem>
+            {characterSetFolders.map((f) => (
+              <SelectItem key={f.id} value={f.id}>
+                {f.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+      {characterSetFolderId && characterSetThumbnails.length > 0 && (
+        <div className="flex flex-col gap-1 rounded-md border border-border bg-muted/20 p-2">
+          <div className="mb-1 flex items-center justify-between">
+            <p className="text-[10px] text-muted-foreground">
+              Select images to include
+            </p>
+            <span className="text-[10px] text-muted-foreground">
+              {characterSetImageIds.size}/{characterSetThumbnails.length}
+            </span>
+          </div>
+          <div className="max-h-32 overflow-y-auto">
+            {characterSetThumbnails.map((thumb) => (
+              <CharacterSetThumb
+                id={thumb.id}
+                isSelected={characterSetImageIds.has(thumb.id)}
+                key={thumb.id}
+                loadPreview={loadPreviewForId}
+                name={thumb.name}
+                onToggle={(id, selected) => {
+                  setCharacterSetImageIds((prev) => {
+                    const next = new Set(prev);
+                    if (selected) next.add(id);
+                    else next.delete(id);
+                    return next;
+                  });
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
+  // --- Remix source section ---
+  const remixSourceSection = remixSourceUrl ? (
+    <div className="flex flex-col gap-2">
+      <Label className="text-xs">Remix Source</Label>
+      <div className="relative overflow-hidden rounded-md border border-border bg-muted">
+        {isLoadingRemix ? (
+          <div className="flex h-20 items-center justify-center">
+            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          </div>
+        ) : remixDataUrl ? (
+          <img
+            alt="Remix source"
+            className="aspect-video w-full object-cover"
+            src={remixDataUrl}
+          />
+        ) : null}
+        {remixTitle && (
+          <p className="truncate p-1.5 text-[10px] text-muted-foreground">
+            {remixTitle}
+          </p>
+        )}
+      </div>
+    </div>
+  ) : null;
+
+  // --- Editor input section ---
   const editorInputSection = isEditorMode ? (
     <div className="flex flex-col gap-2">
       <Label className="text-xs">Input Images</Label>
@@ -549,7 +758,13 @@ export function GeminiImagePage({
     </div>
   );
 
-  const inputSection = isEditorMode ? editorInputSection : galleryInputSection;
+  const inputSection = (
+    <>
+      {remixSourceSection}
+      {isEditorMode ? editorInputSection : galleryInputSection}
+      {characterSetSection}
+    </>
+  );
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -564,6 +779,11 @@ export function GeminiImagePage({
           </TooltipTrigger>
           <TooltipContent>Back</TooltipContent>
         </Tooltip>
+        {remixTitle && (
+          <span className="ml-2 truncate text-muted-foreground text-xs">
+            Remixing: {remixTitle}
+          </span>
+        )}
         {isGenerating && progress.total > 1 && (
           <span className="text-muted-foreground text-xs">
             {progress.current}/{progress.total} generated
@@ -833,5 +1053,45 @@ function ProjectThumbnailCheckbox({
         </div>
       )}
     </button>
+  );
+}
+
+// Small helper for character set thumbnail checkbox row
+function CharacterSetThumb({
+  id,
+  name,
+  isSelected,
+  onToggle,
+  loadPreview,
+}: {
+  id: string;
+  name: string;
+  isSelected: boolean;
+  onToggle: (id: string, selected: boolean) => void;
+  loadPreview: (id: string) => Promise<string | null>;
+}) {
+  const [preview, setPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadPreview(id).then((url) => {
+      if (!cancelled) setPreview(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, loadPreview]);
+
+  return (
+    <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-muted/50">
+      <Checkbox
+        checked={isSelected}
+        onCheckedChange={(checked) => onToggle(id, checked === true)}
+      />
+      {preview && (
+        <img alt={name} className="size-5 rounded object-cover" src={preview} />
+      )}
+      <span className="truncate">{name}</span>
+    </label>
   );
 }

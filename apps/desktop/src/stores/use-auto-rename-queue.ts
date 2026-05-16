@@ -1,7 +1,12 @@
 import { create } from "zustand";
+import { acpPrompt } from "@/lib/acp-client";
 import { generateThumbnailName } from "@/lib/gemini-rename";
 import { getGeminiApiKey } from "@/lib/gemini-store";
+import { useAppSettingsStore } from "./use-app-settings-store";
 import { useGalleryStore } from "./use-gallery-store";
+
+const ACP_RENAME_PROMPT =
+  "Generate a concise, descriptive title for this YouTube thumbnail image. Return ONLY the title text, nothing else. Max 60 characters.";
 
 export type AutoRenameStatus = "pending" | "processing" | "done" | "error";
 
@@ -58,11 +63,6 @@ export const useAutoRenameQueue = create<AutoRenameQueueState>()(
       }));
 
       try {
-        const apiKey = await getGeminiApiKey();
-        if (!apiKey) {
-          throw new Error("Gemini API key not set");
-        }
-
         const { loadFullImageForId, updateThumbnailName } =
           useGalleryStore.getState();
         const fullImage = await loadFullImageForId(pendingItem.thumbnailId);
@@ -70,7 +70,37 @@ export const useAutoRenameQueue = create<AutoRenameQueueState>()(
           throw new Error("Image not found");
         }
 
-        const generatedName = await generateThumbnailName(apiKey, fullImage);
+        const { acpAgents, acpTextGenAgentId } = useAppSettingsStore.getState();
+        const activeAgent = acpTextGenAgentId
+          ? acpAgents.find((a) => a.id === acpTextGenAgentId)
+          : null;
+
+        let generatedName: string;
+
+        if (activeAgent) {
+          // Extract base64 data from data URL (strip "data:image/...;base64," prefix)
+          const commaIdx = fullImage.indexOf(",");
+          const base64Data =
+            commaIdx >= 0 ? fullImage.slice(commaIdx + 1) : fullImage;
+          const mimeMatch = fullImage.match(/^data:([^;]+);/);
+          const mimeType = mimeMatch ? mimeMatch[1] : "image/webp";
+
+          generatedName = await acpPrompt(
+            activeAgent,
+            ACP_RENAME_PROMPT,
+            base64Data,
+            mimeType
+          );
+        } else {
+          const apiKey = await getGeminiApiKey();
+          if (!apiKey) {
+            throw new Error(
+              "No AI configured: add an agent in Settings → Agents or set a Gemini API key"
+            );
+          }
+          generatedName = await generateThumbnailName(apiKey, fullImage);
+        }
+
         await updateThumbnailName(pendingItem.thumbnailId, generatedName);
 
         set((state) => ({

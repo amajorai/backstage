@@ -15,10 +15,26 @@ const AUTO_CHECK_FOR_UPDATES_FIELD = "auto_check_for_updates";
 const PERSIST_TABS_FIELD = "persist_tabs";
 const ANALYTICS_ENABLED_FIELD = "analytics_enabled";
 const LOGGING_ENABLED_FIELD = "logging_enabled";
+const SEMANTIC_SEARCH_ENABLED_FIELD = "semantic_search_enabled";
+const ACP_AGENTS_FIELD = "acp_agents";
+const ACP_TEXT_GEN_AGENT_ID_FIELD = "acp_text_gen_agent_id";
 
 export type AppTheme = "light" | "dark" | "system";
 export type BgRemovalQuality = "fast" | "balanced" | "best";
 export type BgRemovalProvider = "imgly" | "briaai" | "briaai2";
+
+export interface AcpAgentEnvVar {
+  key: string;
+  value: string;
+}
+
+export interface AcpAgent {
+  id: string;
+  name: string;
+  command: string;
+  args: string[];
+  envVars: AcpAgentEnvVar[];
+}
 
 export const BG_REMOVAL_MODEL_MAP: Record<BgRemovalQuality, string> = {
   fast: "isnet_quint8",
@@ -39,6 +55,9 @@ interface AppSettingsState {
   persistTabs: boolean;
   analyticsEnabled: boolean;
   loggingEnabled: boolean;
+  semanticSearchEnabled: boolean;
+  acpAgents: AcpAgent[];
+  acpTextGenAgentId: string | null;
   isInitialLoadDone: boolean;
 
   // Actions
@@ -54,6 +73,9 @@ interface AppSettingsState {
   setPersistTabs: (enabled: boolean) => Promise<void>;
   setAnalyticsEnabled: (enabled: boolean) => Promise<void>;
   setLoggingEnabled: (enabled: boolean) => Promise<void>;
+  setSemanticSearchEnabled: (enabled: boolean) => Promise<void>;
+  setAcpAgents: (agents: AcpAgent[]) => Promise<void>;
+  setAcpTextGenAgentId: (id: string | null) => Promise<void>;
   loadSettings: () => Promise<void>;
 }
 
@@ -70,6 +92,9 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
   persistTabs: false,
   analyticsEnabled: true,
   loggingEnabled: true,
+  semanticSearchEnabled: false,
+  acpAgents: [],
+  acpTextGenAgentId: null,
   isInitialLoadDone: false,
 
   setShowDecemberSnow: async (show: boolean) => {
@@ -281,6 +306,57 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
     }
   },
 
+  setSemanticSearchEnabled: async (enabled: boolean) => {
+    try {
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
+      await store.set(SEMANTIC_SEARCH_ENABLED_FIELD, enabled);
+      await store.save();
+      set({ semanticSearchEnabled: enabled });
+    } catch (error) {
+      logger.error(
+        { err: error },
+        "[Settings] Failed to save setting: semanticSearchEnabled"
+      );
+    }
+  },
+
+  setAcpAgents: async (agents: AcpAgent[]) => {
+    try {
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
+      await store.set(ACP_AGENTS_FIELD, agents);
+      await store.save();
+      set({ acpAgents: agents });
+    } catch (error) {
+      logger.error(
+        { err: error },
+        "[Settings] Failed to save setting: acpAgents"
+      );
+    }
+  },
+
+  setAcpTextGenAgentId: async (id: string | null) => {
+    try {
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
+      await store.set(ACP_TEXT_GEN_AGENT_ID_FIELD, id);
+      await store.save();
+      set({ acpTextGenAgentId: id });
+    } catch (error) {
+      logger.error(
+        { err: error },
+        "[Settings] Failed to save setting: acpTextGenAgentId"
+      );
+    }
+  },
+
   loadSettings: async () => {
     try {
       logger.info("[Settings] Loading app settings...");
@@ -316,6 +392,13 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
         ANALYTICS_ENABLED_FIELD
       );
       const loggingEnabled = await store.get<boolean>(LOGGING_ENABLED_FIELD);
+      const semanticSearchEnabled = await store.get<boolean>(
+        SEMANTIC_SEARCH_ENABLED_FIELD
+      );
+      const acpAgents = await store.get<AcpAgent[]>(ACP_AGENTS_FIELD);
+      const acpTextGenAgentId = await store.get<string | null>(
+        ACP_TEXT_GEN_AGENT_ID_FIELD
+      );
 
       const finalTheme = theme ?? "dark";
 
@@ -332,6 +415,9 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
         persistTabs: persistTabs ?? false,
         analyticsEnabled: analyticsEnabled ?? true,
         loggingEnabled: loggingEnabled ?? true,
+        semanticSearchEnabled: semanticSearchEnabled ?? false,
+        acpAgents: acpAgents ?? [],
+        acpTextGenAgentId: acpTextGenAgentId ?? null,
         isInitialLoadDone: true,
       });
 

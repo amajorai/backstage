@@ -24,6 +24,8 @@ tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+sqlite-vec = "0.1"
 
 # Secure Storage Dependencies
 aes-gcm = "0.10"
@@ -35,7 +37,7 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 futures-util = { version = "0.3", optional = true }
 ort = { version = "2.0.0-rc.12", features = ["download-binaries"], optional = true }
 image = { version = "0.25", optional = true }
-tokio = { version = "1", features = ["rt"], optional = true }
+tokio = { version = "1", features = ["rt"] }
 
 [features]
-bria = ["dep:futures-util", "dep:ort", "dep:image", "dep:tokio"]
+bria = ["dep:futures-util", "dep:ort", "dep:image"]
