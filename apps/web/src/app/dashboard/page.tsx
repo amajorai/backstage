@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authClient } from "@/lib/auth-client";
 
 import Dashboard from "./dashboard";
+import { DataTransferTab } from "./data-transfer-tab";
 import { SettingsTab } from "./settings-tab";
 
 export default async function DashboardPage() {
@@ -35,6 +36,7 @@ export default async function DashboardPage() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="data-transfer">Data Transfer</TabsTrigger>
         </TabsList>
 
         <TabsContent className="mt-6" value="overview">
@@ -43,6 +45,10 @@ export default async function DashboardPage() {
 
         <TabsContent className="mt-6" value="settings">
           <SettingsTab />
+        </TabsContent>
+
+        <TabsContent className="mt-6" value="data-transfer">
+          <DataTransferTab />
         </TabsContent>
       </Tabs>
     </div>
