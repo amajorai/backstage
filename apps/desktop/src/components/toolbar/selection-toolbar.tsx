@@ -1,4 +1,5 @@
 import {
+  Archive,
   Copy,
   Download,
   FolderOpen,
@@ -27,6 +28,7 @@ interface SelectionToolbarProps {
   onAutoRename: () => void;
   onExport?: () => void;
   onMoveToFolder?: () => void;
+  onArchive?: () => void;
 }
 
 export function SelectionToolbar({
@@ -40,6 +42,7 @@ export function SelectionToolbar({
   onAutoRename,
   onExport,
   onMoveToFolder,
+  onArchive,
 }: SelectionToolbarProps) {
   return (
     <div className="flex flex-1 items-center justify-center gap-4">
@@ -147,6 +150,19 @@ export function SelectionToolbar({
           </TooltipTrigger>
           <TooltipContent>
             <span>Export selected thumbnails</span>
+          </TooltipContent>
+        </Tooltip>
+      )}
+      {onArchive && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button onClick={onArchive} size="sm" variant="ghost">
+              <Archive className="mr-2 size-4" />
+              Archive
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <span>Archive selected items</span>
           </TooltipContent>
         </Tooltip>
       )}

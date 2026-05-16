@@ -100,6 +100,35 @@ async function initDb(): Promise<Database> {
     // column already exists
   }
 
+  // archivedAt column on thumbnails (ignore if already exists)
+  try {
+    await database.execute(
+      "ALTER TABLE thumbnails ADD COLUMN archivedAt INTEGER"
+    );
+  } catch {
+    // column already exists
+  }
+
+  // archiveFolderId column on thumbnails (ignore if already exists)
+  try {
+    await database.execute(
+      "ALTER TABLE thumbnails ADD COLUMN archiveFolderId TEXT"
+    );
+  } catch {
+    // column already exists
+  }
+
+  // Archive folders table
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS archive_folders (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      sortOrder INTEGER NOT NULL DEFAULT 0,
+      color TEXT
+    )
+  `);
+
   // YouTube favourites table
   await database.execute(`
     CREATE TABLE IF NOT EXISTS yt_favourites (

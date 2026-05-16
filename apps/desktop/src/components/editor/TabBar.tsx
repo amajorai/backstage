@@ -34,12 +34,19 @@ import { useEditorStore } from "@/stores/use-editor-store";
 import type { TabEntry } from "@/stores/use-tabs-store";
 import { useTabsStore } from "@/stores/use-tabs-store";
 
-type ActivePage = "gallery" | "ai-generate" | "trash" | "settings" | "explore";
+type ActivePage =
+  | "gallery"
+  | "ai-generate"
+  | "trash"
+  | "archive"
+  | "settings"
+  | "explore";
 
 const PAGE_LABELS: Record<ActivePage, string> = {
   gallery: "Gallery",
   "ai-generate": "Generate",
   trash: "Trash",
+  archive: "Archive",
   settings: "Settings",
   explore: "Explore",
 };
@@ -48,6 +55,7 @@ const PAGE_ICONS: Record<ActivePage, React.ReactNode> = {
   gallery: <GalleryHorizontal className="size-3 shrink-0" />,
   "ai-generate": <Sparkles className="size-3 shrink-0" />,
   trash: <Trash2 className="size-3 shrink-0" />,
+  archive: <File className="size-3 shrink-0" />,
   settings: <Settings className="size-3 shrink-0" />,
   explore: <Compass className="size-3 shrink-0" />,
 };

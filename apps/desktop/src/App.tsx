@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { sileo } from "sileo";
+import { ArchivePage } from "@/components/ArchivePage";
 import { AutoRenameQueue } from "@/components/AutoRenameQueue";
 import { BackgroundRemovalQueue } from "@/components/BackgroundRemovalQueue";
 import { BottomToolbar } from "@/components/BottomToolbar";
@@ -45,7 +46,13 @@ import { useSelectionStore } from "@/stores/use-selection-store";
 import { useTabsStore } from "@/stores/use-tabs-store";
 
 export type ViewMode = "3" | "4" | "5" | "row";
-type Page = "gallery" | "ai-generate" | "trash" | "settings" | "explore";
+type Page =
+  | "gallery"
+  | "ai-generate"
+  | "trash"
+  | "settings"
+  | "explore"
+  | "archive";
 
 function UpdateChecker() {
   useAppUpdater();
@@ -358,6 +365,11 @@ export default function App() {
         <TrashPage onClose={() => setPage("gallery")} />
       )}
 
+      {/* Archive */}
+      {page === "archive" && !editorVisible && (
+        <ArchivePage onClose={() => setPage("gallery")} />
+      )}
+
       {/* Settings */}
       {page === "settings" && !editorVisible && (
         <SettingsPage onClose={() => setPage("gallery")} />
@@ -368,6 +380,7 @@ export default function App() {
           <BottomToolbar
             onAddVideoClick={() => setShowExtractor(true)}
             onAiGenerateClick={handleOpenAiGenerateFromGallery}
+            onArchiveClick={() => setPage("archive")}
             onExploreClick={() => setPage("explore")}
             onExportSelected={handleExportSelected}
             onNewFolderClick={() => setNewFolderOpen(true)}

@@ -1,4 +1,4 @@
-import { open as openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   ArrowLeft,
   ExternalLink,
@@ -18,7 +18,6 @@ import { SearchHistoryDropdown } from "@/components/SearchHistoryDropdown";
 import { ScrollFadeEffect } from "@/components/scroll-fade-effect";
 import { ViewModeButtons } from "@/components/toolbar/view-mode-buttons";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { usePersistedViewMode } from "@/hooks/use-persisted-view-mode";
 import { cn } from "@/lib/utils";
 import {
@@ -80,11 +79,13 @@ export function ExplorePage({
   const apiKeyRef = useRef<string | null>(null);
   const activeQueryRef = useRef("");
   const selectedCategoryRef = useRef<CategoryId>(undefined);
-  const nextPageTokenRef = useRef<string | undefined>();
+  const nextPageTokenRef = useRef<string | undefined>(undefined);
   const categoryIndexRef = useRef(0);
   const seenIdsRef = useRef(new Set<string>());
   const isLoadingMoreRef = useRef(false);
   const isLoadingRef = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const saveSearchHistory = useAppSettingsStore((s) => s.saveSearchHistory);
   const exploreHistory = useSearchHistoryStore((s) => s.histories.explore);
@@ -96,6 +97,25 @@ export function ExplorePage({
   const favouriteIds = useYtFavouritesStore((s) => s.favouriteIds);
   const favourites = useYtFavouritesStore((s) => s.favourites);
 
+  // Autocomplete: first history item that starts with current input
+  const suggestion = useMemo(() => {
+    if (!(searchInput && saveSearchHistory)) return "";
+    const lower = searchInput.toLowerCase();
+    return exploreHistory.find((h) => h.toLowerCase().startsWith(lower)) ?? "";
+  }, [searchInput, exploreHistory, saveSearchHistory]);
+
+  const ghostText = suggestion ? suggestion.slice(searchInput.length) : "";
+
+  // Filtered history for dropdown (substring match)
+  const filteredHistory = useMemo(() => {
+    if (!saveSearchHistory) return [];
+    if (!searchInput) return exploreHistory;
+    const lower = searchInput.toLowerCase();
+    return exploreHistory.filter((h) => h.toLowerCase().includes(lower));
+  }, [searchInput, exploreHistory, saveSearchHistory]);
+
+  const showHistory = searchFocused && filteredHistory.length > 0;
+
   useEffect(() => {
     getYoutubeApiKey().then((key) => {
       apiKeyRef.current = key;
@@ -104,6 +124,7 @@ export function ExplorePage({
   }, []);
 
   const fetchNextChunk = useCallback(async (append: boolean) => {
+    if (selectedCategoryRef.current === SAVED_CATEGORY_ID) return;
     const key = apiKeyRef.current;
     if (!key) return;
     if (isLoadingRef.current || isLoadingMoreRef.current) return;
@@ -234,10 +255,18 @@ export function ExplorePage({
   );
 
   const handleClearSearch = useCallback(() => {
+    // Cancel pending blur so dropdown appears right away
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
     setSearchInput("");
     activeQueryRef.current = "";
+    setSearchFocused(true);
+    inputRef.current?.focus();
     resetAndFetch();
   }, [resetAndFetch]);
+
+  const handleInputBlur = useCallback(() => {
+    blurTimerRef.current = setTimeout(() => setSearchFocused(false), 150);
+  }, []);
 
   const handleRemix = useCallback(
     (video: YoutubeVideo) => {
@@ -256,12 +285,6 @@ export function ExplorePage({
     return map[viewMode];
   }, [viewMode]);
 
-  const showHistory =
-    searchFocused &&
-    !searchInput &&
-    saveSearchHistory &&
-    exploreHistory.length > 0;
-
   const bottomToolbar = (
     <div className="mx-1 mb-1">
       <div className="relative flex h-12 items-center justify-between rounded-xl bg-muted px-4">
@@ -279,27 +302,52 @@ export function ExplorePage({
         </div>
 
         <div className="absolute left-1/2 -translate-x-1/2">
-          <div className="relative">
+          {/* Search container — bg lives here so input can be transparent */}
+          <div className="relative h-8 w-72 rounded-md bg-background transition-all focus-within:w-96 focus-within:ring-1 focus-within:ring-primary/20">
             {showHistory && (
               <SearchHistoryDropdown
-                items={exploreHistory}
+                items={filteredHistory}
                 onClearAll={() => clearHistory("explore")}
                 onRemove={(q) => removeSearch("explore", q)}
                 onSelect={(q) => handleSearch(q)}
               />
             )}
+
+            {/* Ghost text overlay */}
+            {ghostText && (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 flex items-center overflow-hidden pr-8 pl-9"
+              >
+                <span className="invisible shrink-0 whitespace-pre text-sm">
+                  {searchInput}
+                </span>
+                <span className="shrink-0 whitespace-pre text-muted-foreground/40 text-sm">
+                  {ghostText}
+                </span>
+              </div>
+            )}
+
             <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/50" />
-            <Input
-              className="h-8 w-72 border-none bg-background pr-8 pl-9 transition-all focus-visible:w-96 focus-visible:ring-1 focus-visible:ring-primary/20"
-              onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
+
+            <input
+              className="absolute inset-0 h-full w-full rounded-md border-none bg-transparent pr-8 pl-9 text-foreground text-sm outline-none placeholder:text-muted-foreground/60"
+              onBlur={handleInputBlur}
               onChange={(e) => setSearchInput(e.target.value)}
               onFocus={() => setSearchFocused(true)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleSearch();
+                if (e.key === "Tab" && ghostText) {
+                  e.preventDefault();
+                  setSearchInput(suggestion);
+                } else if (e.key === "Enter") {
+                  handleSearch();
+                }
               }}
               placeholder="Search YouTube"
+              ref={inputRef}
               value={searchInput}
             />
+
             {videos.length > 0 && !searchInput && (
               <span className="absolute top-1/2 right-2 -translate-y-1/2 rounded bg-primary/10 px-1.5 py-0.5 font-bold text-[10px] text-primary">
                 {videos.length}
@@ -338,7 +386,6 @@ export function ExplorePage({
 
   return (
     <>
-      {/* Main card */}
       <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
         <div className="relative flex-1 overflow-hidden">
           {/* Category tabs */}

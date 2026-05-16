@@ -1,14 +1,14 @@
 import {
+  Archive,
   Compass,
   Loader2,
   Search,
   Settings,
   Sparkles,
-  Tag,
   Trash2,
   Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { sileo } from "sileo";
 import type { ViewMode } from "@/App";
 import { AddColorBackgroundDialog } from "@/components/editor/AddColorBackgroundDialog";
@@ -29,7 +29,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Tooltip,
   TooltipContent,
@@ -45,31 +44,6 @@ import { useSearchHistoryStore } from "@/stores/use-search-history-store";
 import { useSelectionStore } from "@/stores/use-selection-store";
 import { useTrashStore } from "@/stores/use-trash-store";
 
-function FolderBadgeToggle() {
-  const showFolderBadges = useAppSettingsStore((s) => s.showFolderBadges);
-  const setShowFolderBadges = useAppSettingsStore((s) => s.setShowFolderBadges);
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          className={
-            showFolderBadges ? "text-primary" : "text-muted-foreground"
-          }
-          onClick={() => setShowFolderBadges(!showFolderBadges)}
-          size="icon-sm"
-          type="button"
-          variant="ghost"
-        >
-          <Tag className="size-4" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>
-        {showFolderBadges ? "Hide folder badges" : "Show folder badges"}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
 interface BottomToolbarProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
@@ -81,6 +55,7 @@ interface BottomToolbarProps {
   onAiGenerateClick: () => void;
   onExportSelected?: () => void;
   onExploreClick?: () => void;
+  onArchiveClick?: () => void;
 }
 
 export function BottomToolbar({
@@ -94,12 +69,16 @@ export function BottomToolbar({
   onAiGenerateClick,
   onExportSelected,
   onExploreClick,
+  onArchiveClick,
 }: BottomToolbarProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [colorBgDialogOpen, setColorBgDialogOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const thumbnails = useGalleryStore((s) => s.thumbnails);
   const duplicateThumbnailsBatch = useGalleryStore(
@@ -119,6 +98,10 @@ export function BottomToolbar({
     (s) => s.addColorBgToQueue
   );
   const addToRenameQueue = useAutoRenameQueue((s) => s.addToQueue);
+
+  const archiveThumbnailsBatch = useGalleryStore(
+    (s) => s.archiveThumbnailsBatch
+  );
 
   const trashItems = useTrashStore((s) => s.trashItems);
   const trashCount = trashItems.length;
@@ -173,6 +156,13 @@ export function BottomToolbar({
     },
     [thumbnails, selectedIds, addColorBgToQueue, clearSelection]
   );
+
+  const handleBulkArchive = useCallback(async () => {
+    const ids = Array.from(selectedIds);
+    await archiveThumbnailsBatch(ids);
+    sileo.success({ title: `Archived ${ids.length} items` });
+    clearSelection();
+  }, [selectedIds, archiveThumbnailsBatch, clearSelection]);
 
   const handleBulkAutoRename = useCallback(() => {
     const itemsToRename = thumbnails
@@ -268,8 +258,25 @@ export function BottomToolbar({
   const removeSearch = useSearchHistoryStore((s) => s.removeSearch);
   const clearHistory = useSearchHistoryStore((s) => s.clearHistory);
 
-  const handleSearchBlur = useCallback(() => {
-    setTimeout(() => setSearchFocused(false), 150);
+  // Autocomplete: first history item starting with current query
+  const suggestion = useMemo(() => {
+    if (!(searchQuery && saveSearchHistory)) return "";
+    const lower = searchQuery.toLowerCase();
+    return galleryHistory.find((h) => h.toLowerCase().startsWith(lower)) ?? "";
+  }, [searchQuery, galleryHistory, saveSearchHistory]);
+
+  const ghostText = suggestion ? suggestion.slice(searchQuery.length) : "";
+
+  // Filtered history: substring match
+  const filteredHistory = useMemo(() => {
+    if (!saveSearchHistory) return [];
+    if (!searchQuery) return galleryHistory;
+    const lower = searchQuery.toLowerCase();
+    return galleryHistory.filter((h) => h.toLowerCase().includes(lower));
+  }, [searchQuery, galleryHistory, saveSearchHistory]);
+
+  const handleInputBlur = useCallback(() => {
+    blurTimerRef.current = setTimeout(() => setSearchFocused(false), 150);
     if (saveSearchHistory && searchQuery.trim()) {
       addSearch("gallery", searchQuery.trim());
     }
@@ -277,6 +284,7 @@ export function BottomToolbar({
 
   const handleHistorySelect = useCallback(
     (q: string) => {
+      if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
       setSearchQuery(q);
       setSearchFocused(false);
     },
@@ -332,11 +340,7 @@ export function BottomToolbar({
   ]);
 
   const showDefaultToolbar = !isSelectionMode || selectedIds.size === 0;
-  const showHistory =
-    searchFocused &&
-    !searchQuery &&
-    saveSearchHistory &&
-    galleryHistory.length > 0;
+  const showHistory = searchFocused && filteredHistory.length > 0;
 
   return (
     <header className="flex h-12 items-center justify-between bg-muted px-4">
@@ -344,6 +348,7 @@ export function BottomToolbar({
         <SelectionToolbar
           isDuplicating={isDuplicating}
           onAddColorBackground={() => setColorBgDialogOpen(true)}
+          onArchive={handleBulkArchive}
           onAutoRename={handleBulkAutoRename}
           onClearSelection={clearSelection}
           onDelete={() => setDeleteDialogOpen(true)}
@@ -362,41 +367,69 @@ export function BottomToolbar({
             viewMode={viewMode}
           />
           <SortMenu />
-          <FolderBadgeToggle />
         </div>
       )}
 
       {/* Search — center */}
       {showDefaultToolbar && (
         <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1.5">
-          <div className="relative">
+          {/* Search container — bg here so input can be transparent */}
+          <div className="relative h-8 w-72 rounded-md bg-background transition-all focus-within:w-96 focus-within:ring-1 focus-within:ring-primary/20">
             {showHistory && (
               <SearchHistoryDropdown
-                items={galleryHistory}
+                items={filteredHistory}
                 onClearAll={() => clearHistory("gallery")}
                 onRemove={(q) => removeSearch("gallery", q)}
                 onSelect={handleHistorySelect}
               />
             )}
+
+            {/* Ghost text overlay */}
+            {ghostText && (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 flex items-center overflow-hidden pr-8 pl-9"
+              >
+                <span className="invisible shrink-0 whitespace-pre text-sm">
+                  {searchQuery}
+                </span>
+                <span className="shrink-0 whitespace-pre text-muted-foreground/40 text-sm">
+                  {ghostText}
+                </span>
+              </div>
+            )}
+
             {isSemanticSearching ? (
               <Loader2 className="absolute top-1/2 left-3 size-4 -translate-y-1/2 animate-spin text-primary/60" />
             ) : (
               <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/50" />
             )}
-            <Input
-              className="h-8 w-72 border-none bg-background pr-8 pl-9 transition-all focus-visible:w-96 focus-visible:ring-1 focus-visible:ring-primary/20"
-              onBlur={handleSearchBlur}
+
+            <input
+              className="absolute inset-0 h-full w-full rounded-md border-none bg-transparent pr-8 pl-9 text-foreground text-sm outline-none placeholder:text-muted-foreground/60"
+              onBlur={handleInputBlur}
               onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => setSearchFocused(true)}
+              onFocus={() => {
+                if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+                setSearchFocused(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Tab" && ghostText) {
+                  e.preventDefault();
+                  setSearchQuery(suggestion);
+                }
+              }}
               placeholder={
                 semanticSearchEnabled && searchMode === "semantic"
                   ? "Describe what you're looking for"
                   : "Search projects"
               }
+              ref={inputRef}
               type="text"
               value={searchQuery}
             />
-            {filteredCount > 0 && searchMode === "text" && (
+
+            {filteredCount > 0 && searchMode === "text" && !searchQuery && (
               <Badge
                 className="absolute top-1/2 right-2 h-5 -translate-y-1/2 border-none bg-primary/10 px-1.5 font-bold text-[10px] text-primary"
                 variant="outline"
@@ -405,6 +438,7 @@ export function BottomToolbar({
               </Badge>
             )}
           </div>
+
           {semanticSearchEnabled && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -445,6 +479,18 @@ export function BottomToolbar({
         >
           {isSelectionMode ? "Cancel" : "Select"}
         </Button>
+
+        {showDefaultToolbar && onArchiveClick && (
+          <Button
+            aria-label="Archive"
+            onClick={onArchiveClick}
+            size="icon-sm"
+            title="Archive"
+            variant="ghost"
+          >
+            <Archive className="size-4" />
+          </Button>
+        )}
 
         {showDefaultToolbar && (
           <Button

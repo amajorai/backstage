@@ -1,4 +1,5 @@
 import {
+  Archive,
   Copy,
   Download,
   MoreHorizontal,
@@ -28,6 +29,7 @@ interface ThumbnailActionButtonsProps {
   ) => Promise<void>;
   onRename: (thumbnail: ThumbnailItem) => void;
   onDelete: (thumbnail: ThumbnailItem) => void;
+  onArchive: (thumbnail: ThumbnailItem) => void;
   onAutoRename: (thumbnail: ThumbnailItem) => Promise<void>;
   onAddColorBackground: (thumbnail: ThumbnailItem) => void;
 }
@@ -38,6 +40,7 @@ export function ThumbnailActionButtons({
   onRemoveBackground,
   onRename,
   onDelete,
+  onArchive,
   onAutoRename,
   onAddColorBackground,
 }: ThumbnailActionButtonsProps) {
@@ -195,6 +198,19 @@ export function ThumbnailActionButtons({
               >
                 <PaintBucket className="mr-2 size-4" />
                 Add Color Background
+              </Button>
+              <Button
+                className="w-full justify-start"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onArchive(thumbnail);
+                  setMenuOpenId(null);
+                }}
+                size="sm"
+                variant="ghost"
+              >
+                <Archive className="mr-2 size-4" />
+                Archive
               </Button>
               <Button
                 className="w-full justify-start text-destructive hover:text-destructive"

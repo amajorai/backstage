@@ -113,6 +113,16 @@ interface GalleryState {
     canvasWidth?: number;
     canvasHeight?: number;
   }) => Promise<void>;
+  archiveThumbnail: (id: string) => Promise<void>;
+  archiveThumbnailsBatch: (ids: string[]) => Promise<void>;
+  restoreFromArchive: (archiveItem: {
+    id: string;
+    name: string;
+    createdAt: number;
+    updatedAt: number;
+    canvasWidth?: number;
+    canvasHeight?: number;
+  }) => Promise<void>;
   loadFromDb: () => Promise<void>;
 
   // Lazy loading
@@ -613,13 +623,84 @@ export const useGalleryStore = create<GalleryState>()((set, get) => ({
     }
   },
 
+  archiveThumbnail: async (id) => {
+    const thumbnail = get().thumbnails.find((t) => t.id === id);
+    if (!thumbnail) return;
+
+    set((state) => {
+      const newCache = new Map(state.previewCache);
+      newCache.delete(id);
+      return {
+        thumbnails: state.thumbnails.filter((t) => t.id !== id),
+        previewCache: newCache,
+      };
+    });
+
+    const { useArchiveStore } = await import("@/stores/use-archive-store");
+    await useArchiveStore.getState().archiveItem({
+      id: thumbnail.id,
+      name: thumbnail.name,
+      createdAt: thumbnail.createdAt,
+      updatedAt: thumbnail.updatedAt,
+      canvasWidth: thumbnail.canvasWidth,
+      canvasHeight: thumbnail.canvasHeight,
+    });
+  },
+
+  archiveThumbnailsBatch: async (ids) => {
+    if (ids.length === 0) return;
+    const idsSet = new Set(ids);
+    const items = get().thumbnails.filter((t) => idsSet.has(t.id));
+
+    set((state) => {
+      const newCache = new Map(state.previewCache);
+      for (const id of ids) newCache.delete(id);
+      return {
+        thumbnails: state.thumbnails.filter((t) => !idsSet.has(t.id)),
+        previewCache: newCache,
+      };
+    });
+
+    const { useArchiveStore } = await import("@/stores/use-archive-store");
+    await useArchiveStore.getState().archiveItemsBatch(
+      items.map((t) => ({
+        id: t.id,
+        name: t.name,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+        canvasWidth: t.canvasWidth,
+        canvasHeight: t.canvasHeight,
+      }))
+    );
+  },
+
+  restoreFromArchive: async (archiveItem) => {
+    logger.info(
+      { itemName: archiveItem.name },
+      "[Gallery] Restoring from archive"
+    );
+
+    const restoredItem: ThumbnailItem = {
+      id: archiveItem.id,
+      name: archiveItem.name,
+      createdAt: archiveItem.createdAt,
+      updatedAt: archiveItem.updatedAt,
+      canvasWidth: archiveItem.canvasWidth,
+      canvasHeight: archiveItem.canvasHeight,
+    };
+
+    set((state) => ({
+      thumbnails: [restoredItem, ...state.thumbnails],
+    }));
+  },
+
   loadFromDb: async () => {
     logger.info("[Gallery] Loading thumbnails from DB...");
     try {
       const database = await getDb();
-      // Only load metadata - NO image data!
+      // Only load metadata - NO image data! Exclude archived items.
       const result = await database.select<ThumbnailItem[]>(
-        "SELECT id, name, createdAt, updatedAt, canvasWidth, canvasHeight, folderId FROM thumbnails ORDER BY updatedAt DESC"
+        "SELECT id, name, createdAt, updatedAt, canvasWidth, canvasHeight, folderId FROM thumbnails WHERE archivedAt IS NULL ORDER BY updatedAt DESC"
       );
       logger.info(
         { count: result.length },

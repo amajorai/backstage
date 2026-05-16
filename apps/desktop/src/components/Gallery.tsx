@@ -115,6 +115,10 @@ export function Gallery({
   const addToRenameQueue = useAutoRenameQueue((s) => s.addToQueue);
   const addThumbnail = useGalleryStore((s) => s.addThumbnail);
   const deleteThumbnail = useGalleryStore((s) => s.deleteThumbnail);
+  const archiveThumbnail = useGalleryStore((s) => s.archiveThumbnail);
+  const archiveThumbnailsBatch = useGalleryStore(
+    (s) => s.archiveThumbnailsBatch
+  );
   const updateThumbnailName = useGalleryStore((s) => s.updateThumbnailName);
   const setThumbnailFolder = useGalleryStore((s) => s.setThumbnailFolder);
   const sortField = useGalleryStore((s) => s.sortField);
@@ -358,6 +362,49 @@ export function Gallery({
     setMoveFolderThumbnail(thumbnail);
   }, []);
 
+  const handleArchive = useCallback(
+    async (thumbnail: ThumbnailItem) => {
+      await archiveThumbnail(thumbnail.id);
+      sileo.success({ title: `Archived "${thumbnail.name}"` });
+    },
+    [archiveThumbnail]
+  );
+
+  const handleArchiveFolder = useCallback(
+    async (folderId: string) => {
+      const folder = folders.find((f) => f.id === folderId);
+      if (!folder) return;
+      const itemsInFolder = rawThumbnails.filter(
+        (t) => t.folderId === folderId
+      );
+      if (itemsInFolder.length === 0) {
+        sileo.info({ title: `Folder "${folder.name}" is empty` });
+        return;
+      }
+      const { useArchiveStore } = await import("@/stores/use-archive-store");
+      const archiveFolder = await useArchiveStore
+        .getState()
+        .createArchiveFolder(folder.name);
+      await archiveThumbnailsBatch(itemsInFolder.map((t) => t.id));
+      // Assign all archived items to the new archive folder
+      await useArchiveStore.getState().moveItemsBatchToArchiveFolder(
+        itemsInFolder.map((t) => t.id),
+        archiveFolder.id
+      );
+      if (selectedFolderId === folderId) setSelectedFolderId(null);
+      sileo.success({
+        title: `Archived folder "${folder.name}" (${itemsInFolder.length} items)`,
+      });
+    },
+    [
+      folders,
+      rawThumbnails,
+      archiveThumbnailsBatch,
+      selectedFolderId,
+      setSelectedFolderId,
+    ]
+  );
+
   const handleConfirmDeleteFolder = useCallback(async () => {
     if (!deleteFolderTarget) return;
     const folder = folders.find((f) => f.id === deleteFolderTarget);
@@ -383,6 +430,7 @@ export function Gallery({
           isProcessing={processingId === thumbnail.id}
           itemIndex={index}
           onAddColorBackground={setColorBgThumbnail}
+          onArchive={handleArchive}
           onAutoRename={handleAutoRename}
           onDelete={handleDelete}
           onExportClick={onExportClick}
@@ -402,6 +450,7 @@ export function Gallery({
       projects,
       folders,
       processingId,
+      handleArchive,
       handleAutoRename,
       handleDelete,
       onExportClick,
@@ -683,6 +732,10 @@ export function Gallery({
                   {folder.isCharacterSet
                     ? "Unmark as Character Set"
                     : "Mark as Character Set"}
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+                <ContextMenuItem onClick={() => handleArchiveFolder(folder.id)}>
+                  Archive Folder
                 </ContextMenuItem>
                 <ContextMenuSeparator />
                 <ContextMenuItem

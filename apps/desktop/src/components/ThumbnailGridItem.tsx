@@ -1,4 +1,5 @@
 import {
+  Archive,
   CircleUser,
   Copy,
   Download,
@@ -47,6 +48,7 @@ interface ThumbnailGridItemProps {
   ) => Promise<void>;
   onRename: (thumbnail: ThumbnailItem) => void;
   onDelete: (thumbnail: ThumbnailItem) => void;
+  onArchive: (thumbnail: ThumbnailItem) => void;
   onAutoRename: (thumbnail: ThumbnailItem) => Promise<void>;
   onAddColorBackground: (thumbnail: ThumbnailItem) => void;
   onMoveToFolder: (thumbnail: ThumbnailItem) => void;
@@ -63,6 +65,7 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
   onRemoveBackground,
   onRename,
   onDelete,
+  onArchive,
   onAutoRename,
   onAddColorBackground,
   onMoveToFolder,
@@ -302,6 +305,7 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
                 {!isSelectionMode && (
                   <ThumbnailActionButtons
                     onAddColorBackground={onAddColorBackground}
+                    onArchive={onArchive}
                     onAutoRename={onAutoRename}
                     onDelete={onDelete}
                     onExportClick={onExportClick}
@@ -375,6 +379,10 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
           Add Color Background
         </ContextMenuItem>
         <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => onArchive(thumbnail)}>
+          <Archive className="mr-2 size-4" />
+          Archive
+        </ContextMenuItem>
         <ContextMenuItem
           className="text-destructive focus:text-destructive"
           onClick={() => onDelete(thumbnail)}
