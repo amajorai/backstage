@@ -2,7 +2,7 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import { CheckSquare2, Layers, Loader2, Square, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -352,7 +352,7 @@ export function ExportDialog({
     }
 
     if (indicesToExport.length === 0) {
-      toast.error("No pages selected");
+      sileo.error({ title: "No pages selected" });
       return;
     }
 
@@ -397,8 +397,12 @@ export function ExportDialog({
       canvas.height = dims.height;
 
       const toastId = isSingleFile
-        ? toast.loading("Exporting...")
-        : toast.loading(`Exporting ${indicesToExport.length} slides...`);
+        ? sileo.show({ title: "Exporting...", type: "loading", duration: null })
+        : sileo.show({
+            title: `Exporting ${indicesToExport.length} slides...`,
+            type: "loading",
+            duration: null,
+          });
 
       // Prepare canvas context once
       const ctx = canvas.getContext("2d")!;
@@ -415,9 +419,12 @@ export function ExportDialog({
         const page = pages[pageIndex];
 
         if (!isSingleFile) {
-          toast.loading(`Exporting slide ${pageIndex + 1}...`, {
+          sileo.show({
+            title: `Exporting slide ${pageIndex + 1}...`,
+            type: "loading",
+            duration: null,
             id: toastId,
-          });
+          } as any);
         }
 
         if (needsScaling) {
@@ -458,18 +465,16 @@ export function ExportDialog({
         await writeFile(filePath, new Uint8Array(arrayBuffer));
       }
 
-      toast.success(
-        isSingleFile
+      sileo.success({
+        title: isSingleFile
           ? "Export successful"
           : `Successfully exported ${indicesToExport.length} slides`,
-        {
-          id: toastId,
-        }
-      );
+        id: toastId,
+      } as any);
       onClose();
     } catch (error) {
       console.error("Export failed:", error);
-      toast.error("Export failed. Check console.");
+      sileo.error({ title: "Export failed. Check console." });
     } finally {
       setIsExporting(false);
     }
@@ -503,7 +508,7 @@ export function ExportDialog({
     }
 
     if (indicesToExport.length === 0) {
-      toast.error("No pages selected");
+      sileo.error({ title: "No pages selected" });
       return;
     }
 
@@ -523,9 +528,11 @@ export function ExportDialog({
     const isSingleFile = indicesToExport.length === 1;
 
     setIsExporting(true);
-    const toastId = toast.loading(
-      `Preparing ${extension.toUpperCase()} export...`
-    );
+    const toastId = sileo.show({
+      title: `Preparing ${extension.toUpperCase()} export...`,
+      type: "loading",
+      duration: null,
+    });
 
     try {
       let dirPath = "";
@@ -538,7 +545,7 @@ export function ExportDialog({
         });
         if (!saveResult) {
           setIsExporting(false);
-          toast.dismiss(toastId);
+          sileo.dismiss(toastId);
           return;
         }
         singleFilePath = saveResult;
@@ -549,7 +556,7 @@ export function ExportDialog({
         });
         if (!dirResult || typeof dirResult !== "string") {
           setIsExporting(false);
-          toast.dismiss(toastId);
+          sileo.dismiss(toastId);
           return;
         }
         dirPath = dirResult;
@@ -582,10 +589,12 @@ export function ExportDialog({
 
         for (let time = 0; time < durationMs; time += frameInterval) {
           // Update progress
-          toast.loading(
-            `Capturing frames... ${Math.round((time / durationMs) * 100)}%`,
-            { id: toastId }
-          );
+          sileo.show({
+            title: `Capturing frames... ${Math.round((time / durationMs) * 100)}%`,
+            type: "loading",
+            duration: null,
+            id: toastId,
+          } as any);
 
           const elapsedTime = time;
 
@@ -658,9 +667,12 @@ export function ExportDialog({
             capturedFrames,
             { width: dims.width, height: dims.height, fps },
             (p) =>
-              toast.loading(`Encoding MP4... ${Math.round(p * 100)}%`, {
+              sileo.show({
+                title: `Encoding MP4... ${Math.round(p * 100)}%`,
+                type: "loading",
+                duration: null,
                 id: toastId,
-              })
+              } as any)
           );
         }
 
@@ -674,18 +686,19 @@ export function ExportDialog({
         await writeFile(filePath, new Uint8Array(arrayBuffer));
       }
 
-      toast.success(
-        isSingleFile
+      sileo.success({
+        title: isSingleFile
           ? `${extension.toUpperCase()} export successful`
           : `Successfully exported ${indicesToExport.length} ${extension.toUpperCase()} files`,
-        { id: toastId }
-      );
+        id: toastId,
+      } as any);
       onClose();
     } catch (error) {
       console.error("Animated export failed:", error);
-      toast.error(`${extension.toUpperCase()} export failed. Check console.`, {
+      sileo.error({
+        title: `${extension.toUpperCase()} export failed. Check console.`,
         id: toastId,
-      });
+      } as any);
     } finally {
       setIsExporting(false);
     }
@@ -711,18 +724,22 @@ export function ExportDialog({
     if (!dirResult || typeof dirResult !== "string") return;
 
     setIsExporting(true);
-    const toastId = toast.loading(
-      `Exporting ${thumbnails.length} thumbnails...`
-    );
+    const toastId = sileo.show({
+      title: `Exporting ${thumbnails.length} thumbnails...`,
+      type: "loading",
+      duration: null,
+    });
     const formatInfo = FORMATS.find((f) => f.value === format)!;
 
     try {
       for (let i = 0; i < thumbnails.length; i++) {
         const thumb = thumbnails[i];
-        toast.loading(
-          `Exporting ${i + 1}/${thumbnails.length}: ${thumb.name}...`,
-          { id: toastId }
-        );
+        sileo.show({
+          title: `Exporting ${i + 1}/${thumbnails.length}: ${thumb.name}...`,
+          type: "loading",
+          duration: null,
+          id: toastId,
+        } as any);
 
         const srcW = thumb.canvasWidth || originalDimensions.width;
         const srcH = thumb.canvasHeight || originalDimensions.height;
@@ -788,13 +805,17 @@ export function ExportDialog({
         );
       }
 
-      toast.success(`Exported ${thumbnails.length} thumbnails`, {
+      sileo.success({
+        title: `Exported ${thumbnails.length} thumbnails`,
         id: toastId,
-      });
+      } as any);
       onClose();
     } catch (err) {
       console.error("Batch export failed:", err);
-      toast.error("Export failed. Check console.", { id: toastId });
+      sileo.error({
+        title: "Export failed. Check console.",
+        id: toastId,
+      } as any);
     } finally {
       setIsExporting(false);
     }

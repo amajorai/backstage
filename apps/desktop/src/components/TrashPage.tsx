@@ -1,7 +1,7 @@
 import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { VirtuosoGrid } from "react-virtuoso";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import { EmptyState } from "@/components/gallery/EmptyState";
 import { gridComponents } from "@/components/gallery/VirtuosoGridComponents";
 import {
@@ -97,7 +97,7 @@ export function TrashPage({ onClose }: TrashPageProps) {
           canvasWidth: restoredItem.canvasWidth,
           canvasHeight: restoredItem.canvasHeight,
         });
-        toast.success(`Restored "${item.name}"`);
+        sileo.success({ title: `Restored "${item.name}"` });
       }
     },
     [restoreFromTrash, restoreThumbnail]
@@ -118,7 +118,7 @@ export function TrashPage({ onClose }: TrashPageProps) {
           canvasHeight: item.canvasHeight,
         });
       }
-      toast.success(`Restored ${restoredItems.length} items`);
+      sileo.success({ title: `Restored ${restoredItems.length} items` });
       exitSelectionMode();
     } finally {
       setIsProcessing(false);
@@ -130,7 +130,7 @@ export function TrashPage({ onClose }: TrashPageProps) {
     try {
       const ids = [...selectedIds];
       await deletePermanentlyBatch(ids);
-      toast.info(`Permanently deleted ${ids.length} items`);
+      sileo.info({ title: `Permanently deleted ${ids.length} items` });
       setDeleteSelectedDialogOpen(false);
       exitSelectionMode();
     } finally {
@@ -153,7 +153,7 @@ export function TrashPage({ onClose }: TrashPageProps) {
           canvasHeight: item.canvasHeight,
         });
       }
-      toast.success(`Restored ${restoredItems.length} items`);
+      sileo.success({ title: `Restored ${restoredItems.length} items` });
       setRestoreAllDialogOpen(false);
     } finally {
       setIsProcessing(false);
@@ -168,7 +168,7 @@ export function TrashPage({ onClose }: TrashPageProps) {
   const handleDeleteConfirm = useCallback(async () => {
     if (selectedItem) {
       await deletePermanently(selectedItem.id);
-      toast.info(`Permanently deleted "${selectedItem.name}"`);
+      sileo.info({ title: `Permanently deleted "${selectedItem.name}"` });
       setDeleteItemDialogOpen(false);
       setSelectedItem(null);
     }
@@ -178,7 +178,7 @@ export function TrashPage({ onClose }: TrashPageProps) {
     setIsProcessing(true);
     try {
       await emptyTrash();
-      toast.info("Trash emptied");
+      sileo.info({ title: "Trash emptied" });
       setEmptyTrashDialogOpen(false);
     } finally {
       setIsProcessing(false);

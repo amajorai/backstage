@@ -16,7 +16,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       <PostHogProvider>
         <AxiomWebVitals />
         {children}
-        <Toaster richColors />
+        <Toaster />
       </PostHogProvider>
     </ThemeProvider>
   );

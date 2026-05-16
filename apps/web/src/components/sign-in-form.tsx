@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import z from "zod";
 
 import { authClient } from "@/lib/auth-client";
@@ -32,10 +32,12 @@ export default function SignInForm({
         {
           onSuccess: () => {
             router.push("/dashboard");
-            toast.success("Sign in successful");
+            sileo.success({ title: "Sign in successful" });
           },
           onError: (error) => {
-            toast.error(error.error.message || error.error.statusText);
+            sileo.error({
+              title: error.error.message || error.error.statusText,
+            });
           },
         }
       );

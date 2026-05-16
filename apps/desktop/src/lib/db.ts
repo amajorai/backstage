@@ -98,3 +98,11 @@ export async function getDb(): Promise<Database> {
   db = await dbInitPromise;
   return db;
 }
+
+export async function closeDb(): Promise<void> {
+  if (db) {
+    await db.close();
+    db = null;
+    dbInitPromise = null;
+  }
+}

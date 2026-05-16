@@ -14,7 +14,7 @@ import {
   Unlock,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import { ScrollFadeEffect } from "@/components/scroll-fade-effect";
 import {
   ContextMenu,
@@ -323,13 +323,13 @@ export function LayersPanel() {
     if (activeLayer.type === "text") {
       const name = activeLayer.text.slice(0, 40).trim() || "Text Layer";
       updateLayer(activeLayer.id, { name });
-      toast.success("Layer renamed");
+      sileo.success({ title: "Layer renamed" });
       return;
     }
     if (activeLayer.type === "shape") {
       const name = `${activeLayer.fill} ${activeLayer.shapeType}`;
       updateLayer(activeLayer.id, { name });
-      toast.success("Layer renamed");
+      sileo.success({ title: "Layer renamed" });
       return;
     }
     if (
@@ -337,18 +337,24 @@ export function LayersPanel() {
       activeLayer.type !== "draw" &&
       activeLayer.type !== "animated-image"
     ) {
-      toast.info("Auto-rename not supported for this layer type");
+      sileo.info({ title: "Auto-rename not supported for this layer type" });
       return;
     }
 
     const apiKey = await getGeminiApiKey();
     if (!apiKey) {
-      toast.error("Gemini API key not set. Add it in Settings → API Keys.");
+      sileo.error({
+        title: "Gemini API key not set. Add it in Settings → API Keys.",
+      });
       return;
     }
 
     setIsRenaming(true);
-    const toastId = toast.loading("Renaming…");
+    const toastId = sileo.show({
+      title: "Renaming…",
+      type: "loading",
+      duration: null,
+    }) as string;
     try {
       const dataUrl =
         activeLayer.type === "animated-image"
@@ -356,9 +362,9 @@ export function LayersPanel() {
           : activeLayer.dataUrl;
       const name = await generateThumbnailName(apiKey, dataUrl);
       updateLayer(activeLayer.id, { name });
-      toast.success(`Renamed to "${name}"`, { id: toastId });
+      sileo.success({ title: `Renamed to "${name}"`, id: toastId } as any);
     } catch {
-      toast.error("Failed to rename", { id: toastId });
+      sileo.error({ title: "Failed to rename", id: toastId } as any);
     } finally {
       setIsRenaming(false);
     }
@@ -381,20 +387,24 @@ export function LayersPanel() {
     }
 
     if (imageLayers.length === 0) {
-      toast.success("All layers renamed");
+      sileo.success({ title: "All layers renamed" });
       return;
     }
 
     const apiKey = await getGeminiApiKey();
     if (!apiKey) {
-      toast.error("Gemini API key not set. Add it in Settings → API Keys.");
+      sileo.error({
+        title: "Gemini API key not set. Add it in Settings → API Keys.",
+      });
       return;
     }
 
     setIsRenaming(true);
-    const toastId = toast.loading(
-      `Renaming ${imageLayers.length} image layer(s)…`
-    );
+    const toastId = sileo.show({
+      title: `Renaming ${imageLayers.length} image layer(s)…`,
+      type: "loading",
+      duration: null,
+    }) as string;
     try {
       await Promise.all(
         imageLayers.map(async (layer) => {
@@ -404,9 +414,12 @@ export function LayersPanel() {
           updateLayer(layer.id, { name });
         })
       );
-      toast.success("All layers renamed", { id: toastId });
+      sileo.success({ title: "All layers renamed", id: toastId } as any);
     } catch {
-      toast.error("Failed to rename some layers", { id: toastId });
+      sileo.error({
+        title: "Failed to rename some layers",
+        id: toastId,
+      } as any);
     } finally {
       setIsRenaming(false);
     }

@@ -10,7 +10,7 @@ import {
   Stage,
   Transformer,
 } from "react-konva";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import {
   renderAnimatedImageLayer,
   renderDrawLayer,
@@ -68,12 +68,36 @@ interface KonvaCanvasProps {
 
 const SNAP_THRESHOLD = 20;
 const UI_COLOR = "oklch(0.685 0.169 237.323)";
+const ROTATION_SNAPS_15 = Array.from({ length: 24 }, (_, i) => i * 15);
 
 /** Returns the effective width/height of a layer. */
 function getLayerDimensions(l: EditorLayer): { w: number; h: number } {
   if (l.type === "text") return { w: l.width ?? 300, h: 0 };
   if (l.type === "group") return { w: 0, h: 0 };
   return { w: l.width, h: l.height };
+}
+
+function parseSvgDimensions(
+  svgString: string,
+  fallbackW: number,
+  fallbackH: number
+): { w: number; h: number } {
+  const vbMatch = svgString.match(
+    /viewBox=["']\s*[\d.+-]+\s+[\d.+-]+\s+([\d.+-]+)\s+([\d.+-]+)/
+  );
+  if (vbMatch) {
+    const w = Number.parseFloat(vbMatch[1]);
+    const h = Number.parseFloat(vbMatch[2]);
+    if (w > 0 && h > 0) return { w, h };
+  }
+  const wMatch = svgString.match(/\bwidth=["']([^"'%]+)["']/);
+  const hMatch = svgString.match(/\bheight=["']([^"'%]+)["']/);
+  if (wMatch && hMatch) {
+    const w = Number.parseFloat(wMatch[1]);
+    const h = Number.parseFloat(hMatch[1]);
+    if (w > 0 && h > 0) return { w, h };
+  }
+  return { w: fallbackW, h: fallbackH };
 }
 
 function resolveClickedLayerId(target: Konva.Node): string {
@@ -160,6 +184,8 @@ export function KonvaCanvas({
   const justFinishedCustomDragRef = useRef(false);
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const altHeldRef = useRef(false);
+  const shiftHeldRef = useRef(false);
+  const [shiftHeld, setShiftHeld] = useState(false);
 
   // Crop tool state
   const cropRectNodeRef = useRef<Konva.Rect>(null);
@@ -215,7 +241,9 @@ export function KonvaCanvas({
     addImageLayer,
     addDrawLayer,
     removeLayer,
+    addSvgLayer,
     copyLayers,
+    pasteLayers,
     duplicateLayer,
     setLayerAsBackground,
     moveLayer,
@@ -249,7 +277,7 @@ export function KonvaCanvas({
       return;
     }
     if (layer.rotation !== 0) {
-      toast.error("Reset image rotation before cropping");
+      sileo.error({ title: "Reset image rotation before cropping" });
       setActiveTool("select");
       setCropRect(null);
       return;
@@ -387,7 +415,11 @@ export function KonvaCanvas({
     async (layerId: string) => {
       const layer = layers.find((l) => l.id === layerId);
       if (!layer || layer.type !== "image") return;
-      const toastId = toast.loading("Removing background…");
+      const toastId = sileo.show({
+        title: "Removing background…",
+        type: "loading",
+        duration: null,
+      }) as string;
       try {
         const { runBgRemovalPipeline } = await import(
           "@/lib/bg-removal-pipeline"
@@ -404,26 +436,58 @@ export function KonvaCanvas({
             result.kind === "gemini-only"
               ? "Background replaced with color"
               : "Background removed";
-          toast.success(message, { id: toastId });
+          sileo.success({ title: message, id: toastId } as any);
         };
         img.src = result.dataUrl;
       } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Failed to remove background",
-          { id: toastId }
-        );
+        sileo.error({
+          title:
+            error instanceof Error
+              ? error.message
+              : "Failed to remove background",
+          id: toastId,
+        } as any);
       }
     },
     [layers, addImageLayer, updateLayer]
   );
 
-  const pasteImageFromClipboard = useCallback(
+  const pasteFromOsClipboard = useCallback(
     async (offsetX?: number, offsetY?: number) => {
       try {
         const items = await navigator.clipboard.read();
         for (const item of items) {
+          if (item.types.includes("image/svg+xml")) {
+            const blob = await item.getType("image/svg+xml");
+            const svgString = await blob.text();
+            const { w, h } = parseSvgDimensions(svgString, width, height);
+            addSvgLayer(svgString, w, h);
+            const newId = useEditorStore.getState().activeLayerIds[0];
+            if (newId) {
+              updateLayer(newId, {
+                x: offsetX ?? (width - w) / 2,
+                y: offsetY ?? (height - h) / 2,
+              });
+            }
+            return;
+          }
+          if (item.types.includes("text/plain")) {
+            const blob = await item.getType("text/plain");
+            const text = await blob.text();
+            const trimmed = text.trimStart();
+            if (trimmed.startsWith("<svg") || trimmed.startsWith("<?xml")) {
+              const { w, h } = parseSvgDimensions(text, width, height);
+              addSvgLayer(text, w, h);
+              const newId = useEditorStore.getState().activeLayerIds[0];
+              if (newId) {
+                updateLayer(newId, {
+                  x: offsetX ?? (width - w) / 2,
+                  y: offsetY ?? (height - h) / 2,
+                });
+              }
+              return;
+            }
+          }
           const imageType = item.types.find((t) => t.startsWith("image/"));
           if (!imageType) continue;
           const blob = await item.getType(imageType);
@@ -441,24 +505,49 @@ export function KonvaCanvas({
             addImageLayer(dataUrl, img.width, img.height);
             const newId = useEditorStore.getState().activeLayerIds[0];
             if (newId) {
-              const cx = offsetX ?? width / 2 - img.width / 2;
-              const cy = offsetY ?? height / 2 - img.height / 2;
-              updateLayer(newId, { x: cx, y: cy });
+              updateLayer(newId, {
+                x: offsetX ?? width / 2 - img.width / 2,
+                y: offsetY ?? height / 2 - img.height / 2,
+              });
             }
           };
           img.src = url;
           return;
         }
       } catch {
-        // clipboard API not available or denied; silently ignore
+        // clipboard API not available or denied
       }
     },
-    [addImageLayer, updateLayer, width, height]
+    [addImageLayer, addSvgLayer, updateLayer, width, height]
+  );
+
+  const handleSmartPaste = useCallback(
+    async (offsetX?: number, offsetY?: number) => {
+      const state = useEditorStore.getState();
+      let hasLayerClipboard =
+        state.clipboard != null && state.clipboard.length > 0;
+      if (!hasLayerClipboard) {
+        try {
+          const stored = localStorage.getItem("backstage:clipboard:v1");
+          hasLayerClipboard = !!(
+            stored && (JSON.parse(stored) as unknown[])?.length > 0
+          );
+        } catch {}
+      }
+      if (hasLayerClipboard) {
+        pasteLayers();
+        return;
+      }
+      await pasteFromOsClipboard(offsetX, offsetY);
+    },
+    [pasteLayers, pasteFromOsClipboard]
   );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       altHeldRef.current = e.altKey;
+      shiftHeldRef.current = e.shiftKey;
+      setShiftHeld(e.shiftKey);
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onKey);
@@ -492,11 +581,11 @@ export function KonvaCanvas({
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       e.preventDefault();
-      pasteImageFromClipboard();
+      handleSmartPaste();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [pasteImageFromClipboard]);
+  }, [handleSmartPaste]);
 
   useEffect(() => {
     const handleBrushShortcuts = (e: KeyboardEvent) => {
@@ -515,12 +604,20 @@ export function KonvaCanvas({
         e.preventDefault();
         const next = Math.max(1, brushSize - 5);
         setBrushSize(next);
-        toast(`Brush size: ${next}px`, { duration: 1000, id: "brush-size" });
+        sileo.show({
+          title: `Brush size: ${next}px`,
+          duration: 1000,
+          id: "brush-size",
+        } as any);
       } else if (e.key === "]" && !e.shiftKey) {
         e.preventDefault();
         const next = Math.min(200, brushSize + 5);
         setBrushSize(next);
-        toast(`Brush size: ${next}px`, { duration: 1000, id: "brush-size" });
+        sileo.show({
+          title: `Brush size: ${next}px`,
+          duration: 1000,
+          id: "brush-size",
+        } as any);
       } else if (e.key === "{") {
         e.preventDefault();
         const next = Math.max(
@@ -528,18 +625,20 @@ export function KonvaCanvas({
           Math.round((brushOpacity - 0.1) * 100) / 100
         );
         setBrushOpacity(next);
-        toast(`Opacity: ${Math.round(next * 100)}%`, {
+        sileo.show({
+          title: `Opacity: ${Math.round(next * 100)}%`,
           duration: 1000,
           id: "brush-opacity",
-        });
+        } as any);
       } else if (e.key === "}") {
         e.preventDefault();
         const next = Math.min(1, Math.round((brushOpacity + 0.1) * 100) / 100);
         setBrushOpacity(next);
-        toast(`Opacity: ${Math.round(next * 100)}%`, {
+        sileo.show({
+          title: `Opacity: ${Math.round(next * 100)}%`,
           duration: 1000,
           id: "brush-opacity",
-        });
+        } as any);
       }
     };
     window.addEventListener("keydown", handleBrushShortcuts);
@@ -929,6 +1028,10 @@ export function KonvaCanvas({
   const snapBoundBoxFunc = useCallback(
     (oldBox: BoundBox, newBox: BoundBox) => {
       if (newBox.width < 10 || newBox.height < 10) return oldBox;
+      // Pure rotation — no size change — skip position snapping entirely
+      const widthChanged = Math.abs(newBox.width - oldBox.width) > 0.5;
+      const heightChanged = Math.abs(newBox.height - oldBox.height) > 0.5;
+      if (!(widthChanged || heightChanged)) return newBox;
       if (
         Math.abs(newBox.rotation % 90) > 1 &&
         Math.abs(newBox.rotation % 90) < 89
@@ -1754,7 +1857,7 @@ export function KonvaCanvas({
             ul(activeLayer.id, { fill: hex });
           }
           sat("select");
-          toast.success(`Sampled: ${hex}`, { duration: 2000 });
+          sileo.success({ title: `Sampled: ${hex}`, duration: 2000 });
         };
         img.src = dataUrl;
         return;
@@ -2737,6 +2840,8 @@ export function KonvaCanvas({
             ref={transformerRef}
             rotateAnchorOffset={28}
             rotateEnabled={true}
+            rotationSnaps={shiftHeld ? ROTATION_SNAPS_15 : []}
+            rotationSnapTolerance={shiftHeld ? 8 : 5}
           />
         </Layer>
       </Stage>
@@ -3026,14 +3131,14 @@ export function KonvaCanvas({
                     updateLayer(cm.layerId!, { locked: !isLocked })
                   )}
                   {divider("d4")}
-                  {menuItem("Paste Image", () =>
-                    pasteImageFromClipboard(cm.canvasX, cm.canvasY)
+                  {menuItem("Paste", () =>
+                    handleSmartPaste(cm.canvasX, cm.canvasY)
                   )}
                   {menuItem("Delete", () => removeLayer(cm.layerId!), true)}
                 </>
               ) : (
-                menuItem("Paste Image", () =>
-                  pasteImageFromClipboard(cm.canvasX, cm.canvasY)
+                menuItem("Paste", () =>
+                  handleSmartPaste(cm.canvasX, cm.canvasY)
                 )
               )}
             </div>

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import { AutoRenameQueue } from "@/components/AutoRenameQueue";
 import { BackgroundRemovalQueue } from "@/components/BackgroundRemovalQueue";
 import { BottomToolbar } from "@/components/BottomToolbar";
@@ -380,7 +379,9 @@ export default function App() {
                 await useFolderStore
                   .getState()
                   .createFolder(newFolderName.trim());
-                toast.success(`Folder "${newFolderName.trim()}" created`);
+                sileo.success({
+                  title: `Folder "${newFolderName.trim()}" created`,
+                });
                 setNewFolderName("");
                 setNewFolderOpen(false);
               }
@@ -399,7 +400,9 @@ export default function App() {
                 await useFolderStore
                   .getState()
                   .createFolder(newFolderName.trim());
-                toast.success(`Folder "${newFolderName.trim()}" created`);
+                sileo.success({
+                  title: `Folder "${newFolderName.trim()}" created`,
+                });
                 setNewFolderName("");
                 setNewFolderOpen(false);
               }}

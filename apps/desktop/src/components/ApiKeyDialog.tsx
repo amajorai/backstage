@@ -1,7 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -43,17 +42,17 @@ export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
 
   const handleSave = useCallback(async () => {
     if (!apiKey.trim()) {
-      toast.error("Please enter an API key");
+      sileo.error({ title: "Please enter an API key" });
       return;
     }
     try {
       await setGeminiApiKey(apiKey.trim());
       setHasKey(true);
       setApiKey("");
-      toast.success("API key saved securely");
+      sileo.success({ title: "API key saved securely" });
     } catch (error) {
       console.error("Failed to save API key:", error);
-      toast.error("Failed to save API key");
+      sileo.error({ title: "Failed to save API key" });
     }
   }, [apiKey]);
 
@@ -61,10 +60,10 @@ export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
     try {
       await removeGeminiApiKey();
       setHasKey(false);
-      toast.success("API key removed");
+      sileo.success({ title: "API key removed" });
     } catch (error) {
       console.error("Failed to remove API key:", error);
-      toast.error("Failed to remove API key");
+      sileo.error({ title: "Failed to remove API key" });
     }
   }, []);
 

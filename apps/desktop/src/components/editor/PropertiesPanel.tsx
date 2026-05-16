@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import { AdjustmentProperties } from "@/components/editor/adjustment-properties";
 import { ImageProperties } from "@/components/editor/image-properties";
 import { ShadowProperties } from "@/components/editor/shadow-properties";
@@ -93,14 +93,16 @@ export function PropertiesPanel() {
   }
 
   const handleRefreshFonts = async () => {
-    toast.message("Refreshing fonts...");
+    sileo.show({ title: "Refreshing fonts..." });
     try {
       const fonts = await getSystemFonts();
       console.log("Loaded fonts:", fonts);
       setFontFamilies(fonts);
-      toast.success(`Found ${fonts.length} fonts. Check console for list.`);
+      sileo.success({
+        title: `Found ${fonts.length} fonts. Check console for list.`,
+      });
     } catch (e) {
-      toast.error("Failed to load fonts");
+      sileo.error({ title: "Failed to load fonts" });
     }
   };
 

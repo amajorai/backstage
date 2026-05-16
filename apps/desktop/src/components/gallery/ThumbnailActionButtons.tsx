@@ -9,7 +9,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Tooltip,
@@ -161,7 +161,7 @@ export function ThumbnailActionButtons({
                 onClick={async (e) => {
                   e.stopPropagation();
                   await duplicateThumbnail(thumbnail.id);
-                  toast.success("Thumbnail duplicated");
+                  sileo.success({ title: "Thumbnail duplicated" });
                   setMenuOpenId(null);
                 }}
                 size="sm"

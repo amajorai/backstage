@@ -1,7 +1,21 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { appDataDir, join } from "@tauri-apps/api/path";
+import {
+  open as openDialog,
+  save as saveDialog,
+} from "@tauri-apps/plugin-dialog";
+import {
+  exists,
+  mkdir,
+  readDir,
+  readFile,
+  writeFile,
+} from "@tauri-apps/plugin-fs";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { relaunch } from "@tauri-apps/plugin-process";
+import JSZip from "jszip";
 import {
   ArrowLeft,
   Check,
@@ -13,11 +27,12 @@ import {
   Sparkles,
   Sun,
   Trash2,
+  Upload,
   Wand2,
   Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import { Button } from "@/components/ui/button";
 import {
   ColorPicker,
@@ -45,6 +60,7 @@ import {
   downloadAndInstall,
   useUpdateStore,
 } from "@/hooks/use-app-updater";
+import { closeDb, getDb } from "@/lib/db";
 import {
   getGeminiApiKey,
   removeGeminiApiKey,
@@ -124,6 +140,12 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
             >
               Privacy
             </TabsTrigger>
+            <TabsTrigger
+              className="justify-start border-none px-3 py-2 data-[state=active]:bg-muted data-[state=active]:shadow-none"
+              value="data-transfer"
+            >
+              Data Transfer
+            </TabsTrigger>
           </TabsList>
 
           {/* Content area */}
@@ -155,6 +177,10 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
 
               <TabsContent className="mt-0" value="privacy">
                 <PrivacySettings />
+              </TabsContent>
+
+              <TabsContent className="mt-0" value="data-transfer">
+                <DataTransferSettings />
               </TabsContent>
             </div>
           </div>
@@ -203,16 +229,16 @@ function ApiKeySettings() {
 
   const handleSave = useCallback(async () => {
     if (!apiKey.trim()) {
-      toast.error("Please enter an API key");
+      sileo.error({ title: "Please enter an API key" });
       return;
     }
     try {
       await setGeminiApiKey(apiKey.trim());
       setHasKey(true);
       setApiKey("");
-      toast.success("API key saved securely");
+      sileo.success({ title: "API key saved securely" });
     } catch (error) {
-      toast.error("Failed to save API key");
+      sileo.error({ title: "Failed to save API key" });
     }
   }, [apiKey]);
 
@@ -220,9 +246,9 @@ function ApiKeySettings() {
     try {
       await removeGeminiApiKey();
       setHasKey(false);
-      toast.success("API key removed");
+      sileo.success({ title: "API key removed" });
     } catch (error) {
-      toast.error("Failed to remove API key");
+      sileo.error({ title: "Failed to remove API key" });
     }
   }, []);
 
@@ -554,9 +580,9 @@ function ProcessingSettings() {
       await setHfToken(hfToken.trim());
       setHfTokenSaved(true);
       setHfTokenState("");
-      toast.success("HuggingFace token saved");
+      sileo.success({ title: "HuggingFace token saved" });
     } catch {
-      toast.error("Failed to save token");
+      sileo.error({ title: "Failed to save token" });
     }
   }, [hfToken]);
 
@@ -637,9 +663,9 @@ function ProcessingSettings() {
     try {
       await invoke("download_bria_model");
       await loadBriaStatus();
-      toast.success("BRIA RMBG-1.4 model downloaded successfully");
+      sileo.success({ title: "BRIA RMBG-1.4 model downloaded successfully" });
     } catch (error) {
-      toast.error(`Download failed: ${error}`);
+      sileo.error({ title: `Download failed: ${error}` });
     } finally {
       setIsDownloading(false);
       setDownloadProgress(null);
@@ -653,9 +679,9 @@ function ProcessingSettings() {
       const token = await getHfToken();
       await invoke("download_bria_v2_model", { hfToken: token ?? undefined });
       await loadBriaV2Status();
-      toast.success("BRIA RMBG-2.0 model downloaded successfully");
+      sileo.success({ title: "BRIA RMBG-2.0 model downloaded successfully" });
     } catch (error) {
-      toast.error(`Download failed: ${error}`);
+      sileo.error({ title: `Download failed: ${error}` });
     } finally {
       setIsDownloadingV2(false);
       setDownloadProgressV2(null);
@@ -749,7 +775,7 @@ function ProcessingSettings() {
                     onClick={async () => {
                       await removeHfToken();
                       setHfTokenSaved(false);
-                      toast.success("Token removed");
+                      sileo.success({ title: "Token removed" });
                     }}
                     size="sm"
                     variant="ghost"
@@ -977,9 +1003,9 @@ function StorageSettings() {
       ).then((m) => m.useRevisionStore.getState());
       await purgeAllRevisions();
       setStorageSize(0);
-      toast.success("All revision history deleted");
+      sileo.success({ title: "All revision history deleted" });
     } catch {
-      toast.error("Failed to purge revision history");
+      sileo.error({ title: "Failed to purge revision history" });
     } finally {
       setIsPurging(false);
     }
@@ -993,22 +1019,24 @@ function StorageSettings() {
         : formatBytes(storageSize);
 
   return (
-    <div className="space-y-3 pt-4">
-      <p className="pl-2 font-medium text-muted-foreground text-xs">Storage</p>
-      <SettingRow
-        description={`${sizeLabel} · Remove all saved revision checkpoints to free up disk space.`}
-        title="Revision History"
-      >
-        <Button
-          disabled={isPurging}
-          onClick={handlePurge}
-          size="sm"
-          variant="destructive"
+    <div className="space-y-6">
+      <h2 className="pl-2 font-semibold text-lg">Storage</h2>
+      <div className="space-y-4">
+        <SettingRow
+          description={`${sizeLabel} · Remove all saved revision checkpoints to free up disk space.`}
+          title="Revision History"
         >
-          <Trash2 className="mr-2 size-4" />
-          {isPurging ? "Purging…" : "Purge All"}
-        </Button>
-      </SettingRow>
+          <Button
+            disabled={isPurging}
+            onClick={handlePurge}
+            size="sm"
+            variant="destructive"
+          >
+            <Trash2 className="mr-2 size-4" />
+            {isPurging ? "Purging…" : "Purge All"}
+          </Button>
+        </SettingRow>
+      </div>
     </div>
   );
 }
@@ -1022,7 +1050,7 @@ function BillingSettings() {
 
   const handleDeactivate = useCallback(async () => {
     await clearLicense();
-    toast.success("License deactivated");
+    sileo.success({ title: "License deactivated" });
   }, [clearLicense]);
 
   return (
@@ -1112,7 +1140,8 @@ function UpdateSettings() {
   const handleCheckNow = useCallback(async () => {
     await checkForUpdate();
     if (!useUpdateStore.getState().available) {
-      toast.success("You're up to date", {
+      sileo.success({
+        title: "You're up to date",
         description: currentVersion
           ? `Version ${currentVersion} is the latest.`
           : undefined,
@@ -1220,6 +1249,216 @@ function UpdateSettings() {
           </SettingRow>
         </div>
       </div>
+    </div>
+  );
+}
+
+async function addDirToZip(
+  zip: JSZip,
+  dirPath: string,
+  zipPrefix: string
+): Promise<void> {
+  const entries = await readDir(dirPath);
+  for (const entry of entries) {
+    if (!entry.name) continue;
+    const fullPath = await join(dirPath, entry.name);
+    const zipPath = `${zipPrefix}/${entry.name}`;
+    if (entry.isDirectory) {
+      await addDirToZip(zip, fullPath, zipPath);
+    } else {
+      const bytes = await readFile(fullPath);
+      zip.file(zipPath, bytes);
+    }
+  }
+}
+
+function DataTransferSettings() {
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [pendingZipPath, setPendingZipPath] = useState<string | null>(null);
+
+  const handleExport = useCallback(async () => {
+    setExporting(true);
+    setExportStatus("Flushing database…");
+    try {
+      const db = await getDb();
+      await db.execute("PRAGMA wal_checkpoint(TRUNCATE)");
+
+      const appData = await appDataDir();
+      const zip = new JSZip();
+
+      setExportStatus("Adding database…");
+      try {
+        zip.file(
+          "gallery.db",
+          await readFile(await join(appData, "gallery.db"))
+        );
+      } catch {
+        /* not yet created */
+      }
+
+      setExportStatus("Adding settings…");
+      try {
+        zip.file(
+          "settings.json",
+          await readFile(await join(appData, "settings.json"))
+        );
+      } catch {
+        /* not yet created */
+      }
+
+      for (const dir of [
+        "thumbnails",
+        "trash",
+        "revisions",
+        "recovery",
+      ] as const) {
+        const dirPath = await join(appData, dir);
+        if (await exists(dirPath)) {
+          setExportStatus(`Adding ${dir}…`);
+          await addDirToZip(zip, dirPath, dir);
+        }
+      }
+
+      setExportStatus("Compressing…");
+      const blob = await zip.generateAsync({
+        type: "blob",
+        compression: "DEFLATE",
+        compressionOptions: { level: 3 },
+      });
+      const buffer = await blob.arrayBuffer();
+
+      const savePath = await saveDialog({
+        defaultPath: `backstage-backup-${new Date().toISOString().split("T")[0]}.zip`,
+        filters: [{ name: "ZIP Archive", extensions: ["zip"] }],
+      });
+      if (!savePath) return;
+
+      setExportStatus("Saving…");
+      await writeFile(savePath, new Uint8Array(buffer));
+      sileo.success({ title: "Full backup exported" });
+    } catch (err) {
+      sileo.error({ title: `Export failed: ${err}` });
+    } finally {
+      setExporting(false);
+      setExportStatus("");
+    }
+  }, []);
+
+  const handlePickImport = useCallback(async () => {
+    const filePath = await openDialog({
+      multiple: false,
+      filters: [{ name: "ZIP Archive", extensions: ["zip"] }],
+    });
+    if (!filePath) return;
+    setPendingZipPath(filePath as string);
+  }, []);
+
+  const handleCancelImport = useCallback(() => {
+    setPendingZipPath(null);
+  }, []);
+
+  const handleConfirmImport = useCallback(async () => {
+    if (!pendingZipPath) return;
+    setPendingZipPath(null);
+    setImporting(true);
+    try {
+      const bytes = await readFile(pendingZipPath);
+      const zip = await JSZip.loadAsync(bytes);
+      const appData = await appDataDir();
+
+      await closeDb();
+
+      const fileEntries = Object.entries(zip.files).filter(([, f]) => !f.dir);
+      for (const [zipPath, zipFile] of fileEntries) {
+        const slashIdx = zipPath.lastIndexOf("/");
+        if (slashIdx > 0) {
+          const dirPart = zipPath.substring(0, slashIdx);
+          await mkdir(await join(appData, dirPart), { recursive: true }).catch(
+            () => {}
+          );
+        }
+        const content = await zipFile.async("uint8array");
+        await writeFile(await join(appData, zipPath), content);
+      }
+
+      sileo.success({ title: "Backup restored — restarting…" });
+      setTimeout(() => relaunch(), 1500);
+    } catch (err) {
+      sileo.error({ title: `Import failed: ${err}` });
+      setImporting(false);
+    }
+  }, [pendingZipPath]);
+
+  return (
+    <div className="space-y-6">
+      <h2 className="pl-2 font-semibold text-lg">Data Transfer</h2>
+      <p className="pl-2 text-muted-foreground text-sm">
+        Export everything — projects, images, settings — as a single ZIP. Import
+        on another device to restore.
+      </p>
+
+      <div className="space-y-4">
+        <SettingRow
+          description="All projects, images, revision history, and settings."
+          title="Export Full Backup"
+        >
+          <Button
+            disabled={exporting}
+            onClick={handleExport}
+            size="sm"
+            variant="outline"
+          >
+            <Download className="mr-2 size-4" />
+            {exporting ? exportStatus || "Exporting…" : "Export"}
+          </Button>
+        </SettingRow>
+
+        <SettingRow
+          description="Restore from a previously exported backup ZIP."
+          title="Import Backup"
+        >
+          <Button
+            disabled={importing || !!pendingZipPath}
+            onClick={handlePickImport}
+            size="sm"
+            variant="outline"
+          >
+            <Upload className="mr-2 size-4" />
+            {importing ? "Restoring…" : "Import"}
+          </Button>
+        </SettingRow>
+
+        {pendingZipPath && (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+            <p className="mb-1 font-medium text-sm">
+              Replace all current data?
+            </p>
+            <p className="mb-4 text-muted-foreground text-xs">
+              This will overwrite all your projects and settings. The app will
+              restart automatically. This cannot be undone.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleConfirmImport}
+                size="sm"
+                variant="destructive"
+              >
+                Yes, restore backup
+              </Button>
+              <Button onClick={handleCancelImport} size="sm" variant="ghost">
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <p className="pl-2 text-muted-foreground text-xs">
+        Note: Gemini API key and HuggingFace token are stored in the OS keychain
+        and are not included in the backup. Re-enter them after restoring.
+      </p>
     </div>
   );
 }

@@ -60,11 +60,7 @@ export function useDragSelection({
 
       // Don't start drag on interactive elements
       const target = e.target as HTMLElement;
-      if (
-        target.closest("button") ||
-        target.closest(".group") ||
-        target.closest(`[${dataAttribute}]`)
-      ) {
+      if (target.closest("button") || target.closest(`[${dataAttribute}]`)) {
         return;
       }
 

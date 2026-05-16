@@ -11,6 +11,7 @@ import {
   Paintbrush,
   Pipette,
   Redo2,
+  Scissors,
   Shapes,
   Smile,
   Sparkles,
@@ -37,6 +38,7 @@ import { LogoPicker } from "./LogoPicker";
 interface EditorToolbarProps {
   isProcessing: boolean;
   onRemoveBackground: () => void;
+  onSmartCrop: () => void;
   onAddColorBackground: () => void;
   onAddImage: () => void;
   onAiGenerate: () => void;
@@ -52,6 +54,7 @@ interface EditorToolbarProps {
 export function EditorToolbar({
   isProcessing,
   onRemoveBackground,
+  onSmartCrop,
   onAddColorBackground,
   onAddImage,
   onAiGenerate,
@@ -316,6 +319,28 @@ export function EditorToolbar({
         </TooltipTrigger>
         <TooltipContent side="right">
           {canCrop ? "Crop Image (C)" : "Select an image layer to crop (C)"}
+        </TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={canCrop ? undefined : "pointer-events-none opacity-40"}
+          >
+            <Button
+              disabled={!canCrop}
+              onClick={onSmartCrop}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <Scissors className="size-4" />
+            </Button>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          {canCrop
+            ? "Smart Crop — trim invisible borders (Q)"
+            : "Select an image layer to smart crop (Q)"}
         </TooltipContent>
       </Tooltip>
 

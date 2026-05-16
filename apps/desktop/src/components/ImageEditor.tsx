@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import { AddColorBackgroundDialog } from "@/components/editor/AddColorBackgroundDialog";
 import { ArtboardView } from "@/components/editor/ArtboardView";
 import { CarouselGeneratorDialog } from "@/components/editor/CarouselGeneratorDialog";
@@ -198,7 +198,7 @@ export function ImageEditor({
     const toastIds = activeToastIdsRef.current;
     return () => {
       for (const id of toastIds) {
-        toast.dismiss(id);
+        sileo.dismiss(id);
       }
     };
   }, []);
@@ -726,9 +726,9 @@ export function ImageEditor({
         });
       }
       if (images.length > 0) {
-        toast.success(
-          `Added ${images.length} image${images.length > 1 ? "s" : ""}`
-        );
+        sileo.success({
+          title: `Added ${images.length} image${images.length > 1 ? "s" : ""}`,
+        });
       }
     },
     [addImageLayer, addThumbnail, canvasSize]
@@ -740,7 +740,11 @@ export function ImageEditor({
       return;
     }
     setIsProcessing(true);
-    const toastId = toast.loading("Removing background...");
+    const toastId = sileo.show({
+      title: "Removing background...",
+      type: "loading",
+      duration: null,
+    }) as string;
     activeToastIdsRef.current.add(toastId);
     try {
       const { runBgRemovalPipeline } = await import(
@@ -756,17 +760,84 @@ export function ImageEditor({
         result.kind === "gemini-only"
           ? "Background replaced with color"
           : "Background removed";
-      toast.success(message, { id: toastId });
+      sileo.success({ title: message, id: toastId } as any);
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to remove background",
-        { id: toastId }
-      );
+      sileo.error({
+        title:
+          error instanceof Error
+            ? error.message
+            : "Failed to remove background",
+        id: toastId,
+      } as any);
     } finally {
       activeToastIdsRef.current.delete(toastId);
       setIsProcessing(false);
     }
   }, [activeLayerId, layers, addImageLayer]);
+
+  const handleSmartCrop = useCallback(() => {
+    const activeLayer = layers.find((l) => l.id === activeLayerId);
+    if (!activeLayer || activeLayer.type !== "image") return;
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0);
+      const { data, width, height } = ctx.getImageData(
+        0,
+        0,
+        img.width,
+        img.height
+      );
+      let minX = width;
+      let minY = height;
+      let maxX = -1;
+      let maxY = -1;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const alpha = data[(y * width + x) * 4 + 3];
+          if (alpha > 0) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      if (maxX < 0) {
+        sileo.error({ title: "No visible pixels found" });
+        return;
+      }
+      const cropW = maxX - minX + 1;
+      const cropH = maxY - minY + 1;
+      if (cropW === width && cropH === height) {
+        sileo.info({ title: "No invisible border to remove" });
+        return;
+      }
+      const out = document.createElement("canvas");
+      out.width = cropW;
+      out.height = cropH;
+      const outCtx = out.getContext("2d");
+      if (!outCtx) return;
+      outCtx.drawImage(img, minX, minY, cropW, cropH, 0, 0, cropW, cropH);
+      const newDataUrl = out.toDataURL("image/png");
+      const store = useEditorStore.getState();
+      store.pushHistory("Smart Crop");
+      store.updateLayer(activeLayer.id, {
+        dataUrl: newDataUrl,
+        x: activeLayer.x + minX * activeLayer.scaleX,
+        y: activeLayer.y + minY * activeLayer.scaleY,
+        width: cropW,
+        height: cropH,
+      });
+      sileo.success({ title: "Invisible borders removed" });
+    };
+    img.src = (activeLayer as ImageLayer).dataUrl;
+  }, [activeLayerId, layers]);
 
   const handleAddColorBackground = useCallback(
     async (color: string, extraPrompt: string) => {
@@ -776,7 +847,11 @@ export function ImageEditor({
       }
       setShowColorBgDialog(false);
       setIsProcessing(true);
-      const toastId = toast.loading("Adding color background...");
+      const toastId = sileo.show({
+        title: "Adding color background...",
+        type: "loading",
+        duration: null,
+      }) as string;
       activeToastIdsRef.current.add(toastId);
       try {
         const apiKey = await getGeminiApiKey();
@@ -805,12 +880,13 @@ export function ImageEditor({
         const img = new window.Image();
         img.onload = () => addImageLayer(resultDataUrl, img.width, img.height);
         img.src = resultDataUrl;
-        toast.success("Color background added", { id: toastId });
+        sileo.success({ title: "Color background added", id: toastId } as any);
       } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "Failed to add background",
-          { id: toastId }
-        );
+        sileo.error({
+          title:
+            error instanceof Error ? error.message : "Failed to add background",
+          id: toastId,
+        } as any);
       } finally {
         activeToastIdsRef.current.delete(toastId);
         setIsProcessing(false);
@@ -836,7 +912,7 @@ export function ImageEditor({
         canvasSize.height,
         { pages }
       );
-      toast.success("Project saved");
+      sileo.success({ title: "Project saved" });
       const newHistoryIndex = useEditorStore.getState().historyIndex;
       setSavedHistoryIndex(newHistoryIndex);
       useTabsStore.getState().markTabSaved(tabId, newHistoryIndex);
@@ -844,7 +920,7 @@ export function ImageEditor({
       if (savedId) await deleteRecovery(savedId);
     } catch (error) {
       console.error("Save failed:", error);
-      toast.error("Failed to save");
+      sileo.error({ title: "Failed to save" });
     } finally {
       setIsSaving(false);
     }
@@ -874,7 +950,7 @@ export function ImageEditor({
     );
     setProjectId(newId);
     setProjectName(`${projectName} (Copy)`);
-    toast.success("Saved as new project");
+    sileo.success({ title: "Saved as new project" });
   }, [saveProject, projectName, layers, canvasSize]);
 
   // Keyboard shortcuts
@@ -898,7 +974,7 @@ export function ImageEditor({
           if (al?.type === "image") {
             const imgLayer = al as ImageLayer;
             addThumbnail(imgLayer.dataUrl, `${imgLayer.name} (Saved)`);
-            toast.success("Layer saved as new thumbnail");
+            sileo.success({ title: "Layer saved as new thumbnail" });
           }
         } else if (e.key === "s") {
           e.preventDefault();
@@ -911,11 +987,7 @@ export function ImageEditor({
           redo();
         } else if (e.key === "c") {
           e.preventDefault();
-          // Copy
           useEditorStore.getState().copyLayers();
-        } else if (e.key === "v") {
-          e.preventDefault();
-          useEditorStore.getState().pasteLayers();
         } else if (e.key === "d" || e.key === "D") {
           e.preventDefault();
           const { activeLayerIds, duplicateLayer } = useEditorStore.getState();
@@ -939,7 +1011,7 @@ export function ImageEditor({
         if (e.key.toLowerCase() === "v") {
           e.preventDefault();
           store.setActiveTool("select");
-          toast.info("Select Tool (V)");
+          sileo.info({ title: "Select Tool (V)" });
         } else if (e.key.toLowerCase() === "t") {
           e.preventDefault();
           store.addTextLayer("Your Text");
@@ -952,7 +1024,7 @@ export function ImageEditor({
             });
           }
           store.setActiveTool("select");
-          toast.info("Added Text (T)");
+          sileo.info({ title: "Added Text (T)" });
         } else if (e.key.toLowerCase() === "r") {
           e.preventDefault();
           store.addShapeLayer("rect");
@@ -965,7 +1037,7 @@ export function ImageEditor({
             });
           }
           store.setActiveTool("select");
-          toast.info("Added Rectangle (R)");
+          sileo.info({ title: "Added Rectangle (R)" });
         } else if (e.key.toLowerCase() === "o") {
           e.preventDefault();
           store.addShapeLayer("ellipse");
@@ -978,24 +1050,24 @@ export function ImageEditor({
             });
           }
           store.setActiveTool("select");
-          toast.info("Added Ellipse (O)");
+          sileo.info({ title: "Added Ellipse (O)" });
         } else if (e.key.toLowerCase() === "b") {
           e.preventDefault();
           store.setActiveTool("brush");
-          toast.info("Brush Tool (B)");
+          sileo.info({ title: "Brush Tool (B)" });
         } else if (e.key.toLowerCase() === "e") {
           e.preventDefault();
           store.setActiveTool("eraser");
-          toast.info("Eraser Tool (E)");
+          sileo.info({ title: "Eraser Tool (E)" });
         } else if (e.key.toLowerCase() === "c" && !e.ctrlKey && !e.metaKey) {
           e.preventDefault();
           const { activeLayerIds: ids, layers: ls } = useEditorStore.getState();
           const al = ls.find((l) => l.id === ids[0]);
           if (al?.type === "image") {
             store.setActiveTool("crop");
-            toast.info("Crop Tool (C)");
+            sileo.info({ title: "Crop Tool (C)" });
           } else {
-            toast.info("Select an image layer first");
+            sileo.info({ title: "Select an image layer first" });
           }
         } else if (e.key.toLowerCase() === "w") {
           e.preventDefault();
@@ -1003,32 +1075,38 @@ export function ImageEditor({
           const al = ls.find((l) => l.id === ids[0]);
           if (al?.type === "image") {
             store.setActiveTool("magic-select");
-            toast.info("Magic Select (W)");
+            sileo.info({ title: "Magic Select (W)" });
           } else {
-            toast.info("Select an image layer first");
+            sileo.info({ title: "Select an image layer first" });
           }
         } else if (e.key.toLowerCase() === "i") {
           e.preventDefault();
           store.setActiveTool("eyedropper");
-          toast.info("Eyedropper (I)");
+          sileo.info({ title: "Eyedropper (I)" });
         } else if (e.key.toLowerCase() === "k") {
           e.preventDefault();
           setShowIconPicker(true);
-          toast.info("Icon Picker (K)");
+          sileo.info({ title: "Icon Picker (K)" });
         } else if (e.key.toLowerCase() === "l") {
           e.preventDefault();
           setShowLogoPicker(true);
-          toast.info("Logo Picker (L)");
+          sileo.info({ title: "Logo Picker (L)" });
         } else if (e.key.toLowerCase() === "g") {
           e.preventDefault();
           setShowCarouselGenerator(true);
-          toast.info("Generate Carousel (G)");
+          sileo.info({ title: "Generate Carousel (G)" });
         } else if (e.key.toLowerCase() === "x") {
           e.preventDefault();
           const { activeLayerIds: ids, layers: ls } = useEditorStore.getState();
           const al = ls.find((l) => l.id === ids[0]);
           if (al?.type === "image") handleRemoveBackground();
-          else toast.info("Select an image layer first");
+          else sileo.info({ title: "Select an image layer first" });
+        } else if (e.key.toLowerCase() === "q") {
+          e.preventDefault();
+          const { activeLayerIds: ids, layers: ls } = useEditorStore.getState();
+          const al = ls.find((l) => l.id === ids[0]);
+          if (al?.type === "image") handleSmartCrop();
+          else sileo.info({ title: "Select an image layer first" });
         } else if (e.key.toLowerCase() === "a") {
           e.preventDefault();
           onAiGenerate();
@@ -1037,7 +1115,7 @@ export function ImageEditor({
           const { activeLayerIds: ids, layers: ls } = useEditorStore.getState();
           const al = ls.find((l) => l.id === ids[0]);
           if (al?.type === "image") setShowColorBgDialog(true);
-          else toast.info("Select an image layer first");
+          else sileo.info({ title: "Select an image layer first" });
         }
       }
     };
@@ -1048,6 +1126,7 @@ export function ImageEditor({
     undo,
     redo,
     handleRemoveBackground,
+    handleSmartCrop,
     onAiGenerate,
     onExport,
     addThumbnail,
@@ -1167,13 +1246,17 @@ export function ImageEditor({
     async (config: CarouselGeneratorConfig) => {
       const apiKey = await getGeminiApiKey();
       if (!apiKey) {
-        toast.error("Please set your Gemini API key in Settings");
+        sileo.error({ title: "Please set your Gemini API key in Settings" });
         return;
       }
 
       setIsProcessing(true);
       setShowCarouselGenerator(false);
-      const toastId = toast.loading("Generating carousel with Gemini AI...");
+      const toastId = sileo.show({
+        title: "Generating carousel with Gemini AI...",
+        type: "loading",
+        duration: null,
+      }) as string;
       activeToastIdsRef.current.add(toastId);
 
       try {
@@ -1249,12 +1332,16 @@ export function ImageEditor({
         // Go back to first page
         useEditorStore.getState().setActivePage(0);
 
-        toast.success(`Generated ${slides.length} slides!`, { id: toastId });
+        sileo.success({
+          title: `Generated ${slides.length} slides!`,
+          id: toastId,
+        } as any);
       } catch (error) {
         console.error("Carousel generation failed:", error);
-        toast.error("Failed to generate carousel. Check console for details.", {
+        sileo.error({
+          title: "Failed to generate carousel. Check console for details.",
           id: toastId,
-        });
+        } as any);
       } finally {
         activeToastIdsRef.current.delete(toastId);
         setIsProcessing(false);
@@ -1333,11 +1420,12 @@ export function ImageEditor({
             if (activeLayer?.type === "image") {
               const imgLayer = activeLayer as ImageLayer;
               addThumbnail(imgLayer.dataUrl, `${imgLayer.name} (Saved)`);
-              toast.success("Layer saved as new thumbnail");
+              sileo.success({ title: "Layer saved as new thumbnail" });
             }
           }}
           onShowIconPickerChange={setShowIconPicker}
           onShowLogoPickerChange={setShowLogoPicker}
+          onSmartCrop={handleSmartCrop}
           showIconPicker={showIconPicker}
           showLogoPicker={showLogoPicker}
         />

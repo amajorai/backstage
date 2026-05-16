@@ -1,5 +1,6 @@
-import { Image, Loader2, Search } from "lucide-react";
+import { FolderOpen, Image, Loader2, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFolderStore } from "@/stores/use-folder-store";
 import { useGalleryStore } from "@/stores/use-gallery-store";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -98,8 +99,10 @@ function PickerThumbnail({
 
 export function GalleryPicker({ onSelect, onClose }: GalleryPickerProps) {
   const thumbnails = useGalleryStore((s) => s.thumbnails);
+  const folders = useFolderStore((s) => s.folders);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   // Debounce search input by 300ms
   useEffect(() => {
@@ -107,11 +110,25 @@ export function GalleryPicker({ onSelect, onClose }: GalleryPickerProps) {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
+  const folderCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const t of thumbnails) {
+      if (t.folderId) counts[t.folderId] = (counts[t.folderId] ?? 0) + 1;
+    }
+    return counts;
+  }, [thumbnails]);
+
   const filteredThumbnails = useMemo(() => {
-    if (!searchQuery.trim()) return thumbnails;
+    let filtered = thumbnails;
+    if (selectedFolderId !== null) {
+      filtered = filtered.filter((t) => t.folderId === selectedFolderId);
+    }
+    if (!searchQuery.trim()) return filtered;
     const q = searchQuery.toLowerCase();
-    return thumbnails.filter((t) => t.name.toLowerCase().includes(q));
-  }, [thumbnails, searchQuery]);
+    return filtered.filter((t) => t.name.toLowerCase().includes(q));
+  }, [thumbnails, searchQuery, selectedFolderId]);
+
+  const hasFolders = folders.length > 0;
 
   if (thumbnails.length === 0) {
     return (
@@ -142,7 +159,7 @@ export function GalleryPicker({ onSelect, onClose }: GalleryPickerProps) {
       onKeyDown={(e) => e.key === "Escape" && onClose()}
     >
       <div
-        className="flex max-h-[80vh] w-150 flex-col overflow-hidden rounded-xl border border-border bg-card"
+        className="flex max-h-[80vh] w-170 flex-col overflow-hidden rounded-xl border border-border bg-card"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={() => {}}
       >
@@ -163,25 +180,71 @@ export function GalleryPicker({ onSelect, onClose }: GalleryPickerProps) {
           </div>
         </div>
 
-        {/* Scrollable grid */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {filteredThumbnails.length === 0 ? (
-            <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
-              No images match your search
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-2">
-              {filteredThumbnails.map((thumb) => (
-                <PickerThumbnail
-                  id={thumb.id}
-                  key={thumb.id}
-                  name={thumb.name}
-                  onSelect={onSelect}
-                  previewUrl={thumb.previewUrl}
-                />
+        {/* Body: optional folder sidebar + grid */}
+        <div className="flex flex-1 overflow-hidden">
+          {hasFolders && (
+            <div className="flex w-36 shrink-0 flex-col gap-0.5 overflow-y-auto border-border border-r p-2">
+              <button
+                className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors ${
+                  selectedFolderId === null
+                    ? "bg-accent font-medium text-accent-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+                onClick={() => setSelectedFolderId(null)}
+                type="button"
+              >
+                <span className="truncate">All</span>
+                <span className="ml-auto text-xs opacity-60">
+                  {thumbnails.length}
+                </span>
+              </button>
+              {folders.map((folder) => (
+                <button
+                  className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors ${
+                    selectedFolderId === folder.id
+                      ? "bg-accent font-medium text-accent-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                  key={folder.id}
+                  onClick={() =>
+                    setSelectedFolderId(
+                      selectedFolderId === folder.id ? null : folder.id
+                    )
+                  }
+                  type="button"
+                >
+                  <FolderOpen className="size-3.5 shrink-0" />
+                  <span className="truncate">{folder.name}</span>
+                  <span className="ml-auto text-xs opacity-60">
+                    {folderCounts[folder.id] ?? 0}
+                  </span>
+                </button>
               ))}
             </div>
           )}
+
+          {/* Scrollable grid */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {filteredThumbnails.length === 0 ? (
+              <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
+                {searchQuery.trim()
+                  ? "No images match your search"
+                  : "No images in this folder"}
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {filteredThumbnails.map((thumb) => (
+                  <PickerThumbnail
+                    id={thumb.id}
+                    key={thumb.id}
+                    name={thumb.name}
+                    onSelect={onSelect}
+                    previewUrl={thumb.previewUrl}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex justify-end border-border border-t px-5 py-4">

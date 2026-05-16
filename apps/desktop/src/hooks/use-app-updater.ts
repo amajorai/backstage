@@ -1,7 +1,7 @@
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { useEffect } from "react";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import { create } from "zustand";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 
@@ -35,9 +35,12 @@ export async function downloadAndInstall(update: Update) {
   setDownloading(true);
   setProgress(0);
 
-  const toastId = toast.loading("Downloading update...", {
+  const toastId = sileo.show({
+    title: "Downloading update...",
+    type: "loading",
+    duration: null,
     description: "0%",
-  });
+  }) as string;
 
   let totalBytes = 0;
   let downloadedBytes = 0;
@@ -51,25 +54,30 @@ export async function downloadAndInstall(update: Update) {
         const progress =
           totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : 0;
         setProgress(progress);
-        toast.loading("Downloading update...", {
-          id: toastId,
+        sileo.show({
+          title: "Downloading update...",
+          type: "loading",
+          duration: null,
           description: `${progress}%`,
-        });
-      } else if (event.event === "Finished") {
-        toast.success("Update downloaded", {
           id: toastId,
+        } as any);
+      } else if (event.event === "Finished") {
+        sileo.success({
+          title: "Update downloaded",
           description: "Restarting app...",
-        });
+          id: toastId,
+        } as any);
       }
     });
 
     await relaunch();
   } catch (error) {
     console.error("Update failed:", error);
-    toast.error("Update failed", {
-      id: toastId,
+    sileo.error({
+      title: "Update failed",
       description: "Please try again later.",
-    });
+      id: toastId,
+    } as any);
     setDownloading(false);
   }
 }
@@ -87,16 +95,13 @@ export async function checkForUpdate() {
 
     if (update) {
       setAvailable(update);
-      toast("Update Available", {
+      sileo.show({
+        title: "Update Available",
         description: `Version ${update.version} is ready to install.`,
         duration: 10_000,
-        action: {
-          label: "Install",
+        button: {
+          title: "Install",
           onClick: () => downloadAndInstall(update),
-        },
-        cancel: {
-          label: "Maybe later",
-          onClick: () => {},
         },
       });
     }

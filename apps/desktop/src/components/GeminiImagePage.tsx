@@ -8,7 +8,7 @@ import {
   Search,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import { GeminiPromptPanel } from "@/components/gemini/GeminiPromptPanel";
 import { GeneratedImageGrid } from "@/components/gemini/GeneratedImageGrid";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -120,11 +120,13 @@ export function GeminiImagePage({
   );
   const [gallerySearchInput, setGallerySearchInput] = useState("");
   const [gallerySearchQuery, setGallerySearchQuery] = useState("");
+  const [galleryFolderId, setGalleryFolderId] = useState<string | null>(null);
 
   const galleryThumbnails = useGalleryStore((s) => s.thumbnails);
   const loadPreviewForId = useGalleryStore((s) => s.loadPreviewForId);
   const loadFullImageForId = useGalleryStore((s) => s.loadFullImageForId);
   const previewCache = useGalleryStore((s) => s.previewCache);
+  const folders = useFolderStore((s) => s.folders);
 
   // Debounce gallery search by 300ms
   useEffect(() => {
@@ -135,11 +137,23 @@ export function GeminiImagePage({
     return () => clearTimeout(timer);
   }, [gallerySearchInput]);
 
+  const galleryFolderCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const t of galleryThumbnails) {
+      if (t.folderId) counts[t.folderId] = (counts[t.folderId] ?? 0) + 1;
+    }
+    return counts;
+  }, [galleryThumbnails]);
+
   const filteredGalleryThumbnails = useMemo(() => {
-    if (!gallerySearchQuery.trim()) return galleryThumbnails;
+    let filtered = galleryThumbnails;
+    if (galleryFolderId !== null) {
+      filtered = filtered.filter((t) => t.folderId === galleryFolderId);
+    }
+    if (!gallerySearchQuery.trim()) return filtered;
     const q = gallerySearchQuery.toLowerCase();
-    return galleryThumbnails.filter((t) => t.name.toLowerCase().includes(q));
-  }, [galleryThumbnails, gallerySearchQuery]);
+    return filtered.filter((t) => t.name.toLowerCase().includes(q));
+  }, [galleryThumbnails, gallerySearchQuery, galleryFolderId]);
 
   useEffect(() => {
     getGeminiApiKey().then(setApiKey);
@@ -308,14 +322,14 @@ export function GeminiImagePage({
     setUseSelectedAsInput(false);
 
     if (results.length > 0) {
-      toast.success(
-        `Generated ${results.length} image${results.length > 1 ? "s" : ""}`
-      );
+      sileo.success({
+        title: `Generated ${results.length} image${results.length > 1 ? "s" : ""}`,
+      });
     }
     if (errorCount > 0) {
-      toast.error(
-        `${errorCount} generation${errorCount > 1 ? "s" : ""} failed`
-      );
+      sileo.error({
+        title: `${errorCount} generation${errorCount > 1 ? "s" : ""} failed`,
+      });
     }
     if (results.length === 0) {
       setError("All generations failed. Please try again.");
@@ -361,9 +375,9 @@ export function GeminiImagePage({
       selectedIndices.has(idx)
     );
     for (const img of selected) onSaveAsLayer(img.url);
-    toast.success(
-      `Saved ${selected.length} image${selected.length > 1 ? "s" : ""} as layers`
-    );
+    sileo.success({
+      title: `Saved ${selected.length} image${selected.length > 1 ? "s" : ""} as layers`,
+    });
     onClose();
   }, [generatedImages, selectedIndices, onSaveAsLayer, onClose]);
 
@@ -372,22 +386,26 @@ export function GeminiImagePage({
       selectedIndices.has(idx)
     );
     for (const img of selected) onSaveAsImage(img.url);
-    toast.success(
-      `Saved ${selected.length} image${selected.length > 1 ? "s" : ""} to gallery`
-    );
+    sileo.success({
+      title: `Saved ${selected.length} image${selected.length > 1 ? "s" : ""} to gallery`,
+    });
     onClose();
   }, [generatedImages, selectedIndices, onSaveAsImage, onClose]);
 
   const handleSaveAllAsLayers = useCallback(() => {
     if (!onSaveAsLayer) return;
     for (const img of generatedImages) onSaveAsLayer(img.url);
-    toast.success(`Saved ${generatedImages.length} images as layers`);
+    sileo.success({
+      title: `Saved ${generatedImages.length} images as layers`,
+    });
     onClose();
   }, [generatedImages, onSaveAsLayer, onClose]);
 
   const handleSaveAllAsImages = useCallback(() => {
     for (const img of generatedImages) onSaveAsImage(img.url);
-    toast.success(`Saved ${generatedImages.length} images to gallery`);
+    sileo.success({
+      title: `Saved ${generatedImages.length} images to gallery`,
+    });
     onClose();
   }, [generatedImages, onSaveAsImage, onClose]);
 

@@ -135,20 +135,33 @@ function ImageLayerComponent(
     onTransformEnd,
   } = props;
   const nodeRef = useRef<Konva.Image>(null);
+  const [image, setImage] = useState<HTMLImageElement | null>(() => {
+    const cached = imageCache.current.get(layer.dataUrl);
+    return cached?.complete ? cached : null;
+  });
+
+  useEffect(() => {
+    const cached = imageCache.current.get(layer.dataUrl);
+    if (cached?.complete) {
+      setImage(cached);
+      return;
+    }
+    const img = cached ?? new window.Image();
+    if (!cached) {
+      img.crossOrigin = "anonymous";
+      img.src = layer.dataUrl;
+      imageCache.current.set(layer.dataUrl, img);
+    }
+    const onLoad = () => setImage(img);
+    img.addEventListener("load", onLoad);
+    return () => img.removeEventListener("load", onLoad);
+  }, [layer.dataUrl, imageCache]);
 
   useEffect(() => {
     const node = nodeRef.current;
     if (!node) return;
     applyKonvaFilters(node, layer.adjustments);
   }, [layer.adjustments]);
-
-  let image = imageCache.current.get(layer.dataUrl);
-  if (!(image && image.crossOrigin)) {
-    image = new window.Image();
-    image.crossOrigin = "anonymous";
-    image.src = layer.dataUrl;
-    imageCache.current.set(layer.dataUrl, image);
-  }
 
   const hasCornerRadius =
     (typeof layer.cornerRadius === "number" && layer.cornerRadius > 0) ||
@@ -266,7 +279,7 @@ function ImageLayerComponent(
         <Image
           crop={cropProp}
           height={renderHeight}
-          image={image}
+          image={image ?? undefined}
           ref={nodeRef}
           width={renderWidth}
           x={fitOffsetX}

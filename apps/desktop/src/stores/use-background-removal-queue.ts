@@ -1,3 +1,4 @@
+import { sileo } from "sileo";
 import { create } from "zustand";
 import { useGalleryStore } from "./use-gallery-store";
 
@@ -139,7 +140,7 @@ export const useBackgroundRemovalQueue = create<BackgroundRemovalQueueState>()(
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Background removal failed";
-        toast.error(message);
+        sileo.error({ title: message });
         set((state) => ({
           queue: state.queue.map((item) =>
             item.id === pendingItem.id

@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type GridStateSnapshot, VirtuosoGrid } from "react-virtuoso";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import type { ViewMode } from "@/App";
 import { AddColorBackgroundDialog } from "@/components/editor/AddColorBackgroundDialog";
 import { EmptyState } from "@/components/gallery/EmptyState";
@@ -117,6 +117,10 @@ export function Gallery({
   const folders = useFolderStore((s) => s.folders);
   const deleteFolder = useFolderStore((s) => s.deleteFolder);
   const reorderFolders = useFolderStore((s) => s.reorderFolders);
+  const renameFolder = useFolderStore((s) => s.renameFolder);
+
+  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
+  const [renameFolderName, setRenameFolderName] = useState("");
 
   const isSelectionMode = useSelectionStore((s) => s.isSelectionMode);
   const selectAll = useSelectionStore((s) => s.selectAll);
@@ -212,9 +216,9 @@ export function Gallery({
         await addThumbnail(dataUrl, fileName);
       }
       if (images.length > 0) {
-        toast.success(
-          `Added ${images.length} image${images.length > 1 ? "s" : ""} to gallery`
-        );
+        sileo.success({
+          title: `Added ${images.length} image${images.length > 1 ? "s" : ""} to gallery`,
+        });
       }
     },
     [addThumbnail]
@@ -255,7 +259,11 @@ export function Gallery({
       setColorBgThumbnail(null);
       if (!thumbnail) return;
       setProcessingId(thumbnail.id);
-      const toastId = toast.loading("Adding color background...");
+      const toastId = sileo.show({
+        title: "Adding color background...",
+        type: "loading",
+        duration: null,
+      }) as string;
       try {
         const fullImageUrl = await loadFullImageForId(thumbnail.id);
         if (!fullImageUrl) throw new Error("Image not found");
@@ -283,12 +291,13 @@ export function Gallery({
         );
         const dataUrl = base64ToDataUrl(result.imageBase64, result.mimeType);
         await addThumbnail(dataUrl, `${thumbnail.name} (${color} bg)`);
-        toast.success("Color background added", { id: toastId });
+        sileo.success({ title: "Color background added", id: toastId } as any);
       } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "Failed to add background",
-          { id: toastId }
-        );
+        sileo.error({
+          title:
+            error instanceof Error ? error.message : "Failed to add background",
+          id: toastId,
+        } as any);
       } finally {
         setProcessingId(null);
       }
@@ -324,7 +333,7 @@ export function Gallery({
     await deleteFolder(deleteFolderTarget);
     setDeleteFolderTarget(null);
     if (selectedFolderId === deleteFolderTarget) setSelectedFolderId(null);
-    toast.success(`Folder "${folder?.name}" deleted`);
+    sileo.success({ title: `Folder "${folder?.name}" deleted` });
   }, [
     deleteFolderTarget,
     folders,
@@ -437,115 +446,168 @@ export function Gallery({
             </span>
           </button>
           {folders.map((folder) => (
-            <div
-              className={cn(
-                "group flex shrink-0 cursor-grab items-center gap-1 rounded-md px-2.5 py-1 text-sm transition-all active:cursor-grabbing",
-                selectedFolderId === folder.id
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-                draggingFolderId === folder.id && "opacity-40",
-                dragOverFolderId === folder.id &&
-                  draggingFolderId !== folder.id &&
-                  draggingFolderId !== null &&
-                  "ring-2 ring-dashed ring-primary/60",
-                dragOverFolderId === folder.id &&
-                  draggingFolderId === null &&
-                  "scale-110 ring-2 ring-primary"
-              )}
-              draggable
-              key={folder.id}
-              onDragEnd={() => {
-                setDraggingFolderId(null);
-                setDragOverFolderId(null);
-              }}
-              onDragEnter={(e) => {
-                e.preventDefault();
-                setDragOverFolderId(folder.id);
-              }}
-              onDragLeave={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                  setDragOverFolderId(null);
-                }
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "move";
-                setDragOverFolderId(folder.id);
-              }}
-              onDragStart={(e) => {
-                e.stopPropagation();
-                setDraggingFolderId(folder.id);
-                e.dataTransfer.setData("text/plain", `f:${folder.id}`);
-                e.dataTransfer.effectAllowed = "move";
-              }}
-              onDrop={async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setDragOverFolderId(null);
-                setDraggingFolderId(null);
-                const raw = e.dataTransfer.getData("text/plain");
-                if (!raw) return;
-                if (raw.startsWith("t:")) {
-                  const ids = JSON.parse(raw.slice(2)) as string[];
-                  await Promise.all(
-                    ids.map((id) => setThumbnailFolder(id, folder.id))
-                  );
-                  toast.success(
-                    `Moved ${ids.length} item${ids.length > 1 ? "s" : ""} to "${folder.name}"`
-                  );
-                } else if (raw.startsWith("f:")) {
-                  const draggedId = raw.slice(2);
-                  if (draggedId === folder.id) return;
-                  const current = useFolderStore.getState().folders;
-                  const without = current.filter((f) => f.id !== draggedId);
-                  const targetIdx = without.findIndex(
-                    (f) => f.id === folder.id
-                  );
-                  const dragged = current.find((f) => f.id === draggedId);
-                  if (!dragged) return;
-                  without.splice(targetIdx, 0, dragged);
-                  await reorderFolders(without.map((f) => f.id));
-                }
-              }}
-            >
-              <button
-                className="flex items-center gap-1.5"
-                onClick={() =>
-                  setSelectedFolderId(
-                    selectedFolderId === folder.id ? null : folder.id
-                  )
-                }
-                type="button"
-              >
-                <FolderOpen className="size-3.5" />
-                {folder.name}
-                <span
+            <ContextMenu key={folder.id}>
+              <ContextMenuTrigger asChild>
+                <div
                   className={cn(
-                    "rounded px-1 py-0.5 text-xs tabular-nums",
+                    "group flex shrink-0 cursor-grab items-center gap-1 rounded-md px-2.5 py-1 text-sm transition-all active:cursor-grabbing",
                     selectedFolderId === folder.id
-                      ? "bg-primary-foreground/20 text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                    draggingFolderId === folder.id && "opacity-40",
+                    dragOverFolderId === folder.id &&
+                      draggingFolderId !== folder.id &&
+                      draggingFolderId !== null &&
+                      "ring-2 ring-dashed ring-primary/60",
+                    dragOverFolderId === folder.id &&
+                      draggingFolderId === null &&
+                      "scale-110 ring-2 ring-primary"
                   )}
+                  draggable
+                  onDragEnd={() => {
+                    setDraggingFolderId(null);
+                    setDragOverFolderId(null);
+                  }}
+                  onDragEnter={(e) => {
+                    e.preventDefault();
+                    setDragOverFolderId(folder.id);
+                  }}
+                  onDragLeave={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                      setDragOverFolderId(null);
+                    }
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    setDragOverFolderId(folder.id);
+                  }}
+                  onDragStart={(e) => {
+                    e.stopPropagation();
+                    setDraggingFolderId(folder.id);
+                    e.dataTransfer.setData("text/plain", `f:${folder.id}`);
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragOverFolderId(null);
+                    setDraggingFolderId(null);
+                    const raw = e.dataTransfer.getData("text/plain");
+                    if (!raw) return;
+                    if (raw.startsWith("t:")) {
+                      const ids = JSON.parse(raw.slice(2)) as string[];
+                      await Promise.all(
+                        ids.map((id) => setThumbnailFolder(id, folder.id))
+                      );
+                      sileo.success({
+                        title: `Moved ${ids.length} item${ids.length > 1 ? "s" : ""} to "${folder.name}"`,
+                      });
+                    } else if (raw.startsWith("f:")) {
+                      const draggedId = raw.slice(2);
+                      if (draggedId === folder.id) return;
+                      const current = useFolderStore.getState().folders;
+                      const without = current.filter((f) => f.id !== draggedId);
+                      const targetIdx = without.findIndex(
+                        (f) => f.id === folder.id
+                      );
+                      const dragged = current.find((f) => f.id === draggedId);
+                      if (!dragged) return;
+                      without.splice(targetIdx, 0, dragged);
+                      await reorderFolders(without.map((f) => f.id));
+                    }
+                  }}
                 >
-                  {folderCounts[folder.id] ?? 0}
-                </span>
-              </button>
-              <button
-                className={cn(
-                  "ml-0.5 rounded opacity-0 transition-opacity group-hover:opacity-100",
-                  selectedFolderId === folder.id &&
-                    "opacity-60 hover:opacity-100"
-                )}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDeleteFolderTarget(folder.id);
-                }}
-                title="Delete folder"
-                type="button"
-              >
-                <X className="size-3" />
-              </button>
-            </div>
+                  <button
+                    className="flex items-center gap-1.5"
+                    onClick={() =>
+                      setSelectedFolderId(
+                        selectedFolderId === folder.id ? null : folder.id
+                      )
+                    }
+                    type="button"
+                  >
+                    <FolderOpen className="size-3.5 shrink-0" />
+                    {renamingFolderId === folder.id ? (
+                      <input
+                        autoFocus
+                        className="w-20 min-w-0 bg-transparent outline-none"
+                        onBlur={async () => {
+                          const trimmed = renameFolderName.trim();
+                          if (trimmed && trimmed !== folder.name) {
+                            await renameFolder(folder.id, trimmed);
+                          }
+                          setRenamingFolderId(null);
+                        }}
+                        onChange={(e) => setRenameFolderName(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={async (e) => {
+                          if (e.key === "Enter") {
+                            const trimmed = renameFolderName.trim();
+                            if (trimmed && trimmed !== folder.name) {
+                              await renameFolder(folder.id, trimmed);
+                            }
+                            setRenamingFolderId(null);
+                          } else if (e.key === "Escape") {
+                            setRenamingFolderId(null);
+                          }
+                        }}
+                        value={renameFolderName}
+                      />
+                    ) : (
+                      folder.name
+                    )}
+                    <span
+                      className={cn(
+                        "rounded px-1 py-0.5 text-xs tabular-nums",
+                        selectedFolderId === folder.id
+                          ? "bg-primary-foreground/20 text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {folderCounts[folder.id] ?? 0}
+                    </span>
+                  </button>
+                  <div
+                    className={cn(
+                      "max-w-0 overflow-hidden transition-[max-width,opacity] duration-200 ease-out group-hover:max-w-[20px]",
+                      selectedFolderId === folder.id
+                        ? "max-w-[20px] opacity-60 group-hover:opacity-100"
+                        : "opacity-0 group-hover:opacity-100"
+                    )}
+                  >
+                    <button
+                      className="ml-0.5 rounded"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteFolderTarget(folder.id);
+                      }}
+                      title="Delete folder"
+                      type="button"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </div>
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent className="w-40">
+                <ContextMenuItem
+                  onSelect={() => {
+                    setRenameFolderName(folder.name);
+                    setRenamingFolderId(folder.id);
+                  }}
+                >
+                  Rename
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  onSelect={() => setDeleteFolderTarget(folder.id)}
+                  variant="destructive"
+                >
+                  Delete
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
           ))}
         </div>
       )}
@@ -731,7 +793,7 @@ export function Gallery({
               onClick={async () => {
                 if (moveFolderThumbnail) {
                   await setThumbnailFolder(moveFolderThumbnail.id, null);
-                  toast.success("Moved out of folder");
+                  sileo.success({ title: "Moved out of folder" });
                   setMoveFolderThumbnail(null);
                 }
               }}
@@ -750,7 +812,7 @@ export function Gallery({
                 onClick={async () => {
                   if (moveFolderThumbnail) {
                     await setThumbnailFolder(moveFolderThumbnail.id, folder.id);
-                    toast.success(`Moved to "${folder.name}"`);
+                    sileo.success({ title: `Moved to "${folder.name}"` });
                     setMoveFolderThumbnail(null);
                   }
                 }}
@@ -790,9 +852,9 @@ export function Gallery({
                 await Promise.all(
                   ids.map((id) => setThumbnailFolder(id, null))
                 );
-                toast.success(
-                  `Moved ${ids.length} item${ids.length > 1 ? "s" : ""} out of folder`
-                );
+                sileo.success({
+                  title: `Moved ${ids.length} item${ids.length > 1 ? "s" : ""} out of folder`,
+                });
                 setBulkMoveFolderOpen(false);
                 useSelectionStore.getState().clearSelection();
               }}
@@ -812,9 +874,9 @@ export function Gallery({
                   await Promise.all(
                     ids.map((id) => setThumbnailFolder(id, folder.id))
                   );
-                  toast.success(
-                    `Moved ${ids.length} item${ids.length > 1 ? "s" : ""} to "${folder.name}"`
-                  );
+                  sileo.success({
+                    title: `Moved ${ids.length} item${ids.length > 1 ? "s" : ""} to "${folder.name}"`,
+                  });
                   setBulkMoveFolderOpen(false);
                   useSelectionStore.getState().clearSelection();
                 }}
@@ -848,7 +910,7 @@ export function Gallery({
             onKeyDown={(e) => {
               if (e.key === "Enter" && selectedThumbnail && newName.trim()) {
                 updateThumbnailName(selectedThumbnail.id, newName.trim());
-                toast.success("Thumbnail renamed");
+                sileo.success({ title: "Thumbnail renamed" });
                 setRenameDialogOpen(false);
               }
             }}
@@ -863,7 +925,7 @@ export function Gallery({
               onClick={() => {
                 if (selectedThumbnail && newName.trim()) {
                   updateThumbnailName(selectedThumbnail.id, newName.trim());
-                  toast.success("Thumbnail renamed");
+                  sileo.success({ title: "Thumbnail renamed" });
                   setRenameDialogOpen(false);
                 }
               }}
@@ -914,7 +976,7 @@ export function Gallery({
               onClick={async () => {
                 if (selectedThumbnail) {
                   await deleteThumbnail(selectedThumbnail.id);
-                  toast.info("Moved to trash");
+                  sileo.info({ title: "Moved to trash" });
                   setDeleteDialogOpen(false);
                 }
               }}

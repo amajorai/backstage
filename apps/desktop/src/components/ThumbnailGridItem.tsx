@@ -10,7 +10,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import { SelectionCheckbox } from "@/components/gallery/SelectionCheckbox";
 import { ThumbnailActionButtons } from "@/components/gallery/ThumbnailActionButtons";
 import {
@@ -307,7 +307,7 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
         <ContextMenuItem
           onClick={async () => {
             await duplicateThumbnail(thumbnail.id);
-            toast.success("Thumbnail duplicated");
+            sileo.success({ title: "Thumbnail duplicated" });
           }}
         >
           <Copy className="mr-2 size-4" />

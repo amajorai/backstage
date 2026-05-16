@@ -1,6 +1,6 @@
 import { Link2, Link2Off } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -117,9 +117,9 @@ export function CanvasSizeDialog({
             onClick={() => {
               onApply(tempSize);
               onOpenChange(false);
-              toast.success(
-                `Canvas resized to ${tempSize.width} × ${tempSize.height}`
-              );
+              sileo.success({
+                title: `Canvas resized to ${tempSize.width} × ${tempSize.height}`,
+              });
             }}
           >
             Apply

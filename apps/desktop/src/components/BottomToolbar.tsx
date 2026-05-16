@@ -1,6 +1,6 @@
 import { Loader2, Search, Settings, Sparkles, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import type { ViewMode } from "@/App";
 import { AddColorBackgroundDialog } from "@/components/editor/AddColorBackgroundDialog";
 import { AddMenu } from "@/components/toolbar/add-menu";
@@ -83,7 +83,7 @@ export function BottomToolbar({
     try {
       const ids = Array.from(selectedIds);
       await duplicateThumbnailsBatch(ids);
-      toast.success(`Duplicated ${ids.length} items`);
+      sileo.success({ title: `Duplicated ${ids.length} items` });
       clearSelection();
     } finally {
       setIsDuplicating(false);
@@ -95,7 +95,7 @@ export function BottomToolbar({
     try {
       const ids = Array.from(selectedIds);
       await deleteThumbnailsBatch(ids);
-      toast.success(`Moved ${ids.length} items to trash`);
+      sileo.success({ title: `Moved ${ids.length} items to trash` });
       setDeleteDialogOpen(false);
       clearSelection();
     } finally {
@@ -108,7 +108,9 @@ export function BottomToolbar({
       .filter((t) => selectedIds.has(t.id))
       .map((t) => ({ thumbnailId: t.id, name: t.name }));
     addToBgQueue(itemsToProcess);
-    toast.success(`Added ${itemsToProcess.length} items to processing queue`);
+    sileo.success({
+      title: `Added ${itemsToProcess.length} items to processing queue`,
+    });
     clearSelection();
   }, [thumbnails, selectedIds, addToBgQueue, clearSelection]);
 
@@ -118,9 +120,9 @@ export function BottomToolbar({
         .filter((t) => selectedIds.has(t.id))
         .map((t) => ({ thumbnailId: t.id, name: t.name, color }));
       addColorBgToQueue(itemsToProcess);
-      toast.success(
-        `Added ${itemsToProcess.length} items to color background queue`
-      );
+      sileo.success({
+        title: `Added ${itemsToProcess.length} items to color background queue`,
+      });
       clearSelection();
     },
     [thumbnails, selectedIds, addColorBgToQueue, clearSelection]
@@ -131,7 +133,9 @@ export function BottomToolbar({
       .filter((t) => selectedIds.has(t.id))
       .map((t) => ({ thumbnailId: t.id, name: t.name }));
     addToRenameQueue(itemsToRename);
-    toast.success(`Added ${itemsToRename.length} items to rename queue`);
+    sileo.success({
+      title: `Added ${itemsToRename.length} items to rename queue`,
+    });
     clearSelection();
   }, [thumbnails, selectedIds, addToRenameQueue, clearSelection]);
 

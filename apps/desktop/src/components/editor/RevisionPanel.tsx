@@ -1,6 +1,6 @@
 import { Clock, RotateCcw, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
+import { sileo } from "sileo";
 import { ScrollFadeEffect } from "@/components/scroll-fade-effect";
 import {
   AlertDialog,
@@ -31,7 +31,7 @@ export function RevisionPanel({ projectId, onRestored }: RevisionPanelProps) {
   const handleRestore = async (revId: string) => {
     const pages = await restoreRevision(revId, projectId);
     if (!pages) {
-      toast.error("Failed to load revision");
+      sileo.error({ title: "Failed to load revision" });
       return;
     }
     useEditorStore.setState({
@@ -41,13 +41,13 @@ export function RevisionPanel({ projectId, onRestored }: RevisionPanelProps) {
       activeLayerIds: [],
     });
     useEditorStore.getState().pushHistory("Restore revision");
-    toast.success("Revision restored");
+    sileo.success({ title: "Revision restored" });
     onRestored();
   };
 
   const handleDelete = async (revId: string) => {
     await deleteRevision(revId, projectId);
-    toast.success("Revision deleted");
+    sileo.success({ title: "Revision deleted" });
   };
 
   if (isLoading) {
