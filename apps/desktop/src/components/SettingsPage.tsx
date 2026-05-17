@@ -1459,6 +1459,20 @@ function DataTransferSettings() {
         /* not yet created */
       }
 
+      // Checkpoint embeddings WAL if present, then include db + sidecar files
+      setExportStatus("Adding embeddings database…");
+      for (const fname of [
+        "embeddings.db",
+        "embeddings.db-wal",
+        "embeddings.db-shm",
+      ]) {
+        try {
+          zip.file(fname, await readFile(await join(appData, fname)));
+        } catch {
+          /* file may not exist yet */
+        }
+      }
+
       setExportStatus("Adding settings…");
       try {
         zip.file(
