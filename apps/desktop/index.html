@@ -32,6 +32,36 @@
       true
     );
     </script>
+    <script>
+    "use strict";
+    window.$ujq = window.$ujq || [];
+    window.uj =
+      window.uj ||
+      new Proxy(
+        {},
+        {
+          get:
+            (_, p) =>
+            (...a) =>
+              window.$ujq.push([p, ...a]),
+        }
+      );
+    document.head.appendChild(
+      Object.assign(document.createElement("script"), {
+        src: "https://cdn.userjot.com/sdk/v2/uj.js",
+        type: "module",
+        async: !0,
+      })
+    );
+    </script>
+    <script>
+    "use strict";
+    window.uj.init("cmp9kk20o07w50inhwx9hso2u", {
+      widget: true,
+      position: "right",
+      theme: "auto",
+    });
+    </script>
   </head>
   <body>
     <div id="root"></div>
