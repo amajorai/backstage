@@ -6,6 +6,7 @@ import {
   Heart,
   Loader2,
   Search,
+  Settings,
   ThumbsUp,
   Wand2,
   X,
@@ -373,7 +374,11 @@ export function ExplorePage({
       <>
         <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
           <EmptyState
-            action={{ label: "Open Settings", onClick: onSettings }}
+            action={{
+              icon: <Settings className="size-4" />,
+              label: "Open Settings",
+              onClick: onSettings,
+            }}
             description="Add your YouTube Data API v3 key in Settings to explore trending thumbnails."
             icon={<Search className="size-10" />}
             title="YouTube API key required"
@@ -417,25 +422,33 @@ export function ExplorePage({
                 <Loader2 className="size-6 animate-spin text-muted-foreground" />
               </div>
             ) : error && selectedCategory !== SAVED_CATEGORY_ID ? (
-              <div className="flex h-48 flex-col items-center justify-center gap-2">
-                <p className="font-medium text-destructive text-sm">Error</p>
-                <p className="max-w-sm text-center text-muted-foreground text-xs">
-                  {error}
-                </p>
-                <Button
-                  className="mt-2"
-                  onClick={() => fetchNextChunk(false)}
-                  size="sm"
-                  variant="secondary"
-                >
+              <div className="flex h-48 flex-col items-center justify-center gap-4">
+                <div className="text-muted-foreground opacity-40">
+                  <X className="size-10" />
+                </div>
+                <div className="text-center">
+                  <p className="font-medium">Failed to load</p>
+                  <p className="mt-1 max-w-sm text-muted-foreground text-sm">
+                    {error}
+                  </p>
+                </div>
+                <Button onClick={() => fetchNextChunk(false)} variant="ghost">
+                  <RotateCcw className="size-4" />
                   Retry
                 </Button>
               </div>
             ) : selectedCategory === SAVED_CATEGORY_ID ? (
               favourites.length === 0 ? (
-                <div className="flex h-48 flex-col items-center justify-center gap-2 text-muted-foreground text-sm">
-                  <Heart className="size-8 opacity-30" />
-                  <span>No saved videos yet</span>
+                <div className="flex h-48 flex-col items-center justify-center gap-4">
+                  <div className="text-muted-foreground opacity-40">
+                    <Heart className="size-10" />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-medium">No saved videos yet</p>
+                    <p className="mt-1 text-muted-foreground text-sm">
+                      Save videos to access them here
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <div className={`grid gap-4 ${gridColClass}`}>
@@ -451,8 +464,16 @@ export function ExplorePage({
                 </div>
               )
             ) : videos.length === 0 ? (
-              <div className="flex h-48 items-center justify-center text-muted-foreground text-sm">
-                No results
+              <div className="flex h-48 flex-col items-center justify-center gap-4">
+                <div className="text-muted-foreground opacity-40">
+                  <Search className="size-10" />
+                </div>
+                <div className="text-center">
+                  <p className="font-medium">No results</p>
+                  <p className="mt-1 text-muted-foreground text-sm">
+                    Try a different search term
+                  </p>
+                </div>
               </div>
             ) : (
               <>

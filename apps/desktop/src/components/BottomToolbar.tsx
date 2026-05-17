@@ -1,10 +1,9 @@
 import {
   Archive,
-  Compass,
   Loader2,
   Search,
   Settings,
-  Sparkles,
+  Tag,
   Trash2,
   Zap,
 } from "lucide-react";
@@ -52,9 +51,7 @@ interface BottomToolbarProps {
   onTrashClick: () => void;
   onNewProjectClick: () => void;
   onNewFolderClick: () => void;
-  onAiGenerateClick: () => void;
   onExportSelected?: () => void;
-  onExploreClick?: () => void;
   onArchiveClick?: () => void;
 }
 
@@ -66,9 +63,7 @@ export function BottomToolbar({
   onTrashClick,
   onNewProjectClick,
   onNewFolderClick,
-  onAiGenerateClick,
   onExportSelected,
-  onExploreClick,
   onArchiveClick,
 }: BottomToolbarProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -245,6 +240,9 @@ export function BottomToolbar({
   );
   const isSemanticSearching = useGalleryUIStore((s) => s.isSemanticSearching);
 
+  const showFolderBadges = useAppSettingsStore((s) => s.showFolderBadges);
+  const setShowFolderBadges = useAppSettingsStore((s) => s.setShowFolderBadges);
+
   const semanticSearchEnabled = useAppSettingsStore(
     (s) => s.semanticSearchEnabled
   );
@@ -367,6 +365,22 @@ export function BottomToolbar({
             viewMode={viewMode}
           />
           <SortMenu />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                className={showFolderBadges ? "bg-muted-foreground/15" : ""}
+                onClick={() => setShowFolderBadges(!showFolderBadges)}
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                <Tag className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {showFolderBadges ? "Hide folder badges" : "Show folder badges"}
+            </TooltipContent>
+          </Tooltip>
         </div>
       )}
 
@@ -481,64 +495,58 @@ export function BottomToolbar({
         </Button>
 
         {showDefaultToolbar && onArchiveClick && (
-          <Button
-            aria-label="Archive"
-            onClick={onArchiveClick}
-            size="icon-sm"
-            title="Archive"
-            variant="ghost"
-          >
-            <Archive className="size-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label="Archive"
+                onClick={onArchiveClick}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <Archive className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Archive</TooltipContent>
+          </Tooltip>
         )}
 
         {showDefaultToolbar && (
-          <Button
-            aria-label="Trash"
-            className="relative"
-            onClick={onTrashClick}
-            size="icon-sm"
-            title="Trash"
-            variant="ghost"
-          >
-            <Trash2 className="size-4" />
-            {trashCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-medium text-[10px] text-primary-foreground">
-                {trashCount > 99 ? "99+" : trashCount}
-              </span>
-            )}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label="Trash"
+                className="relative"
+                onClick={onTrashClick}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <Trash2 className="size-4" />
+                {trashCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-medium text-[10px] text-primary-foreground">
+                    {trashCount > 99 ? "99+" : trashCount}
+                  </span>
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Trash</TooltipContent>
+          </Tooltip>
         )}
 
         {showDefaultToolbar && (
           <>
-            <Button
-              aria-label="Generate with AI"
-              onClick={onAiGenerateClick}
-              size="icon-sm"
-              title="Generate with AI"
-              variant="ghost"
-            >
-              <Sparkles className="size-4" />
-            </Button>
-            <Button
-              aria-label="Explore YouTube thumbnails"
-              onClick={onExploreClick}
-              size="icon-sm"
-              title="Explore"
-              variant="ghost"
-            >
-              <Compass className="size-4" />
-            </Button>
-            <Button
-              aria-label="Settings"
-              onClick={onSettingsClick}
-              size="icon-sm"
-              title="Settings"
-              variant="ghost"
-            >
-              <Settings className="size-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  aria-label="Settings"
+                  onClick={onSettingsClick}
+                  size="icon-sm"
+                  variant="ghost"
+                >
+                  <Settings className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Settings</TooltipContent>
+            </Tooltip>
             <AddMenu
               onAddVideoClick={onAddVideoClick}
               onNewFolderClick={onNewFolderClick}

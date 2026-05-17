@@ -4,6 +4,7 @@ import { ArchivePage } from "@/components/ArchivePage";
 import { AutoRenameQueue } from "@/components/AutoRenameQueue";
 import { BackgroundRemovalQueue } from "@/components/BackgroundRemovalQueue";
 import { BottomToolbar } from "@/components/BottomToolbar";
+import { CommandPalette } from "@/components/CommandPalette";
 import { ExplorePage } from "@/components/ExplorePage";
 import { ExportDialog } from "@/components/ExportDialog";
 import { TabBar } from "@/components/editor/TabBar";
@@ -13,6 +14,8 @@ import { GeminiImagePage } from "@/components/GeminiImagePage";
 import { NewProjectDialog } from "@/components/gallery/NewProjectDialog";
 import { ImageEditor } from "@/components/ImageEditor";
 import { LicenseActivation } from "@/components/LicenseActivation";
+// biome-ignore lint/correctness/noUnusedImports: used in JSX below
+import { OnboardingPage } from "@/components/OnboardingPage";
 import { SettingsPage } from "@/components/SettingsPage";
 import { TrashPage } from "@/components/TrashPage";
 import { Button } from "@/components/ui/button";
@@ -46,7 +49,7 @@ import { useSelectionStore } from "@/stores/use-selection-store";
 import { useTabsStore } from "@/stores/use-tabs-store";
 
 export type ViewMode = "3" | "4" | "5" | "row";
-type Page =
+export type Page =
   | "gallery"
   | "ai-generate"
   | "trash"
@@ -70,6 +73,7 @@ export default function App() {
     "view-mode:gallery",
     "4"
   );
+  const [commandOpen, setCommandOpen] = useState(false);
   const [showExtractor, setShowExtractor] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
@@ -103,8 +107,14 @@ export default function App() {
   const setEditorVisible = useTabsStore((s) => s.setEditorVisible);
 
   const { isValidated, isValidating, loadStoredLicense } = useLicenseStore();
-  const { loadSettings, isInitialLoadDone, analyticsEnabled, loggingEnabled } =
-    useAppSettingsStore();
+  const {
+    loadSettings,
+    isInitialLoadDone,
+    analyticsEnabled,
+    loggingEnabled,
+    onboardingCompleted,
+    setOnboardingCompleted,
+  } = useAppSettingsStore();
 
   useEffect(() => {
     runMigrations();
@@ -128,14 +138,23 @@ export default function App() {
     void useTabsStore.getState().restorePersistedTabs();
   }, [isInitialLoadDone, isValidated, isGalleryLoaded]);
 
-  if (isValidating && !isValidated) {
+  if (!isInitialLoadDone || (isValidating && !isValidated)) {
     return (
       <div className="flex h-screen items-center justify-center bg-muted">
         <div className="flex flex-col items-center gap-4">
           <div className="size-8 animate-spin rounded-full border-4 border-foreground border-t-transparent" />
-          <p className="text-muted-foreground text-sm">Checking license...</p>
+          <p className="text-muted-foreground text-sm">Loading...</p>
         </div>
       </div>
+    );
+  }
+
+  if (!onboardingCompleted) {
+    return (
+      <OnboardingPage
+        isLicenseActive={isValidated}
+        onComplete={() => setOnboardingCompleted(true)}
+      />
     );
   }
 
@@ -270,7 +289,17 @@ export default function App() {
 
   return (
     <div className="flex h-screen flex-col bg-muted">
-      <TabBar activePage={editorVisible ? "gallery" : page} />
+      <TabBar
+        activePage={editorVisible ? "gallery" : page}
+        onPageChange={(p) => {
+          setEditorVisible(false);
+          if (p === "ai-generate") {
+            handleOpenAiGenerateFromGallery();
+          } else {
+            setPage(p);
+          }
+        }}
+      />
 
       {/* Gallery — always mounted so scroll/state survives navigation */}
       <div
@@ -378,9 +407,7 @@ export default function App() {
         <div className="mx-1 mb-1">
           <BottomToolbar
             onAddVideoClick={() => setShowExtractor(true)}
-            onAiGenerateClick={handleOpenAiGenerateFromGallery}
             onArchiveClick={() => setPage("archive")}
-            onExploreClick={() => setPage("explore")}
             onExportSelected={handleExportSelected}
             onNewFolderClick={() => setNewFolderOpen(true)}
             onNewProjectClick={() => setNewProjectOpen(true)}
@@ -474,6 +501,18 @@ export default function App() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <CommandPalette
+        onAddVideo={() => setShowExtractor(true)}
+        onAiGenerate={handleOpenAiGenerateFromGallery}
+        onNewFolder={() => setNewFolderOpen(true)}
+        onNewProject={() => setNewProjectOpen(true)}
+        onOpenChange={setCommandOpen}
+        onPageChange={(p) => {
+          setEditorVisible(false);
+          setPage(p);
+        }}
+        open={commandOpen}
+      />
       <Toaster />
       <BackgroundRemovalQueue />
       <AutoRenameQueue />

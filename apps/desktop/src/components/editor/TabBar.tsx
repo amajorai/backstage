@@ -1,5 +1,6 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
+  ChevronDown,
   Compass,
   File,
   GalleryHorizontal,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { Fragment, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { SnowfallBackground } from "@/components/snow-flakes";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +32,13 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import { useEditorStore } from "@/stores/use-editor-store";
 import type { TabEntry } from "@/stores/use-tabs-store";
 import { useTabsStore } from "@/stores/use-tabs-store";
@@ -43,12 +52,12 @@ type ActivePage =
   | "explore";
 
 const PAGE_LABELS: Record<ActivePage, string> = {
-  gallery: "Gallery",
+  gallery: "Home",
   "ai-generate": "Generate",
   trash: "Trash",
   archive: "Archive",
   settings: "Settings",
-  explore: "Explore",
+  explore: "Discovery",
 };
 
 const PAGE_ICONS: Record<ActivePage, React.ReactNode> = {
@@ -64,9 +73,15 @@ const noDrag = { WebkitAppRegion: "no-drag" } as React.CSSProperties;
 
 export function TabBar({
   activePage = "gallery",
+  onPageChange,
 }: {
   activePage?: ActivePage;
+  onPageChange?: (page: ActivePage) => void;
 }) {
+  const { showDecemberSnow, previewSnow } = useAppSettingsStore();
+  const isDecember = new Date().getMonth() === 11;
+  const showSnow = previewSnow || (isDecember && showDecemberSnow);
+
   const [bounceKey, setBounceKey] = useState(0);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
@@ -197,6 +212,10 @@ export function TabBar({
 
   const handleBarMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
+    // React portals (Radix dropdowns, dialogs) bubble through the React tree
+    // but their DOM nodes live outside this bar element. If the actual DOM target
+    // is not inside the bar, it came from a portal — don't start dragging.
+    if (!e.currentTarget.contains(e.target as Node)) return;
     getCurrentWindow().startDragging();
   };
 
@@ -276,6 +295,22 @@ export function TabBar({
           .tab-logo-bounce { animation: tab-logo-bounce 0.5s cubic-bezier(0.36,0.07,0.19,0.97); }
         `}</style>
 
+        {showSnow && (
+          <SnowfallBackground
+            className="pointer-events-none h-[40px]"
+            color="#fff"
+            count={30}
+            fadeBottom
+            maxOpacity={1}
+            maxSize={30}
+            minOpacity={0}
+            minSize={1}
+            speed={1}
+            wind
+            zIndex={50}
+          />
+        )}
+
         {/* Logo */}
         <button
           className="relative z-[1001] flex shrink-0 cursor-pointer items-center px-1.5 outline-none"
@@ -292,20 +327,60 @@ export function TabBar({
           />
         </button>
 
-        {/* Gallery/page tab */}
-        <div
-          className={`relative z-[1001] flex h-7 shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-3 text-xs transition-colors ${
-            editorVisible || ctrlTabPendingId
-              ? "text-muted-foreground hover:bg-muted hover:text-foreground"
-              : "bg-background text-foreground"
-          }`}
-          onClick={handleGalleryClick}
-          onMouseDown={(e) => e.stopPropagation()}
-          style={noDrag}
-        >
-          {PAGE_ICONS[activePage]}
-          {PAGE_LABELS[activePage]}
-        </div>
+        {/* Page tab — label navigates directly, chevron opens switcher */}
+        <DropdownMenu>
+          <div
+            className={`relative z-[1001] flex h-7 shrink-0 select-none items-center rounded-md text-xs transition-colors ${
+              editorVisible || ctrlTabPendingId
+                ? "text-muted-foreground"
+                : "bg-background text-foreground"
+            }`}
+            style={noDrag}
+          >
+            {/* Page label — click goes to current page */}
+            <button
+              className="flex h-full cursor-pointer items-center gap-1.5 pr-1.5 pl-3 hover:text-foreground focus-visible:outline-none"
+              onClick={handleGalleryClick}
+              onMouseDown={(e) => e.stopPropagation()}
+              type="button"
+            >
+              {PAGE_ICONS[activePage]}
+              {PAGE_LABELS[activePage]}
+            </button>
+            {/* Chevron — opens page switcher dropdown */}
+            <DropdownMenuTrigger
+              className="flex h-full cursor-pointer items-center pr-1.5 pl-0.5 hover:text-foreground focus-visible:outline-none"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <ChevronDown className="size-3 opacity-50" />
+            </DropdownMenuTrigger>
+          </div>
+          <DropdownMenuContent align="start" side="bottom">
+            {(
+              [
+                "gallery",
+                "ai-generate",
+                "explore",
+                "archive",
+                "trash",
+                "settings",
+              ] as const
+            )
+              .filter((p) => p !== activePage)
+              .map((p) => (
+                <DropdownMenuItem
+                  key={p}
+                  onClick={() => {
+                    if (p === "gallery") handleGalleryClick();
+                    onPageChange?.(p);
+                  }}
+                >
+                  {PAGE_ICONS[p]}
+                  {PAGE_LABELS[p]}
+                </DropdownMenuItem>
+              ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Divider between page tab and project tabs */}
         {tabs.length > 0 && (

@@ -7,6 +7,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { openAndLoadImages } from "@/lib/image-file-utils";
 import { cn } from "@/lib/utils";
 import { useGalleryStore } from "@/stores/use-gallery-store";
@@ -50,20 +55,31 @@ export function AddMenu({
     onNewProjectClick();
   }, [onNewProjectClick]);
 
+  const trigger = (
+    <DropdownMenuTrigger
+      aria-label={triggerContent ? undefined : "Add"}
+      className={cn(
+        triggerContent
+          ? buttonVariants({ variant: "ghost", size: "default" })
+          : buttonVariants({ variant: "ghost", size: "icon-sm" }),
+        triggerClassName
+      )}
+    >
+      {triggerContent ?? <Plus className="size-4" />}
+    </DropdownMenuTrigger>
+  );
+
   return (
     <div className={className}>
       <DropdownMenu onOpenChange={setOpen} open={open}>
-        <DropdownMenuTrigger
-          aria-label={triggerContent ? undefined : "Add"}
-          className={cn(
-            triggerContent
-              ? buttonVariants({ variant: "ghost", size: "default" })
-              : buttonVariants({ variant: "ghost", size: "icon-sm" }),
-            triggerClassName
-          )}
-        >
-          {triggerContent ?? <Plus className="size-4" />}
-        </DropdownMenuTrigger>
+        {triggerContent ? (
+          trigger
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+            <TooltipContent>Add</TooltipContent>
+          </Tooltip>
+        )}
         <DropdownMenuContent align="end" className="min-w-max" side="top">
           <DropdownMenuItem onClick={handleNewProject}>
             <LayoutTemplate className="size-4" />

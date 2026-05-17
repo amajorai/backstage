@@ -799,6 +799,7 @@ export function Gallery({
                       </p>
                     </div>
                     <Button onClick={() => setSearchQuery("")} variant="ghost">
+                      <X className="size-4" />
                       Clear Search
                     </Button>
                   </div>
@@ -807,6 +808,7 @@ export function Gallery({
                     action={
                       <AddMenu
                         onAddVideoClick={() => setShowVideoExtractor(true)}
+                        onNewFolderClick={onNewFolderClick}
                         onNewProjectClick={onNewProjectClick}
                         triggerClassName="gap-2"
                         triggerContent={

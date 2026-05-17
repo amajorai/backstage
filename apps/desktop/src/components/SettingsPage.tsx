@@ -23,7 +23,7 @@ import {
   Download,
   ExternalLink,
   Loader2,
-  MessageSquare,
+  MessageCircle,
   Monitor,
   Moon,
   RefreshCw,
@@ -57,6 +57,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   checkForUpdate,
   downloadAndInstall,
@@ -99,7 +104,7 @@ type SettingsTab =
 const TABS: { value: SettingsTab; label: string }[] = [
   { value: "general", label: "General" },
   { value: "ai", label: "AI" },
-  { value: "explore", label: "Explore" },
+  { value: "explore", label: "Discovery" },
   { value: "storage", label: "Storage" },
   { value: "updates", label: "Updates" },
   { value: "privacy", label: "Privacy" },
@@ -107,20 +112,49 @@ const TABS: { value: SettingsTab; label: string }[] = [
 
 export function SettingsPage({ onClose }: SettingsPageProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+  const [isTransferring, setIsTransferring] = useState(false);
+  const appTheme = useAppSettingsStore((s) => s.theme);
 
   return (
-    <div className="mx-1 mb-1 flex flex-1">
-      <div className="flex flex-1">
-        {/* Left sidebar */}
-        <div className="flex w-52 flex-col">
-          <nav className="flex flex-1 flex-col gap-1 p-4">
+    <>
+      {/* Content card */}
+      <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+        <div className="flex-1 overflow-auto px-6 pt-10 pb-6">
+          <div className="mx-auto max-w-2xl">
+            {activeTab === "general" && <GeneralSettings />}
+            {activeTab === "ai" && <AiSettings />}
+            {activeTab === "explore" && <ExploreSettings />}
+            {activeTab === "storage" && (
+              <StorageSettings onTransferChange={setIsTransferring} />
+            )}
+            {activeTab === "updates" && <UpdateSettings />}
+            {activeTab === "privacy" && <PrivacySettings />}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom bar */}
+      <div className="mx-1 mb-1">
+        <div className="relative flex h-12 items-center bg-muted px-4">
+          <Button
+            disabled={isTransferring}
+            onClick={onClose}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <ArrowLeft className="size-4" />
+          </Button>
+          {/* Centered tabs */}
+          <div className="absolute left-1/2 flex -translate-x-1/2 gap-1">
             {TABS.map((tab) => (
               <button
-                className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
                   activeTab === tab.value
-                    ? "bg-background font-medium text-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
-                }`}
+                    ? "bg-muted-foreground/15 font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                } disabled:pointer-events-none disabled:opacity-40`}
+                disabled={isTransferring}
                 key={tab.value}
                 onClick={() => setActiveTab(tab.value)}
                 type="button"
@@ -128,45 +162,35 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
                 {tab.label}
               </button>
             ))}
-          </nav>
-          <div className="flex items-center justify-between p-4 pt-0">
-            <Button
-              onClick={onClose}
-              size="icon-sm"
-              type="button"
-              variant="ghost"
-            >
-              <ArrowLeft className="size-4" />
-            </Button>
-            <Button
-              onClick={() => {
-                (
-                  document.getElementById("feedback-button") as HTMLElement
-                )?.click();
-              }}
-              size="icon-sm"
-              title="Send feedback"
-              type="button"
-              variant="ghost"
-            >
-              <MessageSquare className="size-4" />
-            </Button>
           </div>
-        </div>
-
-        {/* Content card */}
-        <div className="flex-1 overflow-auto rounded-xl border-2 border-border bg-background p-6">
-          <div className="max-w-2xl">
-            {activeTab === "general" && <GeneralSettings />}
-            {activeTab === "ai" && <AiSettings />}
-            {activeTab === "explore" && <ExploreSettings />}
-            {activeTab === "storage" && <StorageSettings />}
-            {activeTab === "updates" && <UpdateSettings />}
-            {activeTab === "privacy" && <PrivacySettings />}
-          </div>
+          {/* Feedback button — fixed to viewport bottom-right */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="fixed right-5 bottom-16 z-50 flex size-14 items-center justify-center rounded-full border border-border bg-muted text-foreground shadow-lg transition-all hover:scale-110"
+                onClick={() => {
+                  // biome-ignore lint/suspicious/noExplicitAny: userjot sdk
+                  const uj = (window as any).uj;
+                  const resolved =
+                    appTheme === "system"
+                      ? window.matchMedia("(prefers-color-scheme: dark)")
+                          .matches
+                        ? "dark"
+                        : "light"
+                      : appTheme;
+                  uj?.setTheme?.(resolved);
+                  uj?.showWidget?.();
+                }}
+                type="button"
+              >
+                <MessageCircle className="size-6" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Send feedback</TooltipContent>
+          </Tooltip>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -180,7 +204,7 @@ function SettingRow({ title, description, children }: SettingRowProps) {
   return (
     <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3">
       <div className="flex-1 pr-4">
-        <p className="text-sm">{title}</p>
+        <p className="font-medium text-sm">{title}</p>
         {description && (
           <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
             {description}
@@ -342,7 +366,7 @@ function ExploreSettings() {
 
   return (
     <div className="space-y-6">
-      <h2 className="pl-2 font-semibold text-lg">Explore</h2>
+      <h2 className="pl-2 font-semibold text-lg">Discovery</h2>
       <div className="space-y-4">
         <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
           API Keys
@@ -350,7 +374,7 @@ function ExploreSettings() {
         <SettingRow
           description={
             <>
-              Required for the Explore page.{" "}
+              Required for the Discovery page.{" "}
               <button
                 className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
                 onClick={() =>
@@ -403,11 +427,35 @@ function ExploreSettings() {
   );
 }
 
+function OnboardingSettings() {
+  const setOnboardingCompleted = useAppSettingsStore(
+    (s) => s.setOnboardingCompleted
+  );
+
+  return (
+    <div className="space-y-4">
+      <p className="pl-2 font-medium text-muted-foreground text-xs">
+        Onboarding
+      </p>
+      <SettingRow
+        description="Replay the getting-started tour to rediscover features."
+        title="Reset onboarding"
+      >
+        <Button onClick={() => setOnboardingCompleted(false)} size="sm">
+          <RefreshCw className="mr-1.5 size-3.5" />
+          Reset
+        </Button>
+      </SettingRow>
+    </div>
+  );
+}
+
 function GeneralSettings() {
   return (
     <div className="space-y-6">
       <h2 className="pl-2 font-semibold text-lg">General</h2>
       <AppearanceSettings />
+      <OnboardingSettings />
       <BillingSettings />
     </div>
   );
@@ -434,7 +482,23 @@ function AppearanceSettings() {
     setPersistTabs,
     rememberWindowBounds,
     setRememberWindowBounds,
+    previewSnow,
+    setPreviewSnow,
   } = useAppSettingsStore();
+
+  const [previewTimer, setPreviewTimer] = useState<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
+  const handlePreviewSnow = useCallback(() => {
+    if (previewTimer) clearTimeout(previewTimer);
+    setPreviewSnow(true);
+    const t = setTimeout(() => {
+      setPreviewSnow(false);
+      setPreviewTimer(null);
+    }, 5000);
+    setPreviewTimer(t);
+  }, [previewTimer, setPreviewSnow]);
 
   const [launchAtStartup, setLaunchAtStartupState] = useState<boolean | null>(
     null
@@ -464,7 +528,32 @@ function AppearanceSettings() {
 
   return (
     <div className="space-y-4">
-      <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
+      <SettingRow
+        description="Open Backstage automatically when you log in to your computer."
+        title="Launch at startup"
+      >
+        <Switch
+          checked={launchAtStartup ?? false}
+          disabled={launchAtStartup === null}
+          onCheckedChange={handleLaunchAtStartup}
+        />
+      </SettingRow>
+      <SettingRow
+        description="Reopen your last open projects when launching the app."
+        title="Restore tabs on startup"
+      >
+        <Switch checked={persistTabs} onCheckedChange={setPersistTabs} />
+      </SettingRow>
+      <SettingRow
+        description="Save and restore window position and size between sessions."
+        title="Remember window position & size"
+      >
+        <Switch
+          checked={rememberWindowBounds}
+          onCheckedChange={setRememberWindowBounds}
+        />
+      </SettingRow>
+      <p className="pl-2 font-medium text-muted-foreground text-xs">
         Appearance
       </p>
       <SettingRow title="Theme">
@@ -511,38 +600,18 @@ function AppearanceSettings() {
         </Select>
       </SettingRow>
       <SettingRow
-        description="Reopen your last open projects when launching the app."
-        title="Restore tabs on startup"
-      >
-        <Switch checked={persistTabs} onCheckedChange={setPersistTabs} />
-      </SettingRow>
-      <SettingRow
-        description="Save and restore window position and size between sessions."
-        title="Remember window position & size"
-      >
-        <Switch
-          checked={rememberWindowBounds}
-          onCheckedChange={setRememberWindowBounds}
-        />
-      </SettingRow>
-      <SettingRow
-        description="Open Backstage automatically when you log in to your computer."
-        title="Launch at startup"
-      >
-        <Switch
-          checked={launchAtStartup ?? false}
-          disabled={launchAtStartup === null}
-          onCheckedChange={handleLaunchAtStartup}
-        />
-      </SettingRow>
-      <SettingRow
         description="Show a festive snowfall effect in the title bar during December."
         title="December Snowfall"
       >
-        <Switch
-          checked={showDecemberSnow}
-          onCheckedChange={setShowDecemberSnow}
-        />
+        <div className="flex items-center gap-2">
+          <Button disabled={previewSnow} onClick={handlePreviewSnow} size="sm">
+            {previewSnow ? "Previewing…" : "Preview"}
+          </Button>
+          <Switch
+            checked={showDecemberSnow}
+            onCheckedChange={setShowDecemberSnow}
+          />
+        </div>
       </SettingRow>
     </div>
   );
@@ -1134,14 +1203,46 @@ function ProcessingSettings() {
   );
 }
 
-function StorageSettings() {
+const progressLatest: Record<string, string> = {};
+
+function ProgressDescription({ event }: { event: string }) {
+  const [text, setText] = useState(() => progressLatest[event] ?? "Preparing…");
+  useEffect(() => {
+    // Sync in case events fired before mount
+    if (progressLatest[event]) setText(progressLatest[event]);
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      progressLatest[event] = detail;
+      setText(detail);
+    };
+    window.addEventListener(event, handler);
+    return () => window.removeEventListener(event, handler);
+  }, [event]);
+  return <span>{text}</span>;
+}
+
+function StorageSettings({
+  onTransferChange,
+}: {
+  onTransferChange: (active: boolean) => void;
+}) {
   const [isPurging, setIsPurging] = useState(false);
   const [storageSize, setStorageSize] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exportPhase, setExportPhase] = useState("Preparing…");
   const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importPhase, setImportPhase] = useState("Reading…");
   const [pendingZipPath, setPendingZipPath] = useState<string | null>(null);
   const [pendingWipe, setPendingWipe] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [regenerateProgress, setRegenerateProgress] = useState("");
   const [isWiping, setIsWiping] = useState(false);
+
+  useEffect(() => {
+    onTransferChange(exporting || importing);
+  }, [exporting, importing, onTransferChange]);
 
   const loadSize = useCallback(async () => {
     const { getRevisionStorageSize } = await import("@/lib/revision-storage");
@@ -1169,6 +1270,39 @@ function StorageSettings() {
     }
   };
 
+  const handleRegeneratePreviews = useCallback(async () => {
+    setRegenerating(true);
+    setRegenerateProgress("Loading…");
+    try {
+      const { regeneratePreviewFromFull } = await import(
+        "@/lib/thumbnail-storage"
+      );
+      const { useGalleryStore } = await import("@/stores/use-gallery-store");
+      const { thumbnails, previewCache } = useGalleryStore.getState();
+      const missing = thumbnails.filter((t) => !previewCache.has(t.id));
+      let done = 0;
+      for (const t of missing) {
+        setRegenerateProgress(`${done}/${missing.length}`);
+        const url = await regeneratePreviewFromFull(t.id);
+        if (url) {
+          useGalleryStore.setState((s) => ({
+            previewCache: new Map(s.previewCache).set(t.id, url),
+          }));
+        }
+        done++;
+      }
+      setRegenerateProgress("");
+      sileo.success({
+        title: `Regenerated ${done} preview${done === 1 ? "" : "s"}`,
+      });
+    } catch (err) {
+      sileo.error({ title: `Failed: ${err}` });
+    } finally {
+      setRegenerating(false);
+      setRegenerateProgress("");
+    }
+  }, []);
+
   const handleExport = useCallback(async () => {
     const savePath = await saveDialog({
       defaultPath: `backstage-backup-${new Date().toISOString().split("T")[0]}.zip`,
@@ -1177,6 +1311,8 @@ function StorageSettings() {
     if (!savePath) return;
 
     setExporting(true);
+    setExportProgress(0);
+    setExportPhase("Preparing…");
     try {
       await sileo.promise(
         (async () => {
@@ -1185,44 +1321,39 @@ function StorageSettings() {
           const appData = await appDataDir();
           const zip = new JSZip();
 
-          try {
-            zip.file(
-              "gallery.db",
-              await readFile(await join(appData, "gallery.db"))
+          const emitToast = (msg: string) => {
+            progressLatest["export-progress"] = msg;
+            window.dispatchEvent(
+              new CustomEvent("export-progress", { detail: msg })
             );
-          } catch {
-            /* not yet created */
-          }
+          };
+          const setPhase = (label: string) => {
+            setExportPhase(label);
+            emitToast(label);
+          };
 
+          setPhase("Backing up database…");
           for (const fname of [
+            "gallery.db",
             "embeddings.db",
             "embeddings.db-wal",
             "embeddings.db-shm",
+            "settings.json",
+            "license.json",
           ]) {
             try {
               zip.file(fname, await readFile(await join(appData, fname)));
             } catch {
-              /* file may not exist yet */
+              /* file may not exist */
             }
           }
 
-          try {
-            zip.file(
-              "settings.json",
-              await readFile(await join(appData, "settings.json"))
-            );
-          } catch {
-            /* not yet created */
-          }
-          try {
-            zip.file(
-              "license.json",
-              await readFile(await join(appData, "license.json"))
-            );
-          } catch {
-            /* not yet created */
-          }
-
+          const dirLabels: Record<string, string> = {
+            thumbnails: "Backing up projects…",
+            trash: "Backing up trash…",
+            revisions: "Backing up revision history…",
+            recovery: "Backing up recovery files…",
+          };
           for (const dir of [
             "thumbnails",
             "trash",
@@ -1231,20 +1362,55 @@ function StorageSettings() {
           ] as const) {
             const dirPath = await join(appData, dir);
             if (await exists(dirPath)) {
+              setPhase(dirLabels[dir]);
               await addDirToZip(zip, dirPath, dir);
             }
           }
 
-          const blob = await zip.generateAsync({
-            type: "blob",
-            compression: "DEFLATE",
-            compressionOptions: { level: 3 },
-          });
-          const buffer = await blob.arrayBuffer();
-          await writeFile(savePath, new Uint8Array(buffer));
+          setPhase("Compressing…");
+          const zipData = await zip.generateAsync(
+            {
+              type: "uint8array",
+              compression: "DEFLATE",
+              compressionOptions: { level: 3 },
+            },
+            ({ percent, currentFile }) => {
+              const p = Math.round(percent);
+              setExportProgress(p);
+              const name = currentFile?.split("/").pop() ?? "";
+              emitToast(`${name ? `${name} · ` : ""}${p}%`);
+            }
+          );
+
+          setPhase("Saving…");
+          await writeFile(savePath, zipData);
+
+          // Verify the written file starts with PK local-file-header magic
+          const verify = await readFile(savePath);
+          if (
+            verify.length < 4 ||
+            verify[0] !== 0x50 ||
+            verify[1] !== 0x4b ||
+            verify[2] !== 0x03 ||
+            verify[3] !== 0x04
+          ) {
+            throw new Error(
+              `Export wrote ${verify.length} bytes but ZIP magic is wrong: ${Array.from(
+                verify.subarray(0, 4)
+              )
+                .map((x) => x.toString(16).padStart(2, "0"))
+                .join(" ")}`
+            );
+          }
+          setExportProgress(100);
         })(),
         {
-          loading: { title: "Exporting backup…" },
+          loading: {
+            title: "Exporting backup…",
+            description: <ProgressDescription event="export-progress" />,
+            duration: 600_000,
+            autopilot: { expand: 0 },
+          },
           success: { title: "Full backup exported" },
           error: (err: unknown) => ({ title: `Export failed: ${err}` }),
         }
@@ -1253,6 +1419,7 @@ function StorageSettings() {
       /* sileo handled display */
     } finally {
       setExporting(false);
+      setExportProgress(0);
     }
   }, []);
 
@@ -1274,37 +1441,122 @@ function StorageSettings() {
     const zipPath = pendingZipPath;
     setPendingZipPath(null);
     setImporting(true);
+    setImportProgress(0);
+    setImportPhase("Reading…");
     try {
       await sileo.promise(
         (async () => {
+          const emitToast = (msg: string) => {
+            progressLatest["import-progress"] = msg;
+            window.dispatchEvent(
+              new CustomEvent("import-progress", { detail: msg })
+            );
+          };
+          const setPhase = (label: string) => {
+            setImportPhase(label);
+            emitToast(label);
+          };
+
+          setPhase("Reading archive…");
           const bytes = await readFile(zipPath);
-          const zip = await JSZip.loadAsync(bytes);
+
+          const hexOf = (b: Uint8Array, n: number) =>
+            Array.from(b.subarray(0, n))
+              .map((x) => x.toString(16).padStart(2, "0"))
+              .join(" ");
+          const head16 = hexOf(bytes, 16);
+          const tail16 = hexOf(
+            bytes.subarray(Math.max(0, bytes.length - 16)),
+            16
+          );
+
+          if (bytes.length < 4) {
+            throw new Error(
+              `File is empty (${bytes.length} bytes). head: ${head16}`
+            );
+          }
+
+          // Find PK\x03\x04 local-file-header signature — handles garbage prepended to zip
+          let zipStart = 0;
+          if (
+            !(
+              bytes[0] === 0x50 &&
+              bytes[1] === 0x4b &&
+              bytes[2] === 0x03 &&
+              bytes[3] === 0x04
+            )
+          ) {
+            zipStart = -1;
+            for (let i = 1; i < Math.min(bytes.length - 4, 65_536); i++) {
+              if (
+                bytes[i] === 0x50 &&
+                bytes[i + 1] === 0x4b &&
+                bytes[i + 2] === 0x03 &&
+                bytes[i + 3] === 0x04
+              ) {
+                zipStart = i;
+                break;
+              }
+            }
+            if (zipStart < 0) {
+              throw new Error(
+                `Not a valid ZIP. size=${bytes.length} head=[${head16}] tail=[${tail16}]`
+              );
+            }
+          }
+
+          const zipBytes = zipStart > 0 ? bytes.slice(zipStart) : bytes;
+          let zip: JSZip;
+          try {
+            zip = await JSZip.loadAsync(zipBytes);
+          } catch (e) {
+            throw new Error(
+              `JSZip failed (file likely truncated — only tail chunk survived export): ${e instanceof Error ? e.message : String(e)}. size=${bytes.length} zipStart=${zipStart} head=[${head16}] tail=[${tail16}]`
+            );
+          }
           const appData = await appDataDir();
           await closeDb();
           const fileEntries = Object.entries(zip.files).filter(
             ([, f]) => !f.dir
           );
-          for (const [entryPath, zipFile] of fileEntries) {
+          const total = fileEntries.length;
+          let lastSection = "";
+          for (let i = 0; i < fileEntries.length; i++) {
+            const [entryPath, zipFile] = fileEntries[i];
             const slashIdx = entryPath.lastIndexOf("/");
             if (slashIdx > 0) {
-              const dirPart = entryPath.substring(0, slashIdx);
-              await mkdir(await join(appData, dirPart), {
-                recursive: true,
-              }).catch(() => {});
+              await mkdir(
+                await join(appData, entryPath.substring(0, slashIdx)),
+                { recursive: true }
+              ).catch(() => {});
             }
             const content = await zipFile.async("uint8array");
             await writeFile(await join(appData, entryPath), content);
+            const p = Math.round(((i + 1) / total) * 100);
+            setImportProgress(p);
+            const section = entryPath.split("/")[0];
+            if (section !== lastSection) {
+              lastSection = section;
+              setPhase(`Restoring ${section}…`);
+            }
+            emitToast(`${entryPath.split("/").pop()} · ${p}%`);
           }
         })(),
         {
-          loading: { title: "Restoring backup…" },
-          success: { title: "Backup restored — restarting…" },
+          loading: {
+            title: "Restoring backup…",
+            description: <ProgressDescription event="import-progress" />,
+            duration: 600_000,
+            autopilot: { expand: 0 },
+          },
+          success: { title: "Backup restored. Restarting…" },
           error: (err: unknown) => ({ title: `Import failed: ${err}` }),
         }
       );
       setTimeout(() => relaunch(), 1500);
     } catch {
       setImporting(false);
+      setImportProgress(0);
     }
   }, [pendingZipPath]);
 
@@ -1340,8 +1592,8 @@ function StorageSettings() {
           /* may not exist */
         }
       }
-      sileo.success({ title: "Workspace deleted — restarting…" });
-      setTimeout(() => relaunch(), 1500);
+      sileo.success({ title: "Workspace wiped. Restarting…" });
+      await relaunch();
     } catch (err) {
       sileo.error({ title: `Wipe failed: ${err}` });
       setIsWiping(false);
@@ -1364,7 +1616,7 @@ function StorageSettings() {
           Revision History
         </p>
         <SettingRow
-          description={`${sizeLabel} · Remove all saved revision checkpoints to free up disk space.`}
+          description="Remove all saved revision checkpoints to free up disk space."
           title="Revision History"
         >
           <Button
@@ -1374,7 +1626,7 @@ function StorageSettings() {
             variant="destructive"
           >
             <Trash2 className="mr-2 size-4" />
-            {isPurging ? "Purging…" : "Purge All"}
+            {isPurging ? "Purging…" : `Purge ${sizeLabel}`}
           </Button>
         </SettingRow>
       </div>
@@ -1383,21 +1635,39 @@ function StorageSettings() {
         <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
           Data Transfer
         </p>
-        <p className="pl-2 text-muted-foreground text-sm">
-          Export everything — projects, images, settings — as a single ZIP.
-          Import on another device to restore.
-        </p>
         <SettingRow
           description="All projects, images, revision history, and settings."
           title="Export Full Backup"
         >
-          <Button disabled={exporting} onClick={handleExport} size="sm">
-            {exporting ? (
-              <Loader2 className="mr-2 size-4 animate-spin" />
-            ) : (
-              <Download className="mr-2 size-4" />
+          <Button
+            className="relative overflow-hidden"
+            disabled={exporting}
+            onClick={handleExport}
+            size="sm"
+          >
+            {exporting && (
+              <span
+                className="absolute inset-0 bg-primary/20 transition-[width] duration-200"
+                style={{ width: `${exportProgress}%` }}
+              />
             )}
-            {exporting ? "Exporting…" : "Export"}
+            <span className="relative z-10 flex items-center gap-1.5">
+              {exporting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Download className="size-4" />
+              )}
+              {exporting ? (
+                <>
+                  <span className="max-w-[140px] truncate">{exportPhase}</span>
+                  {exportProgress > 0 && (
+                    <span className="shrink-0">{exportProgress}%</span>
+                  )}
+                </>
+              ) : (
+                "Export"
+              )}
+            </span>
           </Button>
         </SettingRow>
         <SettingRow
@@ -1405,16 +1675,57 @@ function StorageSettings() {
           title="Import Backup"
         >
           <Button
+            className="relative overflow-hidden"
             disabled={importing || !!pendingZipPath}
             onClick={handlePickImport}
             size="sm"
           >
-            {importing ? (
-              <Loader2 className="mr-2 size-4 animate-spin" />
-            ) : (
-              <Upload className="mr-2 size-4" />
+            {importing && (
+              <span
+                className="absolute inset-0 bg-primary/20 transition-[width] duration-200"
+                style={{ width: `${importProgress}%` }}
+              />
             )}
-            {importing ? "Restoring…" : "Import"}
+            <span className="relative z-10 flex items-center gap-1.5">
+              {importing ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Upload className="size-4" />
+              )}
+              {importing ? (
+                <>
+                  <span className="max-w-[140px] truncate">{importPhase}</span>
+                  {importProgress > 0 && (
+                    <span className="shrink-0">{importProgress}%</span>
+                  )}
+                </>
+              ) : (
+                "Import"
+              )}
+            </span>
+          </Button>
+        </SettingRow>
+        <SettingRow
+          description="Regenerate preview images for items missing thumbnails."
+          title="Regenerate Previews"
+        >
+          <Button
+            disabled={regenerating}
+            onClick={handleRegeneratePreviews}
+            size="sm"
+            variant="default"
+          >
+            {regenerating ? (
+              <>
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                {regenerateProgress || "Regenerating…"}
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 size-4" />
+                Regenerate
+              </>
+            )}
           </Button>
         </SettingRow>
         {pendingZipPath && (
@@ -1427,6 +1738,9 @@ function StorageSettings() {
               restart automatically. This cannot be undone.
             </p>
             <div className="flex gap-2">
+              <Button onClick={handleCancelImport} size="sm" variant="ghost">
+                Cancel
+              </Button>
               <Button
                 onClick={handleConfirmImport}
                 size="sm"
@@ -1434,18 +1748,9 @@ function StorageSettings() {
               >
                 Yes, restore backup
               </Button>
-              <Button onClick={handleCancelImport} size="sm" variant="ghost">
-                Cancel
-              </Button>
             </div>
           </div>
         )}
-        <p className="pl-2 text-muted-foreground text-xs">
-          Note: Gemini API key and HuggingFace token are stored in the OS
-          keychain and are not included in the backup. Re-enter them after
-          restoring. Launch at startup is a system-level setting and is not
-          transferred.
-        </p>
       </div>
 
       <div className="space-y-4">
@@ -1463,7 +1768,7 @@ function StorageSettings() {
             variant="destructive"
           >
             <Trash2 className="mr-2 size-4" />
-            {isWiping ? "Deleting…" : "Delete All Data"}
+            {isWiping ? "Wiping…" : "Wipe"}
           </Button>
         </SettingRow>
         {pendingWipe && (
@@ -1477,18 +1782,18 @@ function StorageSettings() {
             </p>
             <div className="flex gap-2">
               <Button
-                onClick={handleConfirmWipe}
-                size="sm"
-                variant="destructive"
-              >
-                Yes, delete everything
-              </Button>
-              <Button
                 onClick={() => setPendingWipe(false)}
                 size="sm"
                 variant="ghost"
               >
                 Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmWipe}
+                size="sm"
+                variant="destructive"
+              >
+                Yes, delete everything
               </Button>
             </div>
           </div>
@@ -1513,7 +1818,7 @@ function BillingSettings() {
   return (
     <div className="space-y-4">
       <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
-        Billing &amp; License
+        Billing
       </p>
       <SettingRow
         description={
@@ -1553,7 +1858,7 @@ function PrivacySettings() {
         <p className="pl-2 font-medium text-muted-foreground text-xs">Search</p>
 
         <SettingRow
-          description="Save recent searches in Gallery, Explore, and Trash. Up to 10 per page."
+          description="Save recent searches in Home, Discovery, and Trash. Up to 10 per page."
           title="Search History"
         >
           <Switch
@@ -1736,8 +2041,9 @@ async function addDirToZip(
     if (entry.isDirectory) {
       await addDirToZip(zip, fullPath, zipPath);
     } else {
-      const bytes = await readFile(fullPath);
-      zip.file(zipPath, bytes);
+      // Pass Promise — JSZip resolves lazily during generateAsync so only
+      // one file is in memory at a time instead of all files upfront.
+      zip.file(zipPath, readFile(fullPath));
     }
   }
 }
@@ -1947,12 +2253,7 @@ function AgentSettings() {
             {!editingAgent && (
               <div className="flex flex-wrap gap-2">
                 {AGENT_PRESETS.map((p) => (
-                  <Button
-                    key={p.name}
-                    onClick={() => applyPreset(p)}
-                    size="sm"
-                    variant="outline"
-                  >
+                  <Button key={p.name} onClick={() => applyPreset(p)} size="sm">
                     {p.name}
                   </Button>
                 ))}
@@ -2039,12 +2340,7 @@ function AgentSettings() {
             </div>
           </div>
         ) : (
-          <Button
-            className="ml-2"
-            onClick={() => setIsAdding(true)}
-            size="sm"
-            variant="outline"
-          >
+          <Button className="ml-2" onClick={() => setIsAdding(true)} size="sm">
             + Add agent
           </Button>
         )}
