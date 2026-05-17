@@ -798,79 +798,6 @@ export function GeminiImagePage({
                 prompt={prompt}
               />
             </div>
-
-            {/* Bottom toolbar — generate controls */}
-            <div className="flex shrink-0 flex-col gap-2 border-border border-t px-3 py-3">
-              {hasGeneratedImages && hasSelection && (
-                <label className="flex cursor-pointer items-center gap-1.5 text-muted-foreground text-xs hover:text-foreground">
-                  <Checkbox
-                    checked={useSelectedAsInput}
-                    onCheckedChange={(checked) =>
-                      setUseSelectedAsInput(checked === true)
-                    }
-                  />
-                  <span>Use {selectedIndices.size} selected as input</span>
-                </label>
-              )}
-              <Button
-                className="w-full"
-                disabled={!(hasApiKey && prompt.trim()) || isGenerating}
-                onClick={handleGenerate}
-                size="lg"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="mr-2 size-4 animate-spin" />
-                    {progress.total > 1
-                      ? `Generating ${progress.current}/${progress.total}...`
-                      : "Generating..."}
-                  </>
-                ) : (
-                  <>Generate</>
-                )}
-              </Button>
-              <div className="-mt-1 flex items-center">
-                <Select
-                  onValueChange={(v) => setModel(v as GeminiImageModel)}
-                  value={model}
-                >
-                  <SelectTrigger className="!h-7 !bg-transparent min-w-0 flex-1 border-0 px-2">
-                    <SelectValue>
-                      {
-                        GEMINI_IMAGE_MODELS.find((m) => m.value === model)
-                          ?.label
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GEMINI_IMAGE_MODELS.map((m) => (
-                      <SelectItem key={m.value} value={m.value}>
-                        {m.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  disabled={isGenerating}
-                  onValueChange={(v) => setGenerationCount(Number(v))}
-                  value={String(generationCount)}
-                >
-                  <SelectTrigger className="!h-7 !bg-transparent w-14 shrink-0 border-0 px-2">
-                    <SelectValue>{generationCount}×</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GENERATION_COUNTS.map((count) => (
-                      <SelectItem key={count} value={String(count)}>
-                        {count}×
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <span className="shrink-0 pr-1 text-[10px] text-muted-foreground">
-                  ~${estimatedCost.toFixed(3)}
-                </span>
-              </div>
-            </div>
           </div>
         </ResizablePanel>
 
@@ -1030,6 +957,74 @@ export function GeminiImagePage({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Bottom toolbar — full width generate controls */}
+      <div className="flex shrink-0 items-center gap-2 border-border border-t bg-background px-4 py-2">
+        <Select
+          onValueChange={(v) => setModel(v as GeminiImageModel)}
+          value={model}
+        >
+          <SelectTrigger className="!h-8 !bg-transparent min-w-0 max-w-48 flex-1 border-0 px-2">
+            <SelectValue>
+              {GEMINI_IMAGE_MODELS.find((m) => m.value === model)?.label}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {GEMINI_IMAGE_MODELS.map((m) => (
+              <SelectItem key={m.value} value={m.value}>
+                {m.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          disabled={isGenerating}
+          onValueChange={(v) => setGenerationCount(Number(v))}
+          value={String(generationCount)}
+        >
+          <SelectTrigger className="!h-8 !bg-transparent w-16 shrink-0 border-0 px-2">
+            <SelectValue>{generationCount}×</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {GENERATION_COUNTS.map((count) => (
+              <SelectItem key={count} value={String(count)}>
+                {count}×
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="shrink-0 text-[10px] text-muted-foreground">
+          ~${estimatedCost.toFixed(3)}
+        </span>
+        <div className="flex-1" />
+        {hasGeneratedImages && hasSelection && (
+          <label className="flex cursor-pointer items-center gap-1.5 text-muted-foreground text-xs hover:text-foreground">
+            <Checkbox
+              checked={useSelectedAsInput}
+              onCheckedChange={(checked) =>
+                setUseSelectedAsInput(checked === true)
+              }
+            />
+            <span>Use {selectedIndices.size} selected as input</span>
+          </label>
+        )}
+        <Button
+          disabled={!(hasApiKey && prompt.trim()) || isGenerating}
+          onClick={handleGenerate}
+          size="default"
+        >
+          {isGenerating ? (
+            <>
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              {progress.total > 1
+                ? `${progress.current}/${progress.total}`
+                : "Generating..."}
+            </>
+          ) : (
+            <>Generate</>
+          )}
+        </Button>
       </div>
     </div>
   );
