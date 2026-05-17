@@ -18,9 +18,6 @@ function formatStars(n: number): string {
 function useGitHubData() {
   const [stars, setStars] = useState<string>("—");
   const [version, setVersion] = useState<string>("v1.0");
-  const [releaseName, setReleaseName] = useState<string>(
-    "one-time payment · bring your own AI keys"
-  );
 
   useEffect(() => {
     fetch("https://api.github.com/repos/amajorai/backstage")
@@ -35,12 +32,11 @@ function useGitHubData() {
       .then((r) => r.json())
       .then((d) => {
         if (typeof d.tag_name === "string") setVersion(d.tag_name);
-        if (typeof d.name === "string" && d.name) setReleaseName(d.name);
       })
       .catch(() => {});
   }, []);
 
-  return { stars, version, releaseName };
+  return { stars, version };
 }
 
 // ─── Scroll reveal hook ───────────────────────────────────────────────
@@ -233,13 +229,7 @@ function DraggableEmoji({
 }
 
 // ─── Hero ─────────────────────────────────────────────────────────────
-function Hero({
-  version,
-  releaseName,
-}: {
-  version: string;
-  releaseName: string;
-}) {
+function Hero({ version }: { version: string }) {
   const emojis = [
     {
       emoji: "🎬",
@@ -288,16 +278,10 @@ function Hero({
           target="_blank"
         >
           <span className="lp-hero__badge-pill">{version}</span>
-          <span>
-            {releaseName && releaseName !== version
-              ? releaseName
-              : "Latest Release"}
-          </span>
+          <span>Latest Release</span>
         </a>
         <h1 className="lp-hero__title lp-reveal" data-delay="1">
-          The 🥇 thumbnail&nbsp;maker
-          <br />
-          for YouTube creators
+          The 🥇 thumbnail maker for YouTube creators
         </h1>
         <p className="lp-hero__sub lp-reveal" data-delay="2">
           A Canva and Photoshop level editor with no subscriptions. All on your
@@ -2316,12 +2300,12 @@ function Footer() {
 // ─── Landing Page Root ────────────────────────────────────────────────
 export default function LandingPage() {
   useScrollReveal();
-  const { stars, version, releaseName } = useGitHubData();
+  const { stars, version } = useGitHubData();
 
   return (
     <div className="lp">
       <Nav stars={stars} />
-      <Hero releaseName={releaseName} version={version} />
+      <Hero version={version} />
       <Stats />
 
       {/* Background removal */}
