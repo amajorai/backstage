@@ -274,7 +274,7 @@ export default function App() {
 
       {/* Gallery — always mounted so scroll/state survives navigation */}
       <div
-        className={contentClassWithBottom}
+        className={contentClass}
         style={{ display: showGallery ? "flex" : "none" }}
       >
         <Gallery
@@ -283,19 +283,6 @@ export default function App() {
           onNewFolderClick={() => setNewFolderOpen(true)}
           onNewProjectClick={() => setNewProjectOpen(true)}
           onThumbnailClick={handleEditThumbnail}
-          viewMode={viewMode}
-        />
-        <BottomToolbar
-          onAddVideoClick={() => setShowExtractor(true)}
-          onAiGenerateClick={handleOpenAiGenerateFromGallery}
-          onArchiveClick={() => setPage("archive")}
-          onExploreClick={() => setPage("explore")}
-          onExportSelected={handleExportSelected}
-          onNewFolderClick={() => setNewFolderOpen(true)}
-          onNewProjectClick={() => setNewProjectOpen(true)}
-          onSettingsClick={() => setPage("settings")}
-          onTrashClick={() => setPage("trash")}
-          onViewModeChange={setViewMode}
           viewMode={viewMode}
         />
       </div>
@@ -349,19 +336,18 @@ export default function App() {
       {/* AI Generate — full page from gallery or remix */}
       {page === "ai-generate" &&
         (aiGenerateSource === "gallery" || aiGenerateSource === "remix") && (
-          <div className={contentClassWithBottom}>
-            <GeminiImagePage
-              canvasHeight={aiCanvasHeight}
-              canvasWidth={aiCanvasWidth}
-              editorLayers={null}
-              onClose={handleCloseAiGenerate}
-              onSaveAsImage={handleSaveAiImage}
-              onSaveAsLayer={undefined}
-              onSettings={() => setPage("settings")}
-              remixSourceUrl={remixSourceUrl ?? undefined}
-              remixTitle={remixTitle ?? undefined}
-            />
-          </div>
+          <GeminiImagePage
+            canvasHeight={aiCanvasHeight}
+            canvasWidth={aiCanvasWidth}
+            editorLayers={null}
+            fullPage
+            onClose={handleCloseAiGenerate}
+            onSaveAsImage={handleSaveAiImage}
+            onSaveAsLayer={undefined}
+            onSettings={() => setPage("settings")}
+            remixSourceUrl={remixSourceUrl ?? undefined}
+            remixTitle={remixTitle ?? undefined}
+          />
         )}
 
       {/* Explore */}
@@ -386,6 +372,24 @@ export default function App() {
       {/* Settings */}
       {page === "settings" && !editorVisible && (
         <SettingsPage onClose={() => setPage("gallery")} />
+      )}
+
+      {showGallery && (
+        <div className="mx-1 mb-1">
+          <BottomToolbar
+            onAddVideoClick={() => setShowExtractor(true)}
+            onAiGenerateClick={handleOpenAiGenerateFromGallery}
+            onArchiveClick={() => setPage("archive")}
+            onExploreClick={() => setPage("explore")}
+            onExportSelected={handleExportSelected}
+            onNewFolderClick={() => setNewFolderOpen(true)}
+            onNewProjectClick={() => setNewProjectOpen(true)}
+            onSettingsClick={() => setPage("settings")}
+            onTrashClick={() => setPage("trash")}
+            onViewModeChange={setViewMode}
+            viewMode={viewMode}
+          />
+        </div>
       )}
 
       {showExtractor && (

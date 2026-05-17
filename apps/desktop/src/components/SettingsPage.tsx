@@ -22,6 +22,8 @@ import {
   Check,
   Download,
   ExternalLink,
+  Loader2,
+  MessageSquare,
   Monitor,
   Moon,
   RefreshCw,
@@ -55,7 +57,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   checkForUpdate,
   downloadAndInstall,
@@ -87,40 +88,48 @@ interface SettingsPageProps {
   onClose: () => void;
 }
 
-const TRIGGER_CLASS =
-  "flex-none h-auto justify-start border-none px-3 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground text-muted-foreground";
+type SettingsTab =
+  | "general"
+  | "ai"
+  | "explore"
+  | "storage"
+  | "updates"
+  | "privacy";
+
+const TABS: { value: SettingsTab; label: string }[] = [
+  { value: "general", label: "General" },
+  { value: "ai", label: "AI" },
+  { value: "explore", label: "Explore" },
+  { value: "storage", label: "Storage" },
+  { value: "updates", label: "Updates" },
+  { value: "privacy", label: "Privacy" },
+];
 
 export function SettingsPage({ onClose }: SettingsPageProps) {
+  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+
   return (
     <div className="mx-1 mb-1 flex flex-1">
-      <Tabs
-        className="flex flex-1"
-        defaultValue="general"
-        orientation="vertical"
-      >
-        {/* Left sidebar — sits in muted bg, flush with outer edge */}
+      <div className="flex flex-1">
+        {/* Left sidebar */}
         <div className="flex w-52 flex-col">
-          <TabsList className="flex flex-1 flex-col items-stretch justify-start gap-1 rounded-none border-none bg-transparent p-4">
-            <TabsTrigger className={TRIGGER_CLASS} value="general">
-              General
-            </TabsTrigger>
-            <TabsTrigger className={TRIGGER_CLASS} value="ai">
-              AI
-            </TabsTrigger>
-            <TabsTrigger className={TRIGGER_CLASS} value="explore">
-              Explore
-            </TabsTrigger>
-            <TabsTrigger className={TRIGGER_CLASS} value="storage">
-              Storage
-            </TabsTrigger>
-            <TabsTrigger className={TRIGGER_CLASS} value="updates">
-              Updates
-            </TabsTrigger>
-            <TabsTrigger className={TRIGGER_CLASS} value="privacy">
-              Privacy
-            </TabsTrigger>
-          </TabsList>
-          <div className="p-4 pt-0">
+          <nav className="flex flex-1 flex-col gap-1 p-4">
+            {TABS.map((tab) => (
+              <button
+                className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                  activeTab === tab.value
+                    ? "bg-background font-medium text-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
+                }`}
+                key={tab.value}
+                onClick={() => setActiveTab(tab.value)}
+                type="button"
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+          <div className="flex items-center justify-between p-4 pt-0">
             <Button
               onClick={onClose}
               size="icon-sm"
@@ -129,33 +138,34 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
             >
               <ArrowLeft className="size-4" />
             </Button>
+            <Button
+              onClick={() => {
+                (
+                  document.getElementById("feedback-button") as HTMLElement
+                )?.click();
+              }}
+              size="icon-sm"
+              title="Send feedback"
+              type="button"
+              variant="ghost"
+            >
+              <MessageSquare className="size-4" />
+            </Button>
           </div>
         </div>
 
         {/* Content card */}
         <div className="flex-1 overflow-auto rounded-xl border-2 border-border bg-background p-6">
           <div className="max-w-2xl">
-            <TabsContent className="mt-0" value="general">
-              <GeneralSettings />
-            </TabsContent>
-            <TabsContent className="mt-0" value="ai">
-              <AiSettings />
-            </TabsContent>
-            <TabsContent className="mt-0" value="explore">
-              <ExploreSettings />
-            </TabsContent>
-            <TabsContent className="mt-0" value="storage">
-              <StorageSettings />
-            </TabsContent>
-            <TabsContent className="mt-0" value="updates">
-              <UpdateSettings />
-            </TabsContent>
-            <TabsContent className="mt-0" value="privacy">
-              <PrivacySettings />
-            </TabsContent>
+            {activeTab === "general" && <GeneralSettings />}
+            {activeTab === "ai" && <AiSettings />}
+            {activeTab === "explore" && <ExploreSettings />}
+            {activeTab === "storage" && <StorageSettings />}
+            {activeTab === "updates" && <UpdateSettings />}
+            {activeTab === "privacy" && <PrivacySettings />}
           </div>
         </div>
-      </Tabs>
+      </div>
     </div>
   );
 }
@@ -168,16 +178,16 @@ interface SettingRowProps {
 
 function SettingRow({ title, description, children }: SettingRowProps) {
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between rounded-lg bg-muted/50 p-4">
-        <p className="font-medium">{title}</p>
-        <div className="flex items-center gap-2">{children}</div>
+    <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3">
+      <div className="flex-1 pr-4">
+        <p className="text-sm">{title}</p>
+        {description && (
+          <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
+            {description}
+          </p>
+        )}
       </div>
-      {description && (
-        <p className="pl-2 text-muted-foreground text-xs leading-snug">
-          {description}
-        </p>
-      )}
+      <div className="flex shrink-0 items-center gap-2">{children}</div>
     </div>
   );
 }
@@ -1128,7 +1138,6 @@ function StorageSettings() {
   const [isPurging, setIsPurging] = useState(false);
   const [storageSize, setStorageSize] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
-  const [exportStatus, setExportStatus] = useState("");
   const [importing, setImporting] = useState(false);
   const [pendingZipPath, setPendingZipPath] = useState<string | null>(null);
   const [pendingWipe, setPendingWipe] = useState(false);
@@ -1161,90 +1170,89 @@ function StorageSettings() {
   };
 
   const handleExport = useCallback(async () => {
+    const savePath = await saveDialog({
+      defaultPath: `backstage-backup-${new Date().toISOString().split("T")[0]}.zip`,
+      filters: [{ name: "ZIP Archive", extensions: ["zip"] }],
+    });
+    if (!savePath) return;
+
     setExporting(true);
-    setExportStatus("Flushing database…");
     try {
-      const db = await getDb();
-      await db.execute("PRAGMA wal_checkpoint(TRUNCATE)");
-      const appData = await appDataDir();
-      const zip = new JSZip();
+      await sileo.promise(
+        (async () => {
+          const db = await getDb();
+          await db.execute("PRAGMA wal_checkpoint(TRUNCATE)");
+          const appData = await appDataDir();
+          const zip = new JSZip();
 
-      setExportStatus("Adding database…");
-      try {
-        zip.file(
-          "gallery.db",
-          await readFile(await join(appData, "gallery.db"))
-        );
-      } catch {
-        /* not yet created */
-      }
+          try {
+            zip.file(
+              "gallery.db",
+              await readFile(await join(appData, "gallery.db"))
+            );
+          } catch {
+            /* not yet created */
+          }
 
-      setExportStatus("Adding embeddings database…");
-      for (const fname of [
-        "embeddings.db",
-        "embeddings.db-wal",
-        "embeddings.db-shm",
-      ]) {
-        try {
-          zip.file(fname, await readFile(await join(appData, fname)));
-        } catch {
-          /* file may not exist yet */
+          for (const fname of [
+            "embeddings.db",
+            "embeddings.db-wal",
+            "embeddings.db-shm",
+          ]) {
+            try {
+              zip.file(fname, await readFile(await join(appData, fname)));
+            } catch {
+              /* file may not exist yet */
+            }
+          }
+
+          try {
+            zip.file(
+              "settings.json",
+              await readFile(await join(appData, "settings.json"))
+            );
+          } catch {
+            /* not yet created */
+          }
+          try {
+            zip.file(
+              "license.json",
+              await readFile(await join(appData, "license.json"))
+            );
+          } catch {
+            /* not yet created */
+          }
+
+          for (const dir of [
+            "thumbnails",
+            "trash",
+            "revisions",
+            "recovery",
+          ] as const) {
+            const dirPath = await join(appData, dir);
+            if (await exists(dirPath)) {
+              await addDirToZip(zip, dirPath, dir);
+            }
+          }
+
+          const blob = await zip.generateAsync({
+            type: "blob",
+            compression: "DEFLATE",
+            compressionOptions: { level: 3 },
+          });
+          const buffer = await blob.arrayBuffer();
+          await writeFile(savePath, new Uint8Array(buffer));
+        })(),
+        {
+          loading: { title: "Exporting backup…" },
+          success: { title: "Full backup exported" },
+          error: (err: unknown) => ({ title: `Export failed: ${err}` }),
         }
-      }
-
-      setExportStatus("Adding settings…");
-      try {
-        zip.file(
-          "settings.json",
-          await readFile(await join(appData, "settings.json"))
-        );
-      } catch {
-        /* not yet created */
-      }
-      try {
-        zip.file(
-          "license.json",
-          await readFile(await join(appData, "license.json"))
-        );
-      } catch {
-        /* not yet created */
-      }
-
-      for (const dir of [
-        "thumbnails",
-        "trash",
-        "revisions",
-        "recovery",
-      ] as const) {
-        const dirPath = await join(appData, dir);
-        if (await exists(dirPath)) {
-          setExportStatus(`Adding ${dir}…`);
-          await addDirToZip(zip, dirPath, dir);
-        }
-      }
-
-      setExportStatus("Compressing…");
-      const blob = await zip.generateAsync({
-        type: "blob",
-        compression: "DEFLATE",
-        compressionOptions: { level: 3 },
-      });
-      const buffer = await blob.arrayBuffer();
-
-      const savePath = await saveDialog({
-        defaultPath: `backstage-backup-${new Date().toISOString().split("T")[0]}.zip`,
-        filters: [{ name: "ZIP Archive", extensions: ["zip"] }],
-      });
-      if (!savePath) return;
-
-      setExportStatus("Saving…");
-      await writeFile(savePath, new Uint8Array(buffer));
-      sileo.success({ title: "Full backup exported" });
-    } catch (err) {
-      sileo.error({ title: `Export failed: ${err}` });
+      );
+    } catch {
+      /* sileo handled display */
     } finally {
       setExporting(false);
-      setExportStatus("");
     }
   }, []);
 
@@ -1263,29 +1271,39 @@ function StorageSettings() {
 
   const handleConfirmImport = useCallback(async () => {
     if (!pendingZipPath) return;
+    const zipPath = pendingZipPath;
     setPendingZipPath(null);
     setImporting(true);
     try {
-      const bytes = await readFile(pendingZipPath);
-      const zip = await JSZip.loadAsync(bytes);
-      const appData = await appDataDir();
-      await closeDb();
-      const fileEntries = Object.entries(zip.files).filter(([, f]) => !f.dir);
-      for (const [zipPath, zipFile] of fileEntries) {
-        const slashIdx = zipPath.lastIndexOf("/");
-        if (slashIdx > 0) {
-          const dirPart = zipPath.substring(0, slashIdx);
-          await mkdir(await join(appData, dirPart), {
-            recursive: true,
-          }).catch(() => {});
+      await sileo.promise(
+        (async () => {
+          const bytes = await readFile(zipPath);
+          const zip = await JSZip.loadAsync(bytes);
+          const appData = await appDataDir();
+          await closeDb();
+          const fileEntries = Object.entries(zip.files).filter(
+            ([, f]) => !f.dir
+          );
+          for (const [entryPath, zipFile] of fileEntries) {
+            const slashIdx = entryPath.lastIndexOf("/");
+            if (slashIdx > 0) {
+              const dirPart = entryPath.substring(0, slashIdx);
+              await mkdir(await join(appData, dirPart), {
+                recursive: true,
+              }).catch(() => {});
+            }
+            const content = await zipFile.async("uint8array");
+            await writeFile(await join(appData, entryPath), content);
+          }
+        })(),
+        {
+          loading: { title: "Restoring backup…" },
+          success: { title: "Backup restored — restarting…" },
+          error: (err: unknown) => ({ title: `Import failed: ${err}` }),
         }
-        const content = await zipFile.async("uint8array");
-        await writeFile(await join(appData, zipPath), content);
-      }
-      sileo.success({ title: "Backup restored — restarting…" });
+      );
       setTimeout(() => relaunch(), 1500);
-    } catch (err) {
-      sileo.error({ title: `Import failed: ${err}` });
+    } catch {
       setImporting(false);
     }
   }, [pendingZipPath]);
@@ -1374,8 +1392,12 @@ function StorageSettings() {
           title="Export Full Backup"
         >
           <Button disabled={exporting} onClick={handleExport} size="sm">
-            <Download className="mr-2 size-4" />
-            {exporting ? exportStatus || "Exporting…" : "Export"}
+            {exporting ? (
+              <Loader2 className="mr-2 size-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 size-4" />
+            )}
+            {exporting ? "Exporting…" : "Export"}
           </Button>
         </SettingRow>
         <SettingRow
@@ -1387,7 +1409,11 @@ function StorageSettings() {
             onClick={handlePickImport}
             size="sm"
           >
-            <Upload className="mr-2 size-4" />
+            {importing ? (
+              <Loader2 className="mr-2 size-4 animate-spin" />
+            ) : (
+              <Upload className="mr-2 size-4" />
+            )}
             {importing ? "Restoring…" : "Import"}
           </Button>
         </SettingRow>

@@ -286,81 +286,83 @@ export function ExplorePage({
   }, [viewMode]);
 
   const bottomToolbar = (
-    <div className="relative flex h-12 items-center justify-between border-border border-t bg-background px-4">
-      <div className="flex items-center gap-1">
-        <Button
-          aria-label="Back to Gallery"
-          onClick={onClose}
-          size="icon-sm"
-          variant="ghost"
-        >
-          <ArrowLeft className="size-4" />
-        </Button>
-        <div className="mx-1 h-4 w-px bg-border" />
-        <ViewModeButtons onViewModeChange={setViewMode} viewMode={viewMode} />
-      </div>
+    <div className="mx-1 mb-1">
+      <div className="relative flex h-12 items-center justify-between rounded-xl bg-muted px-4">
+        <div className="flex items-center gap-1">
+          <Button
+            aria-label="Back to Gallery"
+            onClick={onClose}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div className="mx-1 h-4 w-px bg-border" />
+          <ViewModeButtons onViewModeChange={setViewMode} viewMode={viewMode} />
+        </div>
 
-      <div className="absolute left-1/2 -translate-x-1/2">
-        {/* Search container — bg lives here so input can be transparent */}
-        <div className="relative h-8 w-72 rounded-md bg-background transition-all focus-within:w-96 focus-within:ring-1 focus-within:ring-primary/20">
-          {showHistory && (
-            <SearchHistoryDropdown
-              items={filteredHistory}
-              onClearAll={() => clearHistory("explore")}
-              onRemove={(q) => removeSearch("explore", q)}
-              onSelect={(q) => handleSearch(q)}
+        <div className="absolute left-1/2 -translate-x-1/2">
+          {/* Search container — bg lives here so input can be transparent */}
+          <div className="relative h-8 w-72 rounded-md bg-background transition-all focus-within:w-96 focus-within:ring-1 focus-within:ring-primary/20">
+            {showHistory && (
+              <SearchHistoryDropdown
+                items={filteredHistory}
+                onClearAll={() => clearHistory("explore")}
+                onRemove={(q) => removeSearch("explore", q)}
+                onSelect={(q) => handleSearch(q)}
+              />
+            )}
+
+            {/* Ghost text overlay */}
+            {ghostText && (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 flex items-center overflow-hidden pr-8 pl-9"
+              >
+                <span className="invisible shrink-0 whitespace-pre text-sm">
+                  {searchInput}
+                </span>
+                <span className="shrink-0 whitespace-pre text-muted-foreground/40 text-sm">
+                  {ghostText}
+                </span>
+              </div>
+            )}
+
+            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/50" />
+
+            <input
+              className="absolute inset-0 h-full w-full rounded-md border-none bg-transparent pr-8 pl-9 text-foreground text-sm outline-none placeholder:text-muted-foreground/60"
+              onBlur={handleInputBlur}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Tab" && ghostText) {
+                  e.preventDefault();
+                  setSearchInput(suggestion);
+                } else if (e.key === "Enter") {
+                  handleSearch();
+                }
+              }}
+              placeholder="Search YouTube"
+              ref={inputRef}
+              value={searchInput}
             />
-          )}
 
-          {/* Ghost text overlay */}
-          {ghostText && (
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 flex items-center overflow-hidden pr-8 pl-9"
-            >
-              <span className="invisible shrink-0 whitespace-pre text-sm">
-                {searchInput}
+            {videos.length > 0 && !searchInput && (
+              <span className="absolute top-1/2 right-2 -translate-y-1/2 rounded bg-primary/10 px-1.5 py-0.5 font-bold text-[10px] text-primary">
+                {videos.length}
               </span>
-              <span className="shrink-0 whitespace-pre text-muted-foreground/40 text-sm">
-                {ghostText}
-              </span>
-            </div>
-          )}
-
-          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/50" />
-
-          <input
-            className="absolute inset-0 h-full w-full rounded-md border-none bg-transparent pr-8 pl-9 text-foreground text-sm outline-none placeholder:text-muted-foreground/60"
-            onBlur={handleInputBlur}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onFocus={() => setSearchFocused(true)}
-            onKeyDown={(e) => {
-              if (e.key === "Tab" && ghostText) {
-                e.preventDefault();
-                setSearchInput(suggestion);
-              } else if (e.key === "Enter") {
-                handleSearch();
-              }
-            }}
-            placeholder="Search YouTube"
-            ref={inputRef}
-            value={searchInput}
-          />
-
-          {videos.length > 0 && !searchInput && (
-            <span className="absolute top-1/2 right-2 -translate-y-1/2 rounded bg-primary/10 px-1.5 py-0.5 font-bold text-[10px] text-primary">
-              {videos.length}
-            </span>
-          )}
-          {searchInput && (
-            <button
-              className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
-              onClick={handleClearSearch}
-              type="button"
-            >
-              <X className="size-3.5" />
-            </button>
-          )}
+            )}
+            {searchInput && (
+              <button
+                className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
+                onClick={handleClearSearch}
+                type="button"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -368,111 +370,116 @@ export function ExplorePage({
 
   if (!apiKey) {
     return (
-      <div className="mx-1 mb-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
-        <EmptyState
-          action={{ label: "Open Settings", onClick: onSettings }}
-          description="Add your YouTube Data API v3 key in Settings to explore trending thumbnails."
-          icon={<Search className="size-10" />}
-          title="YouTube API key required"
-        />
+      <>
+        <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+          <EmptyState
+            action={{ label: "Open Settings", onClick: onSettings }}
+            description="Add your YouTube Data API v3 key in Settings to explore trending thumbnails."
+            icon={<Search className="size-10" />}
+            title="YouTube API key required"
+          />
+        </div>
         {bottomToolbar}
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="mx-1 mb-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
-      <div className="relative flex-1 overflow-hidden">
-        {/* Category tabs */}
-        <div className="scrollbar-none absolute top-0 right-0 left-0 z-20 flex items-center gap-1.5 overflow-x-auto px-5 py-3">
-          {CATEGORIES.map((cat) => (
-            <button
-              className={cn(
-                "shrink-0 rounded-md px-2.5 py-1 text-sm transition-colors",
-                selectedCategory === cat.id && !activeQueryRef.current
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              key={String(cat.id)}
-              onClick={() => handleSelectCategory(cat.id)}
-              type="button"
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
-
-        <ScrollFadeEffect
-          className="h-full p-4 pt-12"
-          onScroll={handleScroll}
-          ref={scrollContainerRef}
-        >
-          {isLoading && selectedCategory !== SAVED_CATEGORY_ID ? (
-            <div className="flex h-48 items-center justify-center">
-              <Loader2 className="size-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : error && selectedCategory !== SAVED_CATEGORY_ID ? (
-            <div className="flex h-48 flex-col items-center justify-center gap-2">
-              <p className="font-medium text-destructive text-sm">Error</p>
-              <p className="max-w-sm text-center text-muted-foreground text-xs">
-                {error}
-              </p>
-              <Button
-                className="mt-2"
-                onClick={() => fetchNextChunk(false)}
-                size="sm"
-                variant="secondary"
+    <>
+      <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+        <div className="relative flex-1 overflow-hidden">
+          {/* Category tabs */}
+          <div className="scrollbar-none absolute top-0 right-0 left-0 z-20 flex items-center gap-1.5 overflow-x-auto px-5 py-3">
+            {CATEGORIES.map((cat) => (
+              <button
+                className={cn(
+                  "shrink-0 rounded-md px-2.5 py-1 text-sm transition-colors",
+                  selectedCategory === cat.id && !activeQueryRef.current
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                key={String(cat.id)}
+                onClick={() => handleSelectCategory(cat.id)}
+                type="button"
               >
-                Retry
-              </Button>
-            </div>
-          ) : selectedCategory === SAVED_CATEGORY_ID ? (
-            favourites.length === 0 ? (
-              <div className="flex h-48 flex-col items-center justify-center gap-2 text-muted-foreground text-sm">
-                <Heart className="size-8 opacity-30" />
-                <span>No saved videos yet</span>
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          <ScrollFadeEffect
+            className="h-full p-4 pt-12"
+            onScroll={handleScroll}
+            ref={scrollContainerRef}
+          >
+            {isLoading && selectedCategory !== SAVED_CATEGORY_ID ? (
+              <div className="flex h-48 items-center justify-center">
+                <Loader2 className="size-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : error && selectedCategory !== SAVED_CATEGORY_ID ? (
+              <div className="flex h-48 flex-col items-center justify-center gap-2">
+                <p className="font-medium text-destructive text-sm">Error</p>
+                <p className="max-w-sm text-center text-muted-foreground text-xs">
+                  {error}
+                </p>
+                <Button
+                  className="mt-2"
+                  onClick={() => fetchNextChunk(false)}
+                  size="sm"
+                  variant="secondary"
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : selectedCategory === SAVED_CATEGORY_ID ? (
+              favourites.length === 0 ? (
+                <div className="flex h-48 flex-col items-center justify-center gap-2 text-muted-foreground text-sm">
+                  <Heart className="size-8 opacity-30" />
+                  <span>No saved videos yet</span>
+                </div>
+              ) : (
+                <div className={`grid gap-4 ${gridColClass}`}>
+                  {favourites.map((video) => (
+                    <VideoCard
+                      isFavourite={true}
+                      key={video.id}
+                      onRemix={handleRemix}
+                      onToggleFavourite={toggleFavourite}
+                      video={video}
+                    />
+                  ))}
+                </div>
+              )
+            ) : videos.length === 0 ? (
+              <div className="flex h-48 items-center justify-center text-muted-foreground text-sm">
+                No results
               </div>
             ) : (
-              <div className={`grid gap-4 ${gridColClass}`}>
-                {favourites.map((video) => (
-                  <VideoCard
-                    isFavourite={true}
-                    key={video.id}
-                    onRemix={handleRemix}
-                    onToggleFavourite={toggleFavourite}
-                    video={video}
-                  />
-                ))}
-              </div>
-            )
-          ) : videos.length === 0 ? (
-            <div className="flex h-48 items-center justify-center text-muted-foreground text-sm">
-              No results
-            </div>
-          ) : (
-            <>
-              <div className={`grid gap-4 ${gridColClass}`}>
-                {videos.map((video) => (
-                  <VideoCard
-                    isFavourite={favouriteIds.has(video.id)}
-                    key={video.id}
-                    onRemix={handleRemix}
-                    onToggleFavourite={toggleFavourite}
-                    video={video}
-                  />
-                ))}
-              </div>
-              {isLoadingMore && (
-                <div className="flex justify-center py-6">
-                  <Loader2 className="size-5 animate-spin text-muted-foreground" />
+              <>
+                <div className={`grid gap-4 ${gridColClass}`}>
+                  {videos.map((video) => (
+                    <VideoCard
+                      isFavourite={favouriteIds.has(video.id)}
+                      key={video.id}
+                      onRemix={handleRemix}
+                      onToggleFavourite={toggleFavourite}
+                      video={video}
+                    />
+                  ))}
                 </div>
-              )}
-            </>
-          )}
-        </ScrollFadeEffect>
+                {isLoadingMore && (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+              </>
+            )}
+          </ScrollFadeEffect>
+        </div>
       </div>
+
       {bottomToolbar}
-    </div>
+    </>
   );
 }
 

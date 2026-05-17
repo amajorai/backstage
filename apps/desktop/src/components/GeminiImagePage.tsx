@@ -6,10 +6,12 @@ import {
   Layers,
   Loader2,
   Search,
+  Sparkles,
   Users,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { sileo } from "sileo";
+import { EmptyState } from "@/components/gallery/EmptyState";
 import { GeminiPromptPanel } from "@/components/gemini/GeminiPromptPanel";
 import { GeneratedImageGrid } from "@/components/gemini/GeneratedImageGrid";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -70,6 +72,7 @@ interface GeminiImagePageProps {
   onSaveAsImage: (dataUrl: string) => void;
   remixSourceUrl?: string;
   remixTitle?: string;
+  fullPage?: boolean;
 }
 
 interface GeneratedImage {
@@ -99,6 +102,7 @@ export function GeminiImagePage({
   onSaveAsImage,
   remixSourceUrl,
   remixTitle,
+  fullPage = false,
 }: GeminiImagePageProps) {
   const isEditorMode = editorLayers !== null;
 
@@ -747,286 +751,350 @@ export function GeminiImagePage({
     </>
   );
 
-  return (
-    <div className="flex h-full flex-col bg-background">
-      {/* Header */}
-      <div className="flex h-12 shrink-0 items-center px-4">
-        <Tooltip>
-          <TooltipTrigger
-            className={`${buttonVariants({ size: "icon-sm", variant: "ghost" })}`}
-            onClick={onClose}
-          >
-            <ArrowLeft className="size-4" />
-          </TooltipTrigger>
-          <TooltipContent>Back</TooltipContent>
-        </Tooltip>
-        {remixTitle && (
-          <span className="ml-2 truncate text-muted-foreground text-xs">
-            Remixing: {remixTitle}
-          </span>
-        )}
-        {isGenerating && progress.total > 1 && (
-          <span className="text-muted-foreground text-xs">
-            {progress.current}/{progress.total} generated
-          </span>
-        )}
-        {hasGeneratedImages && hasSelection && (
-          <span className="text-muted-foreground text-xs">
-            {selectedIndices.size} selected
-          </span>
-        )}
-      </div>
-
-      {/* Main content */}
-      <div className="flex flex-1 overflow-hidden">
-        <ResizablePanel
-          defaultWidth={320}
-          maxWidth={560}
-          minWidth={200}
-          side="left"
-        >
-          <div className="flex h-full flex-col">
-            {/* Scrollable prompt + input area */}
-            <div className="min-h-0 flex-1">
-              <GeminiPromptPanel
-                error={error}
-                hasApiKey={hasApiKey}
-                inputSection={inputSection}
-                isGenerating={isGenerating}
-                onPromptChange={setPrompt}
-                onSettings={onSettings}
-                prompt={prompt}
-              />
-            </div>
+  if (fullPage && !hasApiKey) {
+    return (
+      <>
+        <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+          <EmptyState
+            action={{ label: "Open Settings", onClick: onSettings }}
+            description="Add your Gemini API key in Settings to generate images with AI."
+            icon={<Sparkles className="size-10" />}
+            title="Gemini API key required"
+          />
+        </div>
+        <div className="mx-1 mb-1">
+          <div className="flex h-12 items-center gap-2 bg-muted px-4">
+            <button
+              className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
+              onClick={onClose}
+              type="button"
+            >
+              <ArrowLeft className="size-4" />
+            </button>
           </div>
-        </ResizablePanel>
+        </div>
+      </>
+    );
+  }
 
-        {/* Right panel - Preview */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="relative flex flex-1 items-center justify-center overflow-auto bg-background p-6">
-            {hasGeneratedImages ? (
-              <div className="flex h-full w-full flex-col gap-4">
-                <div className="relative flex-1">
-                  {showCompareSlider ? (
-                    <CompareSlider className="h-full w-full overflow-hidden rounded-lg border border-border">
-                      <CompareSliderAfter>
+  const toolbarItems = (
+    <>
+      <Select
+        onValueChange={(v) => setModel(v as GeminiImageModel)}
+        value={model}
+      >
+        <SelectTrigger className="!h-8 !bg-transparent min-w-0 max-w-48 flex-1 border-0 px-2">
+          <SelectValue>
+            {GEMINI_IMAGE_MODELS.find((m) => m.value === model)?.label}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {GEMINI_IMAGE_MODELS.map((m) => (
+            <SelectItem key={m.value} value={m.value}>
+              {m.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
+        disabled={isGenerating}
+        onValueChange={(v) => setGenerationCount(Number(v))}
+        value={String(generationCount)}
+      >
+        <SelectTrigger className="!h-8 !bg-transparent w-16 shrink-0 border-0 px-2">
+          <SelectValue>{generationCount}×</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {GENERATION_COUNTS.map((count) => (
+            <SelectItem key={count} value={String(count)}>
+              {count}×
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <span className="shrink-0 text-[10px] text-muted-foreground">
+        ~${estimatedCost.toFixed(3)}
+      </span>
+      <div className="flex-1" />
+      {hasGeneratedImages && hasSelection && (
+        <label className="flex cursor-pointer items-center gap-1.5 text-muted-foreground text-xs hover:text-foreground">
+          <Checkbox
+            checked={useSelectedAsInput}
+            onCheckedChange={(checked) =>
+              setUseSelectedAsInput(checked === true)
+            }
+          />
+          <span>Use {selectedIndices.size} selected as input</span>
+        </label>
+      )}
+      <Button
+        disabled={!(hasApiKey && prompt.trim()) || isGenerating}
+        onClick={handleGenerate}
+        size="default"
+      >
+        {isGenerating ? (
+          <>
+            <Loader2 className="mr-2 size-4 animate-spin" />
+            {progress.total > 1
+              ? `${progress.current}/${progress.total}`
+              : "Generating..."}
+          </>
+        ) : (
+          <>Generate</>
+        )}
+      </Button>
+    </>
+  );
+
+  return (
+    <>
+      <div
+        className={
+          fullPage
+            ? "mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background"
+            : "flex h-full flex-col bg-background"
+        }
+      >
+        {/* Header — panel mode only (fullPage uses bottom toolbar for back) */}
+        {!fullPage && (
+          <div className="flex h-12 shrink-0 items-center px-4">
+            <Tooltip>
+              <TooltipTrigger
+                className={`${buttonVariants({ size: "icon-sm", variant: "ghost" })}`}
+                onClick={onClose}
+              >
+                <ArrowLeft className="size-4" />
+              </TooltipTrigger>
+              <TooltipContent>Back</TooltipContent>
+            </Tooltip>
+            {remixTitle && (
+              <span className="ml-2 truncate text-muted-foreground text-xs">
+                Remixing: {remixTitle}
+              </span>
+            )}
+            {isGenerating && progress.total > 1 && (
+              <span className="text-muted-foreground text-xs">
+                {progress.current}/{progress.total} generated
+              </span>
+            )}
+            {hasGeneratedImages && hasSelection && (
+              <span className="text-muted-foreground text-xs">
+                {selectedIndices.size} selected
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Main content */}
+        <div className="flex flex-1 overflow-hidden">
+          <ResizablePanel
+            defaultWidth={320}
+            maxWidth={560}
+            minWidth={200}
+            side="left"
+          >
+            <div className="flex h-full flex-col">
+              {/* Scrollable prompt + input area */}
+              <div className="min-h-0 flex-1">
+                <GeminiPromptPanel
+                  error={error}
+                  hasApiKey={hasApiKey}
+                  inputSection={inputSection}
+                  isGenerating={isGenerating}
+                  onPromptChange={setPrompt}
+                  onSettings={onSettings}
+                  prompt={prompt}
+                />
+              </div>
+            </div>
+          </ResizablePanel>
+
+          {/* Right panel - Preview */}
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <div className="relative flex flex-1 items-center justify-center overflow-auto bg-background p-6">
+              {hasGeneratedImages ? (
+                <div className="flex h-full w-full flex-col gap-4">
+                  <div className="relative flex-1">
+                    {showCompareSlider ? (
+                      <CompareSlider className="h-full w-full overflow-hidden rounded-lg border border-border">
+                        <CompareSliderAfter>
+                          <img
+                            alt="Generated"
+                            className="h-full w-full object-contain"
+                            draggable={false}
+                            src={viewingImage?.url}
+                          />
+                        </CompareSliderAfter>
+                        <CompareSliderBefore>
+                          <img
+                            alt="Input"
+                            className="h-full w-full object-contain"
+                            draggable={false}
+                            src={inputPreviewUrl!}
+                          />
+                        </CompareSliderBefore>
+                        <CompareSliderHandle />
+                        <span className="pointer-events-none absolute top-3 left-3 z-30 rounded-md border border-border bg-background/80 px-2 py-1 font-medium text-xs backdrop-blur-sm">
+                          Input
+                        </span>
+                        <span className="pointer-events-none absolute top-3 right-3 z-30 rounded-md border border-border bg-background/80 px-2 py-1 font-medium text-xs backdrop-blur-sm">
+                          Version{" "}
+                          {generatedImages.length > 1 ? viewingIndex + 1 : ""}
+                        </span>
+                      </CompareSlider>
+                    ) : (
+                      <div className="relative h-full w-full overflow-hidden rounded-lg border border-border">
                         <img
                           alt="Generated"
                           className="h-full w-full object-contain"
                           draggable={false}
                           src={viewingImage?.url}
                         />
-                      </CompareSliderAfter>
-                      <CompareSliderBefore>
-                        <img
-                          alt="Input"
-                          className="h-full w-full object-contain"
-                          draggable={false}
-                          src={inputPreviewUrl!}
-                        />
-                      </CompareSliderBefore>
-                      <CompareSliderHandle />
-                      <span className="pointer-events-none absolute top-3 left-3 z-30 rounded-md border border-border bg-background/80 px-2 py-1 font-medium text-xs backdrop-blur-sm">
-                        Input
-                      </span>
-                      <span className="pointer-events-none absolute top-3 right-3 z-30 rounded-md border border-border bg-background/80 px-2 py-1 font-medium text-xs backdrop-blur-sm">
-                        Version{" "}
-                        {generatedImages.length > 1 ? viewingIndex + 1 : ""}
-                      </span>
-                    </CompareSlider>
-                  ) : (
-                    <div className="relative h-full w-full overflow-hidden rounded-lg border border-border">
-                      <img
-                        alt="Generated"
-                        className="h-full w-full object-contain"
-                        draggable={false}
-                        src={viewingImage?.url}
-                      />
-                      <span className="pointer-events-none absolute top-3 right-3 z-30 rounded-md border border-border bg-background/80 px-2 py-1 font-medium text-xs backdrop-blur-sm">
-                        Version{" "}
-                        {generatedImages.length > 1 ? viewingIndex + 1 : ""}
-                      </span>
-                    </div>
-                  )}
+                        <span className="pointer-events-none absolute top-3 right-3 z-30 rounded-md border border-border bg-background/80 px-2 py-1 font-medium text-xs backdrop-blur-sm">
+                          Version{" "}
+                          {generatedImages.length > 1 ? viewingIndex + 1 : ""}
+                        </span>
+                      </div>
+                    )}
 
-                  {generatedImages.length > 1 && (
-                    <>
-                      <Button
-                        className="absolute top-1/2 left-4 -translate-y-1/2"
-                        disabled={viewingIndex === 0}
-                        onClick={() => setViewingIndex((i) => i - 1)}
-                        size="icon"
-                        variant="secondary"
-                      >
-                        <ChevronLeft className="size-5" />
-                      </Button>
-                      <Button
-                        className="absolute top-1/2 right-4 -translate-y-1/2"
-                        disabled={viewingIndex === generatedImages.length - 1}
-                        onClick={() => setViewingIndex((i) => i + 1)}
-                        size="icon"
-                        variant="secondary"
-                      >
-                        <ChevronRight className="size-5" />
-                      </Button>
-                    </>
-                  )}
+                    {generatedImages.length > 1 && (
+                      <>
+                        <Button
+                          className="absolute top-1/2 left-4 -translate-y-1/2"
+                          disabled={viewingIndex === 0}
+                          onClick={() => setViewingIndex((i) => i - 1)}
+                          size="icon"
+                          variant="secondary"
+                        >
+                          <ChevronLeft className="size-5" />
+                        </Button>
+                        <Button
+                          className="absolute top-1/2 right-4 -translate-y-1/2"
+                          disabled={viewingIndex === generatedImages.length - 1}
+                          onClick={() => setViewingIndex((i) => i + 1)}
+                          size="icon"
+                          variant="secondary"
+                        >
+                          <ChevronRight className="size-5" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+
+                  <GeneratedImageGrid
+                    images={generatedImages}
+                    onDeselectAll={deselectAll}
+                    onSelectAll={selectAll}
+                    onToggleSelection={toggleSelection}
+                    onViewingIndexChange={setViewingIndex}
+                    selectedIndices={selectedIndices}
+                    viewingIndex={viewingIndex}
+                  />
                 </div>
+              ) : inputPreviewUrl ? (
+                <div className="max-h-full max-w-full overflow-hidden rounded-lg border border-border">
+                  <img
+                    alt="Input"
+                    className="max-h-[70vh] w-auto object-contain"
+                    draggable={false}
+                    src={inputPreviewUrl}
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground text-sm">
+                  <span>Enter a prompt to generate an image</span>
+                </div>
+              )}
+            </div>
 
-                <GeneratedImageGrid
-                  images={generatedImages}
-                  onDeselectAll={deselectAll}
-                  onSelectAll={selectAll}
-                  onToggleSelection={toggleSelection}
-                  onViewingIndexChange={setViewingIndex}
-                  selectedIndices={selectedIndices}
-                  viewingIndex={viewingIndex}
-                />
-              </div>
-            ) : inputPreviewUrl ? (
-              <div className="max-h-full max-w-full overflow-hidden rounded-lg border border-border">
-                <img
-                  alt="Input"
-                  className="max-h-[70vh] w-auto object-contain"
-                  draggable={false}
-                  src={inputPreviewUrl}
-                />
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2 text-muted-foreground text-sm">
-                <span>Enter a prompt to generate an image</span>
+            {/* Footer with save actions */}
+            {hasGeneratedImages && (
+              <div className="flex shrink-0 items-center justify-end gap-2 bg-background px-4 py-3">
+                {onSaveAsLayer ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger>
+                      <Button
+                        disabled={!hasSelection}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        Save Selected ({selectedIndices.size})
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={handleSaveSelectedAsLayers}>
+                        <Layers className="mr-2 size-4" />
+                        Save as Layers
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleSaveSelectedAsImages}>
+                        <ImagePlus className="mr-2 size-4" />
+                        Save to Gallery
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Button
+                    disabled={!hasSelection}
+                    onClick={handleSaveSelectedAsImages}
+                    size="sm"
+                    variant="ghost"
+                  >
+                    Save Selected ({selectedIndices.size})
+                  </Button>
+                )}
+
+                {onSaveAsLayer ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger>
+                      <Button size="sm">
+                        Save All ({generatedImages.length})
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={handleSaveAllAsLayers}>
+                        <Layers className="mr-2 size-4" />
+                        Save as Layers
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleSaveAllAsImages}>
+                        <ImagePlus className="mr-2 size-4" />
+                        Save to Gallery
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Button onClick={handleSaveAllAsImages} size="sm">
+                    Save All ({generatedImages.length})
+                  </Button>
+                )}
               </div>
             )}
           </div>
-
-          {/* Footer with save actions */}
-          {hasGeneratedImages && (
-            <div className="flex shrink-0 items-center justify-end gap-2 bg-background px-4 py-3">
-              {onSaveAsLayer ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger>
-                    <Button disabled={!hasSelection} size="sm" variant="ghost">
-                      Save Selected ({selectedIndices.size})
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={handleSaveSelectedAsLayers}>
-                      <Layers className="mr-2 size-4" />
-                      Save as Layers
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleSaveSelectedAsImages}>
-                      <ImagePlus className="mr-2 size-4" />
-                      Save to Gallery
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <Button
-                  disabled={!hasSelection}
-                  onClick={handleSaveSelectedAsImages}
-                  size="sm"
-                  variant="ghost"
-                >
-                  Save Selected ({selectedIndices.size})
-                </Button>
-              )}
-
-              {onSaveAsLayer ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger>
-                    <Button size="sm">
-                      Save All ({generatedImages.length})
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={handleSaveAllAsLayers}>
-                      <Layers className="mr-2 size-4" />
-                      Save as Layers
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleSaveAllAsImages}>
-                      <ImagePlus className="mr-2 size-4" />
-                      Save to Gallery
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <Button onClick={handleSaveAllAsImages} size="sm">
-                  Save All ({generatedImages.length})
-                </Button>
-              )}
-            </div>
-          )}
         </div>
-      </div>
 
-      {/* Bottom toolbar — full width generate controls */}
-      <div className="flex shrink-0 items-center gap-2 border-border border-t bg-background px-4 py-2">
-        <Select
-          onValueChange={(v) => setModel(v as GeminiImageModel)}
-          value={model}
-        >
-          <SelectTrigger className="!h-8 !bg-transparent min-w-0 max-w-48 flex-1 border-0 px-2">
-            <SelectValue>
-              {GEMINI_IMAGE_MODELS.find((m) => m.value === model)?.label}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {GEMINI_IMAGE_MODELS.map((m) => (
-              <SelectItem key={m.value} value={m.value}>
-                {m.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          disabled={isGenerating}
-          onValueChange={(v) => setGenerationCount(Number(v))}
-          value={String(generationCount)}
-        >
-          <SelectTrigger className="!h-8 !bg-transparent w-16 shrink-0 border-0 px-2">
-            <SelectValue>{generationCount}×</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {GENERATION_COUNTS.map((count) => (
-              <SelectItem key={count} value={String(count)}>
-                {count}×
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className="shrink-0 text-[10px] text-muted-foreground">
-          ~${estimatedCost.toFixed(3)}
-        </span>
-        <div className="flex-1" />
-        {hasGeneratedImages && hasSelection && (
-          <label className="flex cursor-pointer items-center gap-1.5 text-muted-foreground text-xs hover:text-foreground">
-            <Checkbox
-              checked={useSelectedAsInput}
-              onCheckedChange={(checked) =>
-                setUseSelectedAsInput(checked === true)
-              }
-            />
-            <span>Use {selectedIndices.size} selected as input</span>
-          </label>
+        {/* Bottom toolbar — panel mode (inside card) */}
+        {!fullPage && (
+          <div className="flex shrink-0 items-center gap-2 border-border border-t bg-background px-4 py-2">
+            {toolbarItems}
+          </div>
         )}
-        <Button
-          disabled={!(hasApiKey && prompt.trim()) || isGenerating}
-          onClick={handleGenerate}
-          size="default"
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="mr-2 size-4 animate-spin" />
-              {progress.total > 1
-                ? `${progress.current}/${progress.total}`
-                : "Generating..."}
-            </>
-          ) : (
-            <>Generate</>
-          )}
-        </Button>
       </div>
-    </div>
+      {/* Bottom toolbar — full page mode (outside card, in muted area) */}
+      {fullPage && (
+        <div className="mx-1 mb-1">
+          <div className="flex h-12 items-center gap-2 bg-muted px-4">
+            <button
+              className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
+              onClick={onClose}
+              type="button"
+            >
+              <ArrowLeft className="size-4" />
+            </button>
+            <div className="mx-1 h-4 w-px bg-border" />
+            {toolbarItems}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

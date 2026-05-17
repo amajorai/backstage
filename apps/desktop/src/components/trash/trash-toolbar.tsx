@@ -99,7 +99,7 @@ export function TrashToolbar({
   };
 
   return (
-    <div className="relative flex h-12 items-center justify-between border-border border-t bg-background px-4">
+    <div className="relative flex h-12 items-center justify-between bg-muted px-4">
       {isSelectionMode ? (
         <div className="flex flex-1 items-center justify-center gap-4">
           <div className="flex items-center gap-2">

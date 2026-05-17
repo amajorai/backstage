@@ -256,7 +256,7 @@ export function ArchivePage({ onClose }: ArchivePageProps) {
 
   return (
     <>
-      <div className="mx-1 mb-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+      <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
         <div className="relative flex-1 select-none">
           {isLoaded ? (
             archiveItems.length === 0 ? (
@@ -319,6 +319,9 @@ export function ArchivePage({ onClose }: ArchivePageProps) {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="mx-1 mb-1">
         <ArchiveToolbar
           archiveFolders={archiveFolders}
           archiveItemCount={archiveItems.length}

@@ -257,7 +257,7 @@ export function TrashPage({ onClose }: TrashPageProps) {
   return (
     <>
       {/* Card */}
-      <div className="mx-1 mb-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+      <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
         {/* Content */}
         <div className="relative flex-1 select-none">
           {isLoaded ? (
@@ -316,6 +316,10 @@ export function TrashPage({ onClose }: TrashPageProps) {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Bottom Toolbar */}
+      <div className="mx-1 mb-1">
         <TrashToolbar
           filteredCount={filteredItems.length}
           isProcessing={isProcessing}
