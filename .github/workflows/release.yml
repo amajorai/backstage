@@ -28,7 +28,7 @@ jobs:
             args: --target x86_64-apple-darwin
             name: macOS (Intel)
           - platform: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
+            target: blacksmith-4vcpu-ubuntu-2404
             args: ""
             name: Linux
           - platform: windows-latest
