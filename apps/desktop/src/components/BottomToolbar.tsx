@@ -343,7 +343,7 @@ export function BottomToolbar({
   const showHistory = searchFocused && filteredHistory.length > 0;
 
   return (
-    <header className="flex h-12 items-center justify-between bg-muted px-4">
+    <header className="flex h-12 items-center justify-between border-border border-t bg-background px-4">
       {isSelectionMode && selectedIds.size > 0 ? (
         <SelectionToolbar
           isDuplicating={isDuplicating}

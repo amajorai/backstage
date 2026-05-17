@@ -274,7 +274,7 @@ export default function App() {
 
       {/* Gallery — always mounted so scroll/state survives navigation */}
       <div
-        className={contentClass}
+        className={contentClassWithBottom}
         style={{ display: showGallery ? "flex" : "none" }}
       >
         <Gallery
@@ -283,6 +283,19 @@ export default function App() {
           onNewFolderClick={() => setNewFolderOpen(true)}
           onNewProjectClick={() => setNewProjectOpen(true)}
           onThumbnailClick={handleEditThumbnail}
+          viewMode={viewMode}
+        />
+        <BottomToolbar
+          onAddVideoClick={() => setShowExtractor(true)}
+          onAiGenerateClick={handleOpenAiGenerateFromGallery}
+          onArchiveClick={() => setPage("archive")}
+          onExploreClick={() => setPage("explore")}
+          onExportSelected={handleExportSelected}
+          onNewFolderClick={() => setNewFolderOpen(true)}
+          onNewProjectClick={() => setNewProjectOpen(true)}
+          onSettingsClick={() => setPage("settings")}
+          onTrashClick={() => setPage("trash")}
+          onViewModeChange={setViewMode}
           viewMode={viewMode}
         />
       </div>
@@ -373,24 +386,6 @@ export default function App() {
       {/* Settings */}
       {page === "settings" && !editorVisible && (
         <SettingsPage onClose={() => setPage("gallery")} />
-      )}
-
-      {showGallery && (
-        <div className="mx-1 mb-1">
-          <BottomToolbar
-            onAddVideoClick={() => setShowExtractor(true)}
-            onAiGenerateClick={handleOpenAiGenerateFromGallery}
-            onArchiveClick={() => setPage("archive")}
-            onExploreClick={() => setPage("explore")}
-            onExportSelected={handleExportSelected}
-            onNewFolderClick={() => setNewFolderOpen(true)}
-            onNewProjectClick={() => setNewProjectOpen(true)}
-            onSettingsClick={() => setPage("settings")}
-            onTrashClick={() => setPage("trash")}
-            onViewModeChange={setViewMode}
-            viewMode={viewMode}
-          />
-        </div>
       )}
 
       {showExtractor && (
