@@ -1,0 +1,6 @@
+{
+  "buildCommand": "cd apps/web && bun run build",
+  "outputDirectory": "apps/web/.next",
+  "installCommand": "bun install --ignore-scripts",
+  "framework": "nextjs"
+}
