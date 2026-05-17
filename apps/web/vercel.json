@@ -1,0 +1,5 @@
+{
+  "installCommand": "cd ../.. && bun install --ignore-scripts",
+  "buildCommand": "bun run build",
+  "outputDirectory": ".next"
+}
