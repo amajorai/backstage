@@ -1,48 +1,53 @@
 "use client";
 
-import { GalleryThumbnails } from "lucide-react";
+import { PolarEmbedCheckout } from "@polar-sh/checkout/embed";
+import { Check, GalleryThumbnails, Loader2, X } from "lucide-react";
+import { motion } from "motion/react";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import "@/styles/landing.css";
 
+const BLUE = "oklch(0.685 0.169 237.323)";
 const CHECKOUT_URL =
-  "https://buy.polar.sh/polar_cl_vRZFdcYZgPt95VtQARtoA90NQrmEiWBdKlqxK2rHnjA";
+  process.env.NEXT_PUBLIC_POLAR_CHECKOUT_URL ??
+  "https://sandbox-api.polar.sh/v1/checkout-links/polar_cl_aGUui9yb3Gb4ebQMX2FFj13h4kBHGKrVW29fM0Nqp2m/redirect";
 const GITHUB_URL = "https://github.com/amajorai/backstage";
+const TRAILING_ZERO_RE = /\.0$/;
 
 // ─── GitHub data hook ────────────────────────────────────────────────
 function formatStars(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+  if (n >= 1000) {
+    return `${(n / 1000).toFixed(1).replace(TRAILING_ZERO_RE, "")}k`;
+  }
   return String(n);
 }
 
 function useGitHubData() {
   const [stars, setStars] = useState<string>("—");
-  const [version, setVersion] = useState<string>("v1.0");
 
   useEffect(() => {
     fetch("https://api.github.com/repos/amajorai/backstage")
       .then((r) => r.json())
       .then((d) => {
-        if (typeof d.stargazers_count === "number")
+        if (typeof d.stargazers_count === "number") {
           setStars(formatStars(d.stargazers_count));
+        }
       })
-      .catch(() => {});
-
-    fetch("https://api.github.com/repos/amajorai/backstage/releases/latest")
-      .then((r) => r.json())
-      .then((d) => {
-        if (typeof d.tag_name === "string") setVersion(d.tag_name);
-      })
-      .catch(() => {});
+      .catch(() => {
+        // ignore fetch errors
+      });
   }, []);
 
-  return { stars, version };
+  return { stars };
 }
 
-// ─── Scroll reveal hook ───────────────────────────────────────────────
+// ─── Scroll reveal hook ──────────────────────────────────────────────
 function useScrollReveal() {
   useEffect(() => {
-    const reveals = document.querySelectorAll(".lp-reveal");
+    const reveals = document.querySelectorAll(".reveal");
 
     const inViewport = (el: Element) => {
       const r = el.getBoundingClientRect();
@@ -53,11 +58,15 @@ function useScrollReveal() {
     };
 
     for (const el of reveals) {
-      if (inViewport(el)) el.classList.add("is-in");
+      if (inViewport(el)) {
+        el.classList.add("is-in");
+      }
     }
 
     if (!("IntersectionObserver" in window)) {
-      for (const el of reveals) el.classList.add("is-in");
+      for (const el of reveals) {
+        el.classList.add("is-in");
+      }
       return;
     }
 
@@ -74,13 +83,17 @@ function useScrollReveal() {
     );
 
     for (const el of reveals) {
-      if (!el.classList.contains("is-in")) io.observe(el);
+      if (!el.classList.contains("is-in")) {
+        io.observe(el);
+      }
     }
 
     const timer = setTimeout(() => {
-      document.querySelectorAll(".lp-reveal:not(.is-in)").forEach((el) => {
-        if (inViewport(el)) el.classList.add("is-in");
-      });
+      for (const el of document.querySelectorAll(".reveal:not(.is-in)")) {
+        if (inViewport(el)) {
+          el.classList.add("is-in");
+        }
+      }
     }, 600);
 
     return () => {
@@ -90,47 +103,82 @@ function useScrollReveal() {
   }, []);
 }
 
+// ─── Shared UI ────────────────────────────────────────────────────────
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-4 inline-flex items-center gap-2 font-medium text-[11px] text-zinc-400 uppercase tracking-[0.12em]">
+      <span
+        className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
+        style={{ background: BLUE, boxShadow: `0 0 8px ${BLUE}` }}
+      />
+      {children}
+    </div>
+  );
+}
+
+function Tag({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-zinc-800/60 px-2.5 py-1 font-medium text-[11px] text-zinc-400">
+      {children}
+    </div>
+  );
+}
+
 // ─── Nav ─────────────────────────────────────────────────────────────
 function Nav({ stars }: { stars: string }) {
-  const navRef = useRef<HTMLElement>(null);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const nav = navRef.current;
-    if (!nav) return;
-    const onScroll = () => {
-      if (window.scrollY > 24) nav.classList.add("is-scrolled");
-      else nav.classList.remove("is-scrolled");
-    };
+    const onScroll = () => setScrolled(window.scrollY > 24);
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  const navLinks = [
+    ["#features", "Features"],
+    ["#how", "How it works"],
+    ["#compare", "Compare"],
+    ["#pricing", "Pricing"],
+    ["#faq", "FAQ"],
+  ] as const;
+
   return (
-    <nav className="lp-nav" ref={navRef}>
-      <div className="lp-nav__inner">
-        <a className="lp-nav__brand" href="#">
-          <GalleryThumbnails aria-hidden="true" size={18} strokeWidth={2.5} />
+    <nav className="fixed top-0 right-0 left-0 z-50 flex justify-center py-3.5">
+      <div
+        className={cn(
+          "flex items-center gap-3 transition-all duration-300",
+          scrolled
+            ? "h-11 rounded-full bg-zinc-950/80 px-4 shadow-[0_4px_24px_oklch(0_0_0/0.4)] [backdrop-filter:blur(20px)_saturate(140%)]"
+            : "h-12 w-full max-w-[1200px] bg-transparent px-6"
+        )}
+      >
+        <a
+          className="flex items-center gap-2 font-semibold text-sm text-white no-underline"
+          href="/"
+        >
+          <GalleryThumbnails
+            aria-hidden="true"
+            className="fill-foreground text-foreground"
+            size={18}
+            strokeWidth={3}
+          />
           Backstage
         </a>
-        <div className="lp-nav__links">
-          {(
-            [
-              ["#features", "Features"],
-              ["#how", "How it works"],
-              ["#compare", "Compare"],
-              ["#pricing", "Pricing"],
-              ["#faq", "FAQ"],
-            ] as const
-          ).map(([href, label]) => (
-            <a className="lp-nav__link" href={href} key={href}>
+        <div className="ml-1 hidden items-center gap-0.5 md:flex">
+          {navLinks.map(([href, label]) => (
+            <a
+              className="rounded-full px-3 py-1.5 text-sm text-zinc-400 no-underline transition-colors hover:text-white"
+              href={href}
+              key={href}
+            >
               {label}
             </a>
           ))}
         </div>
-        <div className="lp-nav__spacer" />
+        <div className="flex-1" />
         <a
-          className="lp-nav__github"
+          className="hidden items-center gap-1.5 text-sm text-zinc-400 no-underline transition-colors hover:text-white md:flex"
           href={GITHUB_URL}
           rel="noopener"
           target="_blank"
@@ -145,9 +193,6 @@ function Nav({ stars }: { stars: string }) {
             <path d="M12 .5A12 12 0 0 0 0 12.5a12 12 0 0 0 8.2 11.4c.6.1.8-.3.8-.6v-2.1c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.8.1-.8.1-.8 1.3.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.4 3.7 1 .1-.8.4-1.4.7-1.7-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 24 12.5 12 12 0 0 0 12 .5Z" />
           </svg>
           <span>{stars}</span>
-        </a>
-        <a className="lp-btn lp-btn--cyan" href="#pricing">
-          Get lifetime · $20
         </a>
       </div>
     </nav>
@@ -173,7 +218,9 @@ function DraggableEmoji({
 
   const getOffset = useCallback(() => {
     const el = ref.current;
-    if (!el) return [0, 0];
+    if (!el) {
+      return [0, 0];
+    }
     return [
       Number.parseFloat(el.style.getPropertyValue("--user-tx")) || 0,
       Number.parseFloat(el.style.getPropertyValue("--user-ty")) || 0,
@@ -196,26 +243,34 @@ function DraggableEmoji({
 
   const onMove = useCallback((e: React.PointerEvent) => {
     const s = stateRef.current;
-    if (!s.dragging) return;
+    if (!s.dragging) {
+      return;
+    }
     const el = ref.current;
-    if (!el) return;
+    if (!el) {
+      return;
+    }
     el.style.setProperty("--user-tx", `${s.baseX + e.clientX - s.startX}px`);
     el.style.setProperty("--user-ty", `${s.baseY + e.clientY - s.startY}px`);
   }, []);
 
   const onUp = useCallback((e: React.PointerEvent) => {
     const s = stateRef.current;
-    if (!s.dragging) return;
+    if (!s.dragging) {
+      return;
+    }
     s.dragging = false;
     ref.current?.classList.remove("is-dragging");
     try {
       ref.current?.releasePointerCapture(e.pointerId);
-    } catch (_) {}
+    } catch {
+      // pointer capture not supported in all environments
+    }
   }, []);
 
   return (
     <span
-      className="lp-emoji"
+      className="emoji-draggable"
       onPointerCancel={onUp}
       onPointerDown={onDown}
       onPointerMove={onMove}
@@ -223,13 +278,171 @@ function DraggableEmoji({
       ref={ref}
       style={style}
     >
-      <span className="lp-emoji__inner">{emoji}</span>
+      <span className="emoji-inner">{emoji}</span>
     </span>
   );
 }
 
+// ─── Download email dialog ────────────────────────────────────────────
+function DownloadEmailDialog({ onClose }: { onClose: () => void }) {
+  const [email, setEmail] = useState("");
+  const [submitState, setSubmitState] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!email.trim()) return;
+      setSubmitState("loading");
+      try {
+        const res = await fetch("/api/send-download", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email.trim() }),
+        });
+        if (res.ok) {
+          setSubmitState("success");
+        } else {
+          const data = await res.json().catch(() => ({}));
+          setErrorMsg(
+            (data as { error?: string }).error ?? "Something went wrong"
+          );
+          setSubmitState("error");
+        }
+      } catch {
+        setErrorMsg("Something went wrong. Try again.");
+        setSubmitState("error");
+      }
+    },
+    [email]
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    },
+    [onClose]
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+      onKeyDown={handleKeyDown}
+    >
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative w-full max-w-sm rounded-2xl bg-zinc-900 p-8 shadow-2xl">
+        <button
+          aria-label="Close"
+          className="absolute top-4 right-4 text-zinc-500 transition-colors hover:text-white"
+          onClick={onClose}
+          type="button"
+        >
+          <X className="size-4" />
+        </button>
+
+        {submitState === "success" ? (
+          <div className="flex flex-col items-center gap-4 py-4 text-center">
+            <div className="flex size-12 items-center justify-center rounded-full bg-emerald-500/20">
+              <Check className="size-6 text-emerald-400" />
+            </div>
+            <div>
+              <p className="font-medium text-white">Check your inbox</p>
+              <p className="mt-1 text-sm text-zinc-400">
+                We sent your download link to {email}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="mb-6">
+              <h2 className="font-heading font-medium text-white text-xl">
+                Get the download link
+              </h2>
+              <p className="mt-1 text-sm text-zinc-400">
+                Enter your email and we'll send it instantly.
+              </p>
+            </div>
+            <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
+              <Input
+                autoFocus
+                className="h-12 border-zinc-700 bg-zinc-800 text-white placeholder:text-zinc-500 focus-visible:ring-zinc-500"
+                disabled={submitState === "loading"}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                type="email"
+                value={email}
+              />
+              {submitState === "error" && (
+                <p className="text-red-400 text-sm">{errorMsg}</p>
+              )}
+              <Button
+                className="h-12 w-full"
+                disabled={!email.trim() || submitState === "loading"}
+                size="lg"
+                type="submit"
+              >
+                {submitState === "loading" ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Send download link"
+                )}
+              </Button>
+            </form>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Gradient Bars background ─────────────────────────────────────────
+function GradientBars({
+  bars = 20,
+  colors = [BLUE, "transparent"],
+}: {
+  bars?: number;
+  colors?: string[];
+}) {
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 flex items-end overflow-hidden"
+    >
+      {Array.from({ length: bars }).map((_, i) => (
+        <motion.div
+          animate={{ scaleY: [0.2, 1, 0.2] }}
+          key={i}
+          style={{
+            background: `linear-gradient(to top, ${colors[0]}, ${colors[1] ?? "transparent"})`,
+            flex: 1,
+            height: "70%",
+            transformOrigin: "bottom",
+          }}
+          transition={{
+            delay: (i / bars) * 2.6,
+            duration: 2.5 + (i % 7) * 0.35,
+            ease: "easeInOut",
+            repeat: Number.POSITIVE_INFINITY,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 // ─── Hero ─────────────────────────────────────────────────────────────
-function Hero({ version }: { version: string }) {
+function Hero() {
+  const [showDownload, setShowDownload] = useState(false);
+
   const emojis = [
     {
       emoji: "🎬",
@@ -258,9 +471,12 @@ function Hero({ version }: { version: string }) {
   ];
 
   return (
-    <section className="lp-hero">
-      <div className="lp-hero__glow" />
-      <div aria-hidden="true" className="lp-hero__emojis">
+    <section className="relative flex min-h-svh flex-col justify-center overflow-hidden pt-36 pb-20 md:pt-44 md:pb-28">
+      <GradientBars bars={24} colors={["#e60a64", "transparent"]} />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+      >
         {emojis.map((e) => (
           <DraggableEmoji
             emoji={e.emoji}
@@ -269,55 +485,117 @@ function Hero({ version }: { version: string }) {
           />
         ))}
       </div>
-      <div className="lp-hero__inner">
-        <a
-          className="lp-hero__badge lp-reveal"
-          data-delay="0"
-          href={`${GITHUB_URL}/releases/latest`}
-          rel="noopener"
-          target="_blank"
+      <div className="relative z-10 mx-auto flex max-w-[1200px] flex-col items-center px-6 text-center">
+        <h1
+          className="reveal mb-5 max-w-[860px] text-balance font-heading font-medium text-4xl text-white leading-tight tracking-tight md:text-6xl"
+          data-delay="1"
         >
-          <span className="lp-hero__badge-pill">{version}</span>
-          <span>Latest Release</span>
-        </a>
-        <h1 className="lp-hero__title lp-reveal" data-delay="1">
-          The 🥇 thumbnail maker for YouTube creators
+          The 🥇 agentic thumbnail maker for YouTube creators
         </h1>
-        <p className="lp-hero__sub lp-reveal" data-delay="2">
+        <p
+          className="reveal mb-8 max-w-[520px] text-lg text-zinc-400 md:text-xl"
+          data-delay="2"
+        >
           A Canva and Photoshop level editor with no subscriptions. All on your
           machine, pay once, own it forever
         </p>
-        <div className="lp-hero__ctas lp-reveal" data-delay="3">
-          <a className="lp-btn lp-btn--cyan lp-btn--xl" href={CHECKOUT_URL}>
-            Get lifetime · $20
-          </a>
-          <a
-            className="lp-btn lp-btn--ghost lp-btn--xl"
-            href={`${GITHUB_URL}/releases/latest`}
-            rel="noopener"
-            target="_blank"
+        <div
+          className="reveal mb-6 flex flex-wrap justify-center gap-3"
+          data-delay="3"
+        >
+          <Button
+            asChild
+            className="rounded-full px-7 py-3 text-base"
+            size="lg"
+          >
+            <a
+              data-polar-checkout
+              data-polar-checkout-theme="dark"
+              href={CHECKOUT_URL}
+            >
+              Get lifetime · $29
+            </a>
+          </Button>
+          <Button
+            className="rounded-full px-7 py-3 text-base"
+            onClick={() => setShowDownload(true)}
+            size="lg"
+            variant="secondary"
           >
             Download free
-          </a>
+          </Button>
         </div>
-        <div className="lp-hero__meta lp-reveal" data-delay="4">
-          <span>
-            <span className="lp-green-dot" /> Mac · Windows · Linux
+        {showDownload && (
+          <DownloadEmailDialog onClose={() => setShowDownload(false)} />
+        )}
+        <div
+          className="reveal mb-10 flex flex-wrap items-center justify-center gap-2 text-sm text-zinc-500"
+          data-delay="4"
+        >
+          <span className="flex items-center gap-1.5 text-amber-400/80">
+            Early bird
+            <span className="text-zinc-600 line-through">$59</span>
+            $29
           </span>
           <span>·</span>
-          <span>30-day refund</span>
+          <span>Price increases every 100 users, lock in now</span>
           <span>·</span>
-          <span>Open source on GitHub</span>
+          <span>30-day refund</span>
         </div>
-        <div className="lp-shot-wrap lp-reveal" data-delay="5">
-          <div className="lp-shot">
+        <div className="reveal w-full max-w-[900px]" data-delay="5">
+          <div
+            className="overflow-hidden rounded-2xl"
+            style={{
+              boxShadow:
+                "0 0 0 1px oklch(1 0 0 / 0.05), 0 32px 80px oklch(0 0 0 / 0.6), 0 0 100px oklch(0.685 0.169 237.323 / 0.10)",
+            }}
+          >
             <Image
               alt="Backstage editor with a layered thumbnail open"
               height={620}
               src="/landing/screenshot-editor.png"
-              style={{ width: "100%", height: "auto" }}
+              style={{ width: "100%", height: "auto", display: "block" }}
               width={1100}
             />
+          </div>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-4 text-sm text-zinc-500">
+            <span>Available on</span>
+            <span className="flex items-center gap-1.5">
+              <svg
+                aria-hidden="true"
+                fill="currentColor"
+                height="13"
+                viewBox="0 0 24 24"
+                width="13"
+              >
+                <path d="M0 0h11.377v11.372H0zm12.623 0H24v11.372H12.623zM0 12.623h11.377V24H0zm12.623 0H24V24H12.623z" />
+              </svg>
+              Windows
+            </span>
+            <span className="flex items-center gap-1.5">
+              <svg
+                aria-hidden="true"
+                fill="currentColor"
+                height="13"
+                viewBox="0 0 24 24"
+                width="13"
+              >
+                <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.054 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" />
+              </svg>
+              macOS
+            </span>
+            <span className="flex items-center gap-1.5">
+              <svg
+                aria-hidden="true"
+                fill="currentColor"
+                height="13"
+                viewBox="0 0 24 24"
+                width="13"
+              >
+                <path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.25 1.237-.152 1.614.1.377.325.65.652.805.326.155.73.195 1.032.17.3-.027.575-.091.887-.145.292-.054.641-.109 1.063-.099.416.009.944.118 1.618.415.604.247 1.44.634 2.2.834.773.2 1.562.271 2.278.133.71-.14 1.376-.49 1.828-1.123a4.52 4.52 0 00.56-1.22c.062-.24.09-.49.108-.73.018-.24.027-.48.027-.72s-.01-.48-.027-.72c-.018-.24-.046-.49-.108-.73a4.52 4.52 0 00-.56-1.22c-.452-.633-1.118-.983-1.828-1.123-.716-.138-1.505-.067-2.278.133-.76.2-1.596.587-2.2.834-.674.297-1.202.406-1.618.415-.422.01-.771-.045-1.063-.099-.312-.054-.587-.118-.887-.145-.302-.025-.706.015-1.032.17-.327.155-.552.428-.652.805-.098.377-.097.934.152 1.614.076.242.018.571-.04.97-.028.136-.055.337-.055.536 0 .208.042.413.132.602.206.411.55.544.864.68.312.133.598.201.797.4.213.239.403.571.663.839a.424.424 0 00.11.135c-.123.805.009 1.657.287 2.489.589 1.771 1.831 3.47 2.716 4.521.75 1.067.974 1.928 1.05 3.02.065 1.491-1.056 5.965 3.17 6.298.165.013.325.021.48.021 4.226-.333 3.105-4.807 3.17-6.298.076-1.092.3-1.953 1.05-3.02.885-1.051 2.127-2.75 2.716-4.521.278-.832.41-1.684.287-2.489a.424.424 0 00.11-.135c.26-.268.45-.6.663-.839.199-.199.485-.267.797-.4.313-.136.658-.269.864-.68.09-.189.136-.394.132-.602 0-.199-.027-.4-.055-.536-.058-.399-.116-.728-.04-.97.249-.68.25-1.237.152-1.614-.1-.377-.325-.65-.652-.805-.326-.155-.73-.195-1.032-.17-.3.027-.575.091-.887.145-.292.054-.641.109-1.063.099-.416-.009-.944-.118-1.618-.415-.604-.247-1.44-.634-2.2-.834-.773-.2-1.562-.271-2.278-.133-.71.14-1.376.49-1.828 1.123a4.52 4.52 0 00-.56 1.22c-.062.24-.09.49-.108.73-.018.24-.027.48-.027.72s.01.48.027.72c.018.24.046.49.108.73a4.52 4.52 0 00.56 1.22c.452.633 1.118.983 1.828 1.123.716.138 1.505.067 2.278-.133.76-.2 1.596-.587 2.2-.834.674-.297 1.202-.406 1.618-.415.422-.01.771.045 1.063.099.312.054.587.118.887.145z" />
+              </svg>
+              Linux
+            </span>
           </div>
         </div>
       </div>
@@ -328,22 +606,28 @@ function Hero({ version }: { version: string }) {
 // ─── Stats ────────────────────────────────────────────────────────────
 function Stats() {
   return (
-    <section id="social-strip">
-      <div className="lp-container">
-        <div className="lp-stats lp-reveal">
+    <section className="py-8" id="social-strip">
+      <div className="mx-auto max-w-[1200px] px-6">
+        <div className="reveal grid grid-cols-2 overflow-hidden rounded-2xl md:grid-cols-4">
           {(
             [
               { num: "100%", label: "Runs on your machine", blue: true },
-              { num: "$20", label: "One-time. Forever.", blue: false },
+              { num: "$29", label: "One-time. Forever.", blue: false },
               { num: "0", label: "Subscriptions", blue: false },
               { num: "7", label: "Export formats", blue: false },
             ] satisfies { num: string; label: string; blue: boolean }[]
           ).map((s) => (
-            <div className="lp-stats__cell" key={s.label}>
-              <div className="lp-stats__num" data-blue={s.blue}>
+            <div
+              className="flex flex-col items-center bg-zinc-900/40 px-4 py-6"
+              key={s.label}
+            >
+              <div
+                className="mb-1 font-bold text-3xl"
+                style={s.blue ? { color: BLUE } : { color: "white" }}
+              >
                 {s.num}
               </div>
-              <div className="lp-stats__label">{s.label}</div>
+              <div className="text-center text-xs text-zinc-500">{s.label}</div>
             </div>
           ))}
         </div>
@@ -362,10 +646,15 @@ function CompareSlider() {
 
   const setPosition = useCallback((pct: number) => {
     const clamped = Math.max(0, Math.min(100, pct));
-    if (beforeClipRef.current)
+    if (beforeClipRef.current) {
       beforeClipRef.current.style.clipPath = `inset(0 ${100 - clamped}% 0 0)`;
-    if (dividerRef.current) dividerRef.current.style.left = `${clamped}%`;
-    if (handleRef.current) handleRef.current.style.left = `${clamped}%`;
+    }
+    if (dividerRef.current) {
+      dividerRef.current.style.left = `${clamped}%`;
+    }
+    if (handleRef.current) {
+      handleRef.current.style.left = `${clamped}%`;
+    }
   }, []);
 
   useEffect(() => {
@@ -375,7 +664,9 @@ function CompareSlider() {
   const update = useCallback(
     (clientX: number) => {
       const r = trackRef.current?.getBoundingClientRect();
-      if (!r) return;
+      if (!r) {
+        return;
+      }
       setPosition(((clientX - r.left) / r.width) * 100);
     },
     [setPosition]
@@ -386,24 +677,32 @@ function CompareSlider() {
     handleRef.current?.classList.add("is-dragging");
     try {
       handleRef.current?.setPointerCapture(e.pointerId);
-    } catch (_) {}
+    } catch {
+      // pointer capture not supported in all environments
+    }
     e.preventDefault();
   }, []);
 
   const onHandleMove = useCallback(
     (e: React.PointerEvent) => {
-      if (dragging.current) update(e.clientX);
+      if (dragging.current) {
+        update(e.clientX);
+      }
     },
     [update]
   );
 
   const onHandleUp = useCallback((e: React.PointerEvent) => {
-    if (!dragging.current) return;
+    if (!dragging.current) {
+      return;
+    }
     dragging.current = false;
     handleRef.current?.classList.remove("is-dragging");
     try {
       handleRef.current?.releasePointerCapture(e.pointerId);
-    } catch (_) {}
+    } catch {
+      // pointer capture not supported in all environments
+    }
   }, []);
 
   const onTrackDown = useCallback(
@@ -411,8 +710,9 @@ function CompareSlider() {
       if (
         e.target === handleRef.current ||
         handleRef.current?.contains(e.target as Node)
-      )
+      ) {
         return;
+      }
       update(e.clientX);
       dragging.current = true;
       handleRef.current?.classList.add("is-dragging");
@@ -422,7 +722,9 @@ function CompareSlider() {
 
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
-      if (dragging.current) update(e.clientX);
+      if (dragging.current) {
+        update(e.clientX);
+      }
     };
     const onUp = () => {
       dragging.current = false;
@@ -440,58 +742,70 @@ function CompareSlider() {
     "https://images.unsplash.com/photo-1573497019418-b400bb3ab074?w=1400&q=85&auto=format&fit=crop";
 
   return (
-    <div className="lp-compare-slider">
+    <div className="mx-auto w-full max-w-[800px] overflow-hidden rounded-xl">
       <div
-        className="lp-compare-slider__track"
+        className="relative aspect-video cursor-crosshair select-none overflow-hidden"
         onPointerDown={onTrackDown}
         ref={trackRef}
       >
-        <div className="lp-compare-slider__after-bg" />
-        {/* biome-ignore lint/performance/noImgElement: external Unsplash URL */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "repeating-conic-gradient(#2a2a2a 0% 25%, #333 0% 50%) 0 0 / 16px 16px",
+          }}
+        />
+        {/* biome-ignore lint/performance/noImgElement lint/correctness/useImageSize: external Unsplash URL */}
         <img
           alt="Subject with background removed"
-          className="lp-compare-slider__after-img"
+          className="absolute inset-0 h-full w-full object-cover"
           draggable={false}
           src={IMG}
         />
-        <div className="lp-compare-slider__before-clip" ref={beforeClipRef}>
-          {/* biome-ignore lint/performance/noImgElement: external Unsplash URL */}
+        <div className="absolute inset-0" ref={beforeClipRef}>
+          {/* biome-ignore lint/performance/noImgElement lint/correctness/useImageSize: external Unsplash URL */}
           <img
-            alt="Original photo"
-            className="lp-compare-slider__before-img"
+            alt="Before background removal"
+            className="absolute inset-0 h-full w-full object-cover"
             draggable={false}
             src={IMG}
           />
         </div>
-        <div className="lp-compare-slider__label lp-compare-slider__label--left">
+        <div className="pointer-events-none absolute top-3 left-4 rounded bg-zinc-900/70 px-2 py-1 font-semibold text-white text-xs">
           Before
         </div>
-        <div className="lp-compare-slider__label lp-compare-slider__label--right">
+        <div className="pointer-events-none absolute top-3 right-4 rounded bg-zinc-900/70 px-2 py-1 font-semibold text-white text-xs">
           After
         </div>
-        <div className="lp-compare-slider__divider" ref={dividerRef}>
-          <button
-            aria-label="Drag to compare"
-            className="lp-compare-slider__handle"
-            onPointerCancel={onHandleUp}
-            onPointerDown={onHandleDown}
-            onPointerMove={onHandleMove}
-            onPointerUp={onHandleUp}
-            ref={handleRef}
-            type="button"
+        <div
+          className="pointer-events-none absolute top-0 bottom-0 w-px"
+          ref={dividerRef}
+          style={{
+            background: "white",
+            boxShadow: "0 0 8px oklch(0 0 0 / 0.5)",
+          }}
+        />
+        <button
+          aria-label="Drag to compare"
+          className="compare-handle"
+          onPointerCancel={onHandleUp}
+          onPointerDown={onHandleDown}
+          onPointerMove={onHandleMove}
+          onPointerUp={onHandleUp}
+          ref={handleRef}
+          type="button"
+        >
+          <svg
+            fill="none"
+            height="16"
+            stroke="white"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            width="16"
           >
-            <svg
-              fill="none"
-              height="16"
-              stroke="white"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-              width="16"
-            >
-              <path d="M18 8l4 4-4 4M6 8l-4 4 4 4" />
-            </svg>
-          </button>
-        </div>
+            <path d="M18 8l4 4-4 4M6 8l-4 4 4 4" />
+          </svg>
+        </button>
       </div>
     </div>
   );
@@ -536,7 +850,9 @@ function GeminiPanel() {
   );
 
   const generate = useCallback(() => {
-    if (generating) return;
+    if (generating) {
+      return;
+    }
     setGenerating(true);
     setShimmer(true);
     setMeta("Running gemini-2.5-flash-image...");
@@ -552,11 +868,13 @@ function GeminiPanel() {
   const photos = PHOTO_SETS[setIdx];
 
   return (
-    <div className="lp-gemini-panel">
-      <div className="lp-gemini-panel__col">
-        <div className="lp-gemini-panel__label">Prompt</div>
+    <div className="grid gap-0 overflow-hidden rounded-2xl bg-zinc-900 md:grid-cols-2">
+      <div className="flex flex-col gap-3 p-5">
+        <div className="font-medium text-[11px] text-zinc-500 uppercase tracking-widest">
+          Prompt
+        </div>
         <textarea
-          className="lp-gemini-panel__textarea"
+          className="h-24 w-full resize-none rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-zinc-600 focus:border-zinc-500"
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -568,19 +886,29 @@ function GeminiPanel() {
           spellCheck={false}
           value={prompt}
         />
-        <div className="lp-gemini-panel__row">
-          <select className="lp-gemini-panel__select" disabled>
+        <div className="flex gap-2">
+          <select
+            className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs text-zinc-400 outline-none"
+            disabled
+          >
             <option>gemini-2.5-flash-image</option>
           </select>
-          <select className="lp-gemini-panel__select" disabled>
+          <select
+            className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs text-zinc-400 outline-none"
+            disabled
+          >
             <option>4 images</option>
           </select>
         </div>
-        <div className="lp-gemini-panel__row">
-          <span className="lp-gemini-panel__meta">{meta}</span>
+        <div className="mt-auto flex items-center gap-2">
+          <span className="flex-1 text-xs text-zinc-500">{meta}</span>
           <button
-            className={`lp-gemini-panel__cta${generating ? "is-generating" : ""}`}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold text-xs text-zinc-950 transition-all hover:opacity-90",
+              generating && "cursor-not-allowed opacity-70"
+            )}
             onClick={generate}
+            style={{ background: BLUE }}
             type="button"
           >
             <svg
@@ -597,22 +925,36 @@ function GeminiPanel() {
           </button>
         </div>
       </div>
-      <div className="lp-gemini-panel__grid">
+      <div className="grid grid-cols-2 gap-2 p-5">
         {photos.map((id, i) => (
           <button
-            className={`lp-gemini-tile${activeTile === i ? "is-viewing" : ""}${shimmer ? "is-shimmer" : ""}`}
+            className={cn(
+              "relative aspect-square cursor-pointer overflow-hidden rounded-lg border bg-zinc-800 transition-all",
+              activeTile === i
+                ? "border-2"
+                : "border-zinc-700 hover:border-zinc-500",
+              shimmer && "tile-shimmer"
+            )}
             key={id}
             onClick={() => setActiveTile(i)}
+            style={activeTile === i ? { borderColor: BLUE } : undefined}
             type="button"
           >
-            {/* biome-ignore lint/performance/noImgElement: external Unsplash URL */}
+            {/* biome-ignore lint/performance/noImgElement lint/correctness/useImageSize: external Unsplash URL */}
             <img
               alt=""
+              className="h-full w-full object-cover"
               loading="lazy"
               src={`https://images.unsplash.com/${id}?w=600&q=80&auto=format&fit=crop`}
             />
             <span
-              className={`lp-gemini-tile__check${activeTile === i ? "is-selected" : ""}`}
+              className={cn(
+                "absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full border",
+                activeTile === i
+                  ? "border-transparent"
+                  : "border-zinc-600 bg-zinc-900/80"
+              )}
+              style={activeTile === i ? { background: BLUE } : undefined}
             >
               {activeTile === i && (
                 <svg
@@ -627,7 +969,9 @@ function GeminiPanel() {
                 </svg>
               )}
             </span>
-            <span className="lp-gemini-tile__num">v{i + 1}</span>
+            <span className="absolute bottom-1 left-1.5 font-medium text-[10px] text-zinc-400">
+              v{i + 1}
+            </span>
           </button>
         ))}
       </div>
@@ -646,7 +990,9 @@ function ExportDialog() {
 
   const updateQuality = useCallback((clientX: number) => {
     const r = sliderRef.current?.getBoundingClientRect();
-    if (!r) return;
+    if (!r) {
+      return;
+    }
     const pct = Math.max(
       10,
       Math.min(100, ((clientX - r.left) / r.width) * 100)
@@ -664,13 +1010,15 @@ function ExportDialog() {
   ];
 
   return (
-    <div className="lp-export-stage">
-      <div className="lp-export-dialog">
-        <div className="lp-export-dialog__header">
-          <h4>Export Image</h4>
+    <div className="flex items-center justify-center py-6">
+      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-zinc-900 shadow-2xl">
+        <div className="flex items-center justify-between px-5 py-3.5">
+          <h4 className="font-heading font-medium text-sm text-white">
+            Export Image
+          </h4>
           <button
             aria-label="Close"
-            className="lp-export-dialog__close"
+            className="text-zinc-500 transition-colors hover:text-white"
             type="button"
           >
             <svg
@@ -686,26 +1034,36 @@ function ExportDialog() {
             </svg>
           </button>
         </div>
-        <div className="lp-export-dialog__body">
-          <div className="lp-export-dialog__preview">
+        <div className="flex flex-col gap-4 p-5">
+          <div className="overflow-hidden rounded-lg bg-zinc-800">
             <Image
               alt=""
               height={170}
               src="/landing/screenshot-editor.png"
+              style={{ width: "100%", height: "auto", display: "block" }}
               width={460}
             />
           </div>
-          <div className="lp-export-dialog__field">
-            <div className="lp-export-dialog__label">Format</div>
-            <div className="lp-export-dialog__btn-row">
+          <div className="flex flex-col gap-1.5">
+            <div className="font-medium text-xs text-zinc-400">Format</div>
+            <div className="flex flex-wrap items-center gap-1.5">
               {formats.map((f, i) =>
                 f === null ? (
-                  <div className="lp-export-divider" key={`div-${i}`} />
+                  // biome-ignore lint/suspicious/noArrayIndexKey: static list
+                  <div className="h-5 w-px bg-zinc-700" key={`div-${i}`} />
                 ) : (
                   <button
-                    className={`lp-export-btn${activeFormat === f.key ? "is-active" : ""}`}
+                    className={cn(
+                      "rounded-lg border px-3 py-1.5 font-medium text-xs transition-all",
+                      activeFormat === f.key
+                        ? "border-transparent text-zinc-950"
+                        : "border-zinc-700 bg-transparent text-zinc-400 hover:border-zinc-500"
+                    )}
                     key={f.key}
                     onClick={() => setActiveFormat(f.key)}
+                    style={
+                      activeFormat === f.key ? { background: BLUE } : undefined
+                    }
                     type="button"
                   >
                     {f.label}
@@ -714,9 +1072,9 @@ function ExportDialog() {
               )}
             </div>
           </div>
-          <div className="lp-export-dialog__field">
-            <div className="lp-export-dialog__label">Resolution</div>
-            <div className="lp-export-select">
+          <div className="flex flex-col gap-1.5">
+            <div className="font-medium text-xs text-zinc-400">Resolution</div>
+            <div className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-300">
               <span>1920 × 1080 (1080p)</span>
               <svg
                 fill="none"
@@ -731,40 +1089,46 @@ function ExportDialog() {
             </div>
           </div>
           {!isAnimated && (
-            <div className="lp-export-dialog__field">
-              <div className="lp-export-dialog__label">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between font-medium text-xs text-zinc-400">
                 <span>Quality</span>
-                <span className="lp-export-quality-val">{quality}%</span>
+                <span style={{ color: BLUE }}>{quality}%</span>
               </div>
               <div
-                className="lp-export-slider"
+                className="relative flex h-8 cursor-pointer items-center"
                 onPointerDown={(e) => {
                   dragging.current = true;
                   updateQuality(e.clientX);
                   try {
                     sliderRef.current?.setPointerCapture(e.pointerId);
-                  } catch (_) {}
+                  } catch {
+                    // pointer capture not supported in all environments
+                  }
                 }}
                 onPointerMove={(e) => {
-                  if (dragging.current) updateQuality(e.clientX);
+                  if (dragging.current) {
+                    updateQuality(e.clientX);
+                  }
                 }}
                 onPointerUp={(e) => {
                   dragging.current = false;
                   try {
                     sliderRef.current?.releasePointerCapture(e.pointerId);
-                  } catch (_) {}
+                  } catch {
+                    // pointer capture not supported in all environments
+                  }
                 }}
                 ref={sliderRef}
               >
-                <div className="lp-export-slider__track">
+                <div className="relative h-1 w-full overflow-hidden rounded-full bg-zinc-700">
                   <div
-                    className="lp-export-slider__fill"
-                    style={{ width: `${quality}%` }}
+                    className="absolute inset-y-0 left-0 rounded-full"
+                    style={{ width: `${quality}%`, background: BLUE }}
                   />
                 </div>
                 <button
                   aria-label="Quality"
-                  className="lp-export-slider__thumb"
+                  className="export-thumb"
                   style={{ left: `${quality}%` }}
                   type="button"
                 />
@@ -772,11 +1136,18 @@ function ExportDialog() {
             </div>
           )}
         </div>
-        <div className="lp-export-dialog__footer">
-          <button className="lp-export-dialog__ghost" type="button">
+        <div className="flex items-center justify-end gap-2 px-5 py-3.5">
+          <button
+            className="rounded-lg px-4 py-2 text-sm text-zinc-400 transition-colors hover:text-white"
+            type="button"
+          >
             Cancel
           </button>
-          <button className="lp-export-dialog__primary" type="button">
+          <button
+            className="rounded-lg px-4 py-2 font-semibold text-sm text-zinc-950 transition-all hover:opacity-90"
+            style={{ background: BLUE }}
+            type="button"
+          >
             Export
           </button>
         </div>
@@ -793,7 +1164,9 @@ function VideoScrubber() {
 
   const update = useCallback((clientX: number) => {
     const r = timelineRef.current?.getBoundingClientRect();
-    if (!(r && handleRef.current)) return;
+    if (!(r && handleRef.current)) {
+      return;
+    }
     const pct = Math.max(
       0,
       Math.min(100, ((clientX - r.left) / r.width) * 100)
@@ -803,7 +1176,9 @@ function VideoScrubber() {
 
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
-      if (dragging.current) update(e.clientX);
+      if (dragging.current) {
+        update(e.clientX);
+      }
     };
     const onUp = () => {
       dragging.current = false;
@@ -818,40 +1193,53 @@ function VideoScrubber() {
   }, [update]);
 
   return (
-    <div className="lp-video-mock">
-      <div className="lp-video-mock__player">
-        {/* biome-ignore lint/performance/noImgElement: external Unsplash URL */}
+    <div className="w-full overflow-hidden rounded-xl bg-zinc-900">
+      <div className="relative aspect-video">
+        {/* biome-ignore lint/performance/noImgElement lint/correctness/useImageSize: external Unsplash URL */}
         <img
           alt=""
+          className="h-full w-full object-cover"
           src="https://images.unsplash.com/photo-1485846234645-a62644f84728?w=900&q=80&auto=format&fit=crop"
         />
-        <div className="lp-video-mock__overlay">
-          <div className="lp-video-mock__badge">
-            <span className="lp-video-mock__dot" />
-            CAPTURED
+        <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-zinc-950/60 to-transparent p-3">
+          <div className="flex items-center justify-between">
+            <div className="inline-flex items-center gap-1.5 rounded bg-zinc-950/70 px-2 py-1 font-semibold text-[11px] text-white">
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-red-500"
+                style={{ boxShadow: "0 0 6px oklch(0.628 0.258 29.234)" }}
+              />
+              CAPTURED
+            </div>
+            <div className="rounded bg-zinc-950/70 px-2 py-1 text-[11px] text-zinc-300">
+              00:02:14:08 · 3840×2160
+            </div>
           </div>
-          <div className="lp-video-mock__time">00:02:14:08 · 3840×2160</div>
         </div>
       </div>
       <div
-        className="lp-video-mock__timeline"
+        className="relative h-10 cursor-pointer bg-zinc-800"
         onPointerDown={(e) => {
-          if (e.target === handleRef.current) return;
+          if (e.target === handleRef.current) {
+            return;
+          }
           update(e.clientX);
           dragging.current = true;
           handleRef.current?.classList.add("is-dragging");
         }}
         ref={timelineRef}
       >
-        <div className="lp-video-mock__frames">
+        <div className="absolute inset-0 grid grid-cols-10">
           {Array.from({ length: 10 }).map((_, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: static frames
-            <div className="lp-video-mock__frame" key={i} />
+            <div
+              className="border-zinc-700 border-r bg-zinc-800 last:border-r-0"
+              key={i}
+            />
           ))}
         </div>
         <button
           aria-label="Scrub timeline"
-          className="lp-video-mock__scrubber"
+          className="scrub-handle"
           onPointerCancel={() => {
             dragging.current = false;
             handleRef.current?.classList.remove("is-dragging");
@@ -861,11 +1249,15 @@ function VideoScrubber() {
             handleRef.current?.classList.add("is-dragging");
             try {
               handleRef.current?.setPointerCapture(e.pointerId);
-            } catch (_) {}
+            } catch {
+              // pointer capture not supported in all environments
+            }
             e.preventDefault();
           }}
           onPointerMove={(e) => {
-            if (dragging.current) update(e.clientX);
+            if (dragging.current) {
+              update(e.clientX);
+            }
           }}
           onPointerUp={() => {
             dragging.current = false;
@@ -887,8 +1279,11 @@ function LayersMock() {
   const toggleHidden = (id: string) => {
     setHiddenRows((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
@@ -952,63 +1347,87 @@ function LayersMock() {
   );
 
   const LayerToolbar = () => (
-    <div className="lp-layers-mock__toolbar">
-      <button aria-label="Add layer" type="button">
-        <svg
-          fill="none"
-          height="14"
-          stroke="currentColor"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-          width="14"
+    <div className="flex items-center gap-1 border-zinc-700 border-t px-3 py-2">
+      {[
+        {
+          label: "Add layer",
+          icon: (
+            <svg
+              fill="none"
+              height="14"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              width="14"
+            >
+              <line x1="12" x2="12" y1="5" y2="19" />
+              <line x1="5" x2="19" y1="12" y2="12" />
+            </svg>
+          ),
+        },
+        {
+          label: "Duplicate",
+          icon: (
+            <svg
+              fill="none"
+              height="14"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              width="14"
+            >
+              <rect height="13" rx="2" width="13" x="9" y="9" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+          ),
+        },
+        {
+          label: "Delete",
+          icon: (
+            <svg
+              fill="none"
+              height="14"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              width="14"
+            >
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
+            </svg>
+          ),
+        },
+        {
+          label: "Group",
+          icon: (
+            <svg
+              fill="none"
+              height="14"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              width="14"
+            >
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              <line x1="12" x2="12" y1="11" y2="17" />
+              <line x1="9" x2="15" y1="14" y2="14" />
+            </svg>
+          ),
+        },
+      ].map(({ label, icon }) => (
+        <button
+          aria-label={label}
+          className="flex h-7 w-7 items-center justify-center rounded text-zinc-500 transition-colors hover:text-white"
+          key={label}
+          type="button"
         >
-          <line x1="12" x2="12" y1="5" y2="19" />
-          <line x1="5" x2="19" y1="12" y2="12" />
-        </svg>
-      </button>
-      <button aria-label="Duplicate" type="button">
-        <svg
-          fill="none"
-          height="14"
-          stroke="currentColor"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-          width="14"
-        >
-          <rect height="13" rx="2" width="13" x="9" y="9" />
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-        </svg>
-      </button>
-      <button aria-label="Delete" type="button">
-        <svg
-          fill="none"
-          height="14"
-          stroke="currentColor"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-          width="14"
-        >
-          <polyline points="3 6 5 6 21 6" />
-          <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
-        </svg>
-      </button>
-      <button aria-label="Group" type="button">
-        <svg
-          fill="none"
-          height="14"
-          stroke="currentColor"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-          width="14"
-        >
-          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-          <line x1="12" x2="12" y1="11" y2="17" />
-          <line x1="9" x2="15" y1="14" y2="14" />
-        </svg>
-      </button>
+          {icon}
+        </button>
+      ))}
       <button
         aria-label="AI rename"
-        style={{ marginLeft: "auto", color: "#2563eb" }}
+        className="ml-auto flex h-7 w-7 items-center justify-center rounded transition-colors"
+        style={{ color: BLUE }}
         type="button"
       >
         <svg
@@ -1026,10 +1445,16 @@ function LayersMock() {
   );
 
   return (
-    <div className="lp-layers-mock">
+    <div className="w-full overflow-hidden rounded-xl bg-zinc-900">
       {layers.map((layer) => (
         <div
-          className={`lp-layers-mock__row${selectedRow === layer.id ? "is-selected" : ""}${hiddenRows.has(layer.id) ? "is-hidden" : ""}`}
+          className={cn(
+            "flex cursor-pointer items-center gap-2 px-3 py-2 transition-colors",
+            selectedRow === layer.id
+              ? "bg-zinc-700/60"
+              : "hover:bg-zinc-800/60",
+            hiddenRows.has(layer.id) && "opacity-40"
+          )}
           key={layer.id}
           onClick={() => setSelectedRow(layer.id)}
           onKeyDown={(e) => e.key === "Enter" && setSelectedRow(layer.id)}
@@ -1038,7 +1463,7 @@ function LayersMock() {
         >
           <button
             aria-label="Toggle visibility"
-            className="lp-layers-mock__eye"
+            className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-zinc-500 transition-colors hover:text-white"
             onClick={(e) => {
               e.stopPropagation();
               toggleHidden(layer.id);
@@ -1049,7 +1474,7 @@ function LayersMock() {
           </button>
           <button
             aria-label="Lock"
-            className="lp-layers-mock__lock"
+            className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-zinc-600 transition-colors hover:text-zinc-400"
             onClick={(e) => e.stopPropagation()}
             type="button"
           >
@@ -1066,15 +1491,12 @@ function LayersMock() {
             </svg>
           </button>
           <div
-            className="lp-layers-mock__thumb"
-            style={{
-              background: layer.thumb.bg,
-              color: layer.thumb.color,
-            }}
+            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded font-bold text-[11px]"
+            style={{ background: layer.thumb.bg, color: layer.thumb.color }}
           >
             {layer.thumb.text}
           </div>
-          <span className="lp-layers-mock__name">{layer.name}</span>
+          <span className="truncate text-sm text-zinc-300">{layer.name}</span>
         </div>
       ))}
       <LayerToolbar />
@@ -1097,10 +1519,10 @@ function Bento() {
   ];
 
   return (
-    <div className="lp-bento">
-      <div className="lp-bento__card lp-bento__card--wide lp-reveal">
-        <div className="lp-bento__copy">
-          <div className="lp-tag">
+    <div className="grid gap-4 md:grid-cols-2">
+      <div className="reveal flex flex-col gap-6 rounded-2xl bg-zinc-900 p-6 md:col-span-2 md:flex-row">
+        <div className="flex flex-shrink-0 flex-col gap-3 md:w-64">
+          <Tag>
             <svg
               fill="none"
               height="12"
@@ -1115,21 +1537,26 @@ function Bento() {
               <rect height="14" rx="2" ry="2" width="15" x="1" y="5" />
             </svg>
             Video frame extraction
-          </div>
-          <h3 className="lp-bento__title">Pull a frame from any video.</h3>
-          <p className="lp-bento__body">
+          </Tag>
+          <h3 className="font-heading font-medium text-lg text-white">
+            Pull a frame from any video.
+          </h3>
+          <p className="text-sm text-zinc-400">
             Drag any MP4 or MOV in. Scrub with arrow keys. Extract at source
             resolution.
           </p>
         </div>
-        <div className="lp-bento__visual">
+        <div className="min-w-0 flex-1">
           <VideoScrubber />
         </div>
       </div>
 
-      <div className="lp-bento__card lp-reveal" data-delay="1">
-        <div className="lp-bento__copy">
-          <div className="lp-tag">
+      <div
+        className="reveal flex flex-col gap-4 rounded-2xl bg-zinc-900 p-6"
+        data-delay="1"
+      >
+        <div className="flex flex-col gap-3">
+          <Tag>
             <svg
               fill="none"
               height="12"
@@ -1145,20 +1572,23 @@ function Bento() {
               <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" />
             </svg>
             Real layers
-          </div>
-          <h3 className="lp-bento__title">Layer panel that actually works.</h3>
-          <p className="lp-bento__body">
+          </Tag>
+          <h3 className="font-heading font-medium text-lg text-white">
+            Layer panel that actually works.
+          </h3>
+          <p className="text-sm text-zinc-400">
             Toggle, lock, group, drag to reorder. Like Photoshop. Native speed.
           </p>
         </div>
-        <div className="lp-bento__visual">
-          <LayersMock />
-        </div>
+        <LayersMock />
       </div>
 
-      <div className="lp-bento__card lp-reveal" data-delay="2">
-        <div className="lp-bento__copy">
-          <div className="lp-tag">
+      <div
+        className="reveal flex flex-col gap-4 rounded-2xl bg-zinc-900 p-6"
+        data-delay="2"
+      >
+        <div className="flex flex-col gap-3">
+          <Tag>
             <svg
               fill="none"
               height="12"
@@ -1175,24 +1605,25 @@ function Bento() {
               <rect height="7" rx="1" width="7" x="14" y="14" />
             </svg>
             Gallery
-          </div>
-          <h3 className="lp-bento__title">100 thumbnails. One workspace.</h3>
-          <p className="lp-bento__body">
+          </Tag>
+          <h3 className="font-heading font-medium text-lg text-white">
+            100 thumbnails. One workspace.
+          </h3>
+          <p className="text-sm text-zinc-400">
             Search, sort, bulk export, 30-day trash. Built for people who ship
             daily.
           </p>
         </div>
-        <div className="lp-bento__visual">
-          <div className="lp-gallery-mock">
-            {galleryPhotos.map((id) => (
-              // biome-ignore lint/performance/noImgElement: external Unsplash URL
-              <img
-                alt=""
-                key={id}
-                src={`https://images.unsplash.com/${id}?w=300&q=70&auto=format&fit=crop`}
-              />
-            ))}
-          </div>
+        <div className="grid grid-cols-3 gap-1.5 overflow-hidden rounded-lg">
+          {galleryPhotos.map((id) => (
+            // biome-ignore lint/performance/noImgElement lint/correctness/useImageSize: external Unsplash URL
+            <img
+              alt=""
+              className="aspect-video w-full object-cover"
+              key={id}
+              src={`https://images.unsplash.com/${id}?w=300&q=70&auto=format&fit=crop`}
+            />
+          ))}
         </div>
       </div>
     </div>
@@ -1266,27 +1697,40 @@ function HowItWorks() {
   ];
 
   return (
-    <section className="lp-section" id="how">
-      <div className="lp-container">
-        <div className="lp-features-intro lp-reveal">
-          <div className="lp-eyebrow">
-            <span className="lp-eyebrow__dot" /> How it works
-          </div>
-          <h2 className="lp-section-title">
+    <section className="py-20 md:py-28" id="how">
+      <div className="mx-auto max-w-[1200px] px-6">
+        <div className="reveal mb-12 text-center">
+          <Eyebrow>How it works</Eyebrow>
+          <h2 className="mt-1 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
             From video to thumbnail in three steps.
           </h2>
         </div>
-        <div className="lp-steps">
+        <div className="grid gap-6 md:grid-cols-3">
           {steps.map((s, i) => (
             <div
-              className="lp-step lp-reveal"
+              className="reveal flex flex-col gap-4 rounded-2xl bg-zinc-900 p-6"
               data-delay={i.toString()}
               key={s.num}
             >
-              <div className="lp-step__num">{s.num}</div>
-              <div className="lp-step__icon">{s.icon}</div>
-              <h3 className="lp-step__title">{s.title}</h3>
-              <p className="lp-step__body">{s.body}</p>
+              <div
+                className="font-bold text-xs tracking-[0.15em]"
+                style={{ color: BLUE }}
+              >
+                {s.num}
+              </div>
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-xl"
+                style={{
+                  background: "oklch(0.685 0.169 237.323 / 0.12)",
+                  color: BLUE,
+                }}
+              >
+                {s.icon}
+              </div>
+              <h3 className="font-heading font-medium text-base text-white">
+                {s.title}
+              </h3>
+              <p className="text-sm text-zinc-400">{s.body}</p>
             </div>
           ))}
         </div>
@@ -1313,107 +1757,125 @@ function ByoGemini() {
   );
 
   return (
-    <section className="lp-section" id="byok">
-      <div className="lp-container">
-        <div className="lp-byok lp-reveal">
+    <section className="py-20 md:py-28" id="byok">
+      <div className="mx-auto max-w-[1200px] px-6">
+        <div className="reveal grid items-center gap-12 md:grid-cols-2">
           <div>
-            <div className="lp-eyebrow">
-              <span className="lp-eyebrow__dot" /> Bring your own key
-            </div>
-            <h2 className="lp-byok__title">
+            <Eyebrow>Bring your own key</Eyebrow>
+            <h2 className="mt-1 mb-4 font-heading font-medium text-3xl text-white tracking-tight md:text-4xl">
               Why pay $20 a month
               <br />
               for AI you barely use?
             </h2>
-            <p className="lp-byok__body">
+            <p className="mb-5 text-zinc-400">
               Most thumbnail tools bundle AI into a fat monthly fee. Backstage
               doesn&apos;t. Paste your Google AI Studio key once and you pay
               Google directly at API rates. Most creators spend under{" "}
-              <strong style={{ color: "var(--lp-fg)" }}>$2 a month</strong> on
-              Gemini even when generating dozens of variants per video.
+              <strong className="text-white">$2 a month</strong> on Gemini even
+              when generating dozens of variants per video.
             </p>
-            <ul className="lp-byok__list">
+            <ul className="mb-6 flex flex-col gap-3">
               {[
                 "Get a free key from aistudio.google.com in 30 seconds",
                 "Key is stored encrypted in your OS keychain. Never leaves your machine.",
                 "Swap to a different Gemini model anytime. You control the cost knob.",
                 "No rate limits from us. No quota from us. We're not in the loop.",
               ].map((item) => (
-                <li key={item}>
-                  <CheckIcon />
+                <li
+                  className="flex items-start gap-2.5 text-sm text-zinc-300"
+                  key={item}
+                >
+                  <span
+                    className="mt-0.5 flex-shrink-0"
+                    style={{ color: BLUE }}
+                  >
+                    <CheckIcon />
+                  </span>
                   {item}
                 </li>
               ))}
             </ul>
-            <div className="lp-byok__cost">
-              <strong>Real math:</strong> Generating 30 thumbnail variations a
-              month on Gemini 2.5 Flash Image costs about <strong>$1.20</strong>
-              . After 2 months, Backstage&apos;s lifetime price plus your Gemini
-              spend is still less than one month of Canva Pro.
+            <div className="rounded-xl bg-zinc-900 p-4 text-sm text-zinc-400">
+              <strong className="text-white">Real math:</strong> Generating 30
+              thumbnail variations a month on Gemini 2.5 Flash Image costs about{" "}
+              <strong className="text-white">$1.20</strong>. After 2 months,
+              Backstage&apos;s lifetime price plus your Gemini spend is still
+              less than one month of Canva Pro.
             </div>
           </div>
-          <div className="lp-byok__panel">
-            <div className="lp-byok__panel-head">Settings · AI</div>
-            <div className="lp-byok__field">
-              <label>Google AI Studio API key</label>
-              <div className="lp-byok__field-input">
-                <svg
-                  fill="none"
-                  height="12"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                  width="12"
-                >
-                  <circle cx="12" cy="16" r="1" />
-                  <rect height="11" rx="2" ry="2" width="18" x="3" y="11" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-                <span className="lp-key">
-                  AIza••••••••••••••••••••••••••8gQ
-                </span>
-                <span className="lp-saved">saved</span>
-              </div>
+          <div className="overflow-hidden rounded-2xl bg-zinc-900">
+            <div className="px-4 py-3 font-semibold text-xs text-zinc-400">
+              Settings · AI
             </div>
-            <div className="lp-byok__field">
-              <label>Model</label>
-              <div className="lp-byok__field-input">
-                <span style={{ color: "var(--lp-fg)", fontSize: 13 }}>
-                  gemini-2.5-flash-image
-                </span>
-                <span style={{ marginLeft: "auto", color: "var(--lp-muted)" }}>
-                  ▾
-                </span>
+            <div className="flex flex-col gap-3 p-4">
+              <div className="flex flex-col gap-1.5">
+                <div className="text-xs text-zinc-500">
+                  Google AI Studio API key
+                </div>
+                <div className="flex items-center gap-2 rounded-lg bg-zinc-800 px-3 py-2">
+                  <svg
+                    className="text-zinc-500"
+                    fill="none"
+                    height="12"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                    width="12"
+                  >
+                    <circle cx="12" cy="16" r="1" />
+                    <rect height="11" rx="2" ry="2" width="18" x="3" y="11" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                  <span className="font-mono text-xs text-zinc-400">
+                    AIza••••••••••••••••••••••••••8gQ
+                  </span>
+                  <span
+                    className="ml-auto rounded px-1.5 py-0.5 font-semibold text-[11px]"
+                    style={{
+                      color: BLUE,
+                      background: "oklch(0.685 0.169 237.323 / 0.12)",
+                    }}
+                  >
+                    saved
+                  </span>
+                </div>
               </div>
-            </div>
-            <div className="lp-byok__prompt">
-              <div
-                style={{
-                  display: "flex",
-                  gap: 6,
-                  alignItems: "center",
-                  marginBottom: 6,
-                  fontSize: 11,
-                  color: "var(--lp-muted)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                <svg
-                  fill="none"
-                  height="11"
-                  stroke="var(--lp-blue)"
-                  strokeWidth="2.5"
-                  viewBox="0 0 24 24"
-                  width="11"
+              <div className="flex flex-col gap-1.5">
+                <div className="text-xs text-zinc-500">Model</div>
+                <div className="flex items-center rounded-lg bg-zinc-800 px-3 py-2">
+                  <span className="text-[13px] text-white">
+                    gemini-2.5-flash-image
+                  </span>
+                  <span className="ml-auto text-zinc-500">▾</span>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 rounded-xl bg-zinc-800 p-3">
+                <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 uppercase tracking-[0.08em]">
+                  <svg
+                    fill="none"
+                    height="11"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    style={{ stroke: BLUE }}
+                    viewBox="0 0 24 24"
+                    width="11"
+                  >
+                    <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z" />
+                  </svg>
+                  Generate
+                </div>
+                <p className="text-xs text-zinc-400">
+                  Cinematic shot of a retro CRT TV on a dark workshop bench,
+                  glowing magenta from inside, 16:9.
+                </p>
+                <button
+                  className="self-end rounded-full px-3 py-1.5 font-semibold text-xs text-zinc-950"
+                  style={{ background: BLUE }}
+                  type="button"
                 >
-                  <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z" />
-                </svg>
-                Generate
+                  Generate · 4 imgs
+                </button>
               </div>
-              Cinematic shot of a retro CRT TV on a dark workshop bench, glowing
-              magenta from inside, 16:9.
-              <div className="lp-byok__gen-btn">Generate · 4 imgs</div>
             </div>
           </div>
         </div>
@@ -1485,28 +1947,38 @@ function Privacy() {
   ];
 
   return (
-    <section className="lp-section" id="privacy">
-      <div className="lp-container">
-        <div className="lp-reveal">
-          <div className="lp-eyebrow">
-            <span className="lp-eyebrow__dot" /> Local-first by default
-          </div>
-          <h2 className="lp-section-title">Your work stays on your machine.</h2>
-          <p className="lp-section-sub">
+    <section className="py-20 md:py-28" id="privacy">
+      <div className="mx-auto max-w-[1200px] px-6">
+        <div className="reveal mb-12">
+          <Eyebrow>Local-first by default</Eyebrow>
+          <h2 className="mt-1 mb-3 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
+            Your work stays on your machine.
+          </h2>
+          <p className="max-w-[540px] text-base text-zinc-400 md:text-lg">
             Backstage is a native desktop app, not a web wrapper. Your projects,
             your source files, your API keys. Never sent to a server we control.
           </p>
         </div>
-        <div className="lp-privacy">
+        <div className="grid gap-5 md:grid-cols-3">
           {cards.map((c, i) => (
             <div
-              className="lp-privacy__card lp-reveal"
+              className="reveal flex flex-col gap-4 rounded-2xl bg-zinc-900 p-6"
               data-delay={i.toString()}
               key={c.title}
             >
-              <div className="lp-privacy__icon">{c.icon}</div>
-              <h3 className="lp-privacy__title">{c.title}</h3>
-              <p className="lp-privacy__body">{c.body}</p>
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-xl"
+                style={{
+                  background: "oklch(0.685 0.169 237.323 / 0.12)",
+                  color: BLUE,
+                }}
+              >
+                {c.icon}
+              </div>
+              <h3 className="font-heading font-medium text-base text-white">
+                {c.title}
+              </h3>
+              <p className="text-sm text-zinc-400">{c.body}</p>
             </div>
           ))}
         </div>
@@ -1527,27 +1999,33 @@ type CellData =
     };
 
 function CellContent({ cell }: { cell: CellData }) {
-  if (typeof cell === "string") return <>{cell}</>;
-  if (cell.blue)
-    return <strong style={{ color: "var(--lp-blue)" }}>{cell.text}</strong>;
-  if (cell.yes)
+  if (typeof cell === "string") {
+    return <>{cell}</>;
+  }
+  if (cell.blue) {
+    return <strong style={{ color: BLUE }}>{cell.text}</strong>;
+  }
+  if (cell.yes) {
     return (
       <>
-        <span className="lp-compare-yes">●</span> {cell.text}
+        <span style={{ color: BLUE }}>●</span> {cell.text}
       </>
     );
-  if (cell.no)
+  }
+  if (cell.no) {
     return (
       <>
-        <span className="lp-compare-no">○</span> {cell.text}
+        <span className="text-zinc-600">○</span> {cell.text}
       </>
     );
-  if (cell.maybe)
+  }
+  if (cell.maybe) {
     return (
       <>
-        <span className="lp-compare-maybe">◐</span> {cell.text}
+        <span className="text-zinc-500">◐</span> {cell.text}
       </>
     );
+  }
   return <>{cell.text}</>;
 }
 
@@ -1555,7 +2033,7 @@ function CompareTable() {
   const rows: { label: string; us: CellData; rest: CellData[] }[] = [
     {
       label: "Yearly cost",
-      us: { blue: true, text: "$20 once" },
+      us: { blue: true, text: "$29 once" },
       rest: ["$262", "$120", "$144"],
     },
     {
@@ -1624,48 +2102,58 @@ function CompareTable() {
   ];
 
   return (
-    <section className="lp-section" id="compare">
-      <div className="lp-container">
-        <div className="lp-reveal">
-          <div className="lp-eyebrow">
-            <span className="lp-eyebrow__dot" /> The honest comparison
-          </div>
-          <h2 className="lp-section-title">
+    <section className="py-20 md:py-28" id="compare">
+      <div className="mx-auto max-w-[1200px] px-6">
+        <div className="reveal mb-10">
+          <Eyebrow>The honest comparison</Eyebrow>
+          <h2 className="mt-1 mb-3 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
             Built for thumbnails.
             <br />
-            <span className="lp-muted">
+            <span className="text-zinc-500">
               Everything else is for something else.
             </span>
           </h2>
-          <p className="lp-section-sub">
+          <p className="max-w-[540px] text-base text-zinc-400 md:text-lg">
             Real comparison of the tools creators actually evaluate.
           </p>
         </div>
-        <div className="lp-compare-table lp-reveal">
-          <div className="lp-compare-table__row lp-compare-table__row--head">
-            <div className="lp-compare-table__cell">&nbsp;</div>
-            <div className="lp-compare-table__cell lp-compare-table__cell--us">
-              <span className="lp-compare-brand lp-compare-brand--us">
-                Backstage
-              </span>
+        <div className="reveal overflow-hidden rounded-2xl">
+          <div
+            className="grid font-semibold text-xs"
+            style={{ gridTemplateColumns: "1.4fr 1fr 1fr 1fr" }}
+          >
+            <div className="px-5 py-3.5 text-zinc-500" />
+            <div
+              className="px-5 py-3.5"
+              style={{
+                background: "oklch(0.685 0.169 237.323 / 0.08)",
+                color: BLUE,
+              }}
+            >
+              Backstage
             </div>
             {["Photoshop", "Canva Pro", "Figma"].map((b) => (
-              <div className="lp-compare-table__cell" key={b}>
-                <span className="lp-compare-brand">{b}</span>
+              <div className="px-5 py-3.5 text-zinc-400" key={b}>
+                {b}
               </div>
             ))}
           </div>
           {rows.map((row) => (
-            <div className="lp-compare-table__row" key={row.label}>
-              <div className="lp-compare-table__cell lp-compare-table__cell--label">
-                {row.label}
-              </div>
-              <div className="lp-compare-table__cell lp-compare-table__cell--us">
+            <div
+              className="grid border-zinc-800/50 border-b text-sm last:border-b-0"
+              key={row.label}
+              style={{ gridTemplateColumns: "1.4fr 1fr 1fr 1fr" }}
+            >
+              <div className="px-5 py-3.5 text-zinc-400">{row.label}</div>
+              <div
+                className="px-5 py-3.5 font-medium text-white"
+                style={{ background: "oklch(0.685 0.169 237.323 / 0.05)" }}
+              >
                 <CellContent cell={row.us} />
               </div>
               {row.rest.map((cell, i) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: stable order
-                <div className="lp-compare-table__cell" key={i}>
+                <div className="px-5 py-3.5 text-zinc-400" key={i}>
                   <CellContent cell={cell} />
                 </div>
               ))}
@@ -1720,30 +2208,40 @@ function Testimonials() {
       name: "Marcus Nguyen",
       handle: "@marcusbuilds · 178K subs",
       quote:
-        "$20 lifetime in a world of $25 a month subscriptions feels almost suspicious. Then you realize it's open source and built by one person and it makes sense.",
+        "$29 lifetime in a world of $25 a month subscriptions feels almost suspicious. Then you realize it's open source and built by one person and it makes sense.",
     },
   ];
 
   return (
-    <section className="lp-section" id="testimonials">
-      <div className="lp-container">
-        <div className="lp-features-intro lp-reveal">
-          <div className="lp-eyebrow">
-            <span className="lp-eyebrow__dot" /> What creators are saying
-          </div>
-          <h2 className="lp-section-title">
+    <section className="py-20 md:py-28" id="testimonials">
+      <div className="mx-auto max-w-[1200px] px-6">
+        <div className="reveal mb-10 text-center">
+          <Eyebrow>What creators are saying</Eyebrow>
+          <h2 className="mt-1 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
             Built in the open. Shipped to creators who notice.
           </h2>
         </div>
-        <div className="lp-testimonials lp-reveal">
+        <div className="reveal" style={{ columns: 3, columnGap: "1.25rem" }}>
           {items.map((t) => (
-            <div className="lp-testimonial" key={t.name}>
-              <p className="lp-testimonial__quote">&ldquo;{t.quote}&rdquo;</p>
-              <div className="lp-testimonial__author">
-                <div className="lp-testimonial__avatar">{t.initials}</div>
+            <div
+              className="mb-5 flex break-inside-avoid flex-col gap-4 rounded-2xl bg-zinc-900 p-5"
+              key={t.name}
+            >
+              <p className="text-sm text-zinc-300 leading-relaxed">
+                &ldquo;{t.quote}&rdquo;
+              </p>
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full font-bold text-xs text-zinc-950"
+                  style={{ background: BLUE }}
+                >
+                  {t.initials}
+                </div>
                 <div>
-                  <div className="lp-testimonial__name">{t.name}</div>
-                  <div className="lp-testimonial__handle">{t.handle}</div>
+                  <div className="font-semibold text-sm text-white">
+                    {t.name}
+                  </div>
+                  <div className="text-xs text-zinc-500">{t.handle}</div>
                 </div>
               </div>
             </div>
@@ -1762,6 +2260,7 @@ function OssCallout() {
       height="12"
       stroke="currentColor"
       strokeWidth="2.5"
+      style={{ color: BLUE, flexShrink: 0 }}
       viewBox="0 0 24 24"
       width="12"
     >
@@ -1781,27 +2280,25 @@ function OssCallout() {
   ];
 
   return (
-    <section className="lp-section">
-      <div className="lp-container">
-        <div className="lp-oss lp-reveal">
-          <div className="lp-oss__inner">
+    <section className="py-20 md:py-28">
+      <div className="mx-auto max-w-[1200px] px-6">
+        <div className="reveal rounded-2xl bg-zinc-900 p-8 md:p-12">
+          <div className="grid items-center gap-10 md:grid-cols-2">
             <div>
-              <div className="lp-eyebrow">
-                <span className="lp-eyebrow__dot" /> Open source
-              </div>
-              <h2 className="lp-oss__title">
+              <Eyebrow>Open source</Eyebrow>
+              <h2 className="mt-1 mb-4 font-heading font-medium text-2xl text-white tracking-tight md:text-3xl">
                 MIT-licensed and audited by anyone who wants to.
               </h2>
-              <p className="lp-oss__body">
+              <p className="mb-6 text-zinc-400">
                 Backstage&apos;s source is on GitHub. The desktop app, the
                 editor, the AI integrations. Every line. The lifetime deal is
                 for the prebuilt, signed, auto-updating binaries we ship and
                 support. If you&apos;d rather compile it yourself, that&apos;s
                 free.
               </p>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <div className="flex flex-wrap gap-3">
                 <a
-                  className="lp-btn lp-btn--primary lp-btn--lg"
+                  className="inline-flex items-center gap-2 rounded-full bg-zinc-800 px-5 py-2.5 font-semibold text-sm text-white no-underline transition-colors hover:bg-zinc-700"
                   href={GITHUB_URL}
                   rel="noopener"
                   target="_blank"
@@ -1817,7 +2314,7 @@ function OssCallout() {
                   Star on GitHub
                 </a>
                 <a
-                  className="lp-btn lp-btn--ghost lp-btn--lg"
+                  className="inline-flex items-center gap-2 rounded-full bg-zinc-800/60 px-5 py-2.5 font-semibold text-sm text-white no-underline transition-colors hover:bg-zinc-800"
                   href={`${GITHUB_URL}#getting-started`}
                   rel="noopener"
                   target="_blank"
@@ -1826,12 +2323,13 @@ function OssCallout() {
                 </a>
               </div>
             </div>
-            <div className="lp-oss__panel">
+            <div className="flex flex-col gap-3 rounded-xl bg-zinc-950 p-5 font-mono">
               {lines.map((l) => (
-                <div className="lp-oss__panel-line" key={l.label}>
+                <div className="flex items-start gap-2.5 text-sm" key={l.label}>
                   <SmallCheck />
-                  <span>
-                    <strong>{l.label}</strong> {l.value}
+                  <span className="text-zinc-400">
+                    <strong className="text-zinc-200">{l.label}</strong>{" "}
+                    {l.value}
                   </span>
                 </div>
               ))}
@@ -1843,13 +2341,63 @@ function OssCallout() {
   );
 }
 
+// ─── Roadmap item (module-level to avoid nested component lint) ───────
+interface RoadmapItemData {
+  name: string;
+  done?: boolean;
+  soon?: boolean;
+  meta?: string;
+}
+
+function RoadmapItemRow({ item }: { item: RoadmapItemData }) {
+  let itemColor = "text-zinc-500";
+  if (item.done) {
+    itemColor = "text-white";
+  } else if (item.soon) {
+    itemColor = "text-zinc-300";
+  }
+
+  let svgContent: React.ReactNode = <circle cx="12" cy="12" r="9" />;
+  if (item.done) {
+    svgContent = <polyline points="20 6 9 17 4 12" />;
+  } else if (item.soon) {
+    svgContent = (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </>
+    );
+  }
+
+  return (
+    <div className={cn("flex items-center gap-2.5 py-1.5 text-sm", itemColor)}>
+      <svg
+        aria-hidden="true"
+        fill="none"
+        height="14"
+        stroke="currentColor"
+        strokeWidth={item.done ? 2.5 : 2}
+        style={item.done ? { color: BLUE } : undefined}
+        viewBox="0 0 24 24"
+        width="14"
+      >
+        {svgContent}
+      </svg>
+      <span className="flex-1">{item.name}</span>
+      {item.meta && (
+        <span className="text-[11px] text-zinc-500">{item.meta}</span>
+      )}
+    </div>
+  );
+}
+
 // ─── Roadmap ──────────────────────────────────────────────────────────
 function Roadmap() {
   const cols = [
     {
       heading: "Shipped",
       pill: "v1.0 live",
-      pillClass: "lp-roadmap__pill--live",
+      pillLive: true,
       items: [
         { name: "Layer editor and auto-save", done: true },
         { name: "Background removal (WASM + BRIA)", done: true },
@@ -1861,7 +2409,7 @@ function Roadmap() {
     {
       heading: "Up next",
       pill: "In dev",
-      pillClass: "lp-roadmap__pill--soon",
+      pillLive: false,
       items: [
         { name: "Template library", soon: true, meta: "Q2" },
         { name: "A/B CTR analyzer", soon: true, meta: "Q2" },
@@ -1872,7 +2420,7 @@ function Roadmap() {
     {
       heading: "Exploring",
       pill: "Backlog",
-      pillClass: "",
+      pillLive: false,
       items: [
         { name: "YouTube channel sync" },
         { name: "Animated thumbnails (APNG)" },
@@ -1883,77 +2431,48 @@ function Roadmap() {
   ];
 
   return (
-    <section className="lp-section" id="roadmap">
-      <div className="lp-container">
-        <div className="lp-reveal">
-          <div className="lp-eyebrow">
-            <span className="lp-eyebrow__dot" /> Roadmap
-          </div>
-          <h2 className="lp-section-title">
+    <section className="py-20 md:py-28" id="roadmap">
+      <div className="mx-auto max-w-[1200px] px-6">
+        <div className="reveal mb-10">
+          <Eyebrow>Roadmap</Eyebrow>
+          <h2 className="mt-1 mb-3 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
             All updates included.
             <br />
-            <span className="lp-muted">
+            <span className="text-zinc-500">
               No &ldquo;Pro tier&rdquo; hiding behind a paywall.
             </span>
           </h2>
-          <p className="lp-section-sub">
+          <p className="max-w-[540px] text-base text-zinc-400 md:text-lg">
             Every feature below ships to your existing license at zero extra
             cost.
           </p>
         </div>
-        <div className="lp-roadmap">
+        <div className="grid gap-5 md:grid-cols-3">
           {cols.map((col, ci) => (
             <div
-              className="lp-roadmap__col lp-reveal"
+              className="reveal flex flex-col gap-5 rounded-2xl bg-zinc-900 p-6"
               data-delay={ci.toString()}
               key={col.heading}
             >
-              <div className="lp-roadmap__head">
-                <div className="lp-roadmap__heading">{col.heading}</div>
-                <div className={`lp-roadmap__pill ${col.pillClass}`}>
+              <div className="flex items-center justify-between">
+                <div className="font-semibold text-base text-white">
+                  {col.heading}
+                </div>
+                <div
+                  className={cn(
+                    "rounded-full px-2.5 py-1 font-semibold text-[11px]",
+                    col.pillLive
+                      ? "bg-emerald-400/10 text-emerald-400"
+                      : "bg-zinc-800 text-zinc-500"
+                  )}
+                >
                   {col.pill}
                 </div>
               </div>
-              <div className="lp-roadmap__items">
-                {col.items.map(
-                  (item: {
-                    name: string;
-                    done?: boolean;
-                    soon?: boolean;
-                    meta?: string;
-                  }) => (
-                    <div
-                      className={`lp-roadmap__item${item.done ? "lp-roadmap__item--live" : item.soon ? "lp-roadmap__item--soon" : ""}`}
-                      key={item.name}
-                    >
-                      <svg
-                        fill="none"
-                        height="14"
-                        stroke="currentColor"
-                        strokeWidth={item.done ? 2.5 : 2}
-                        viewBox="0 0 24 24"
-                        width="14"
-                      >
-                        {item.done ? (
-                          <polyline points="20 6 9 17 4 12" />
-                        ) : item.soon ? (
-                          <>
-                            <circle cx="12" cy="12" r="9" />
-                            <path d="M12 7v5l3 2" />
-                          </>
-                        ) : (
-                          <circle cx="12" cy="12" r="9" />
-                        )}
-                      </svg>
-                      <span className="lp-roadmap__item-name">{item.name}</span>
-                      {item.meta && (
-                        <span className="lp-roadmap__item-meta">
-                          {item.meta}
-                        </span>
-                      )}
-                    </div>
-                  )
-                )}
+              <div className="flex flex-col gap-2">
+                {col.items.map((item) => (
+                  <RoadmapItemRow item={item} key={item.name} />
+                ))}
               </div>
             </div>
           ))}
@@ -1973,6 +2492,7 @@ function Pricing() {
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth="2.5"
+      style={{ color: BLUE, flexShrink: 0 }}
       viewBox="0 0 24 24"
       width="16"
     >
@@ -1981,105 +2501,178 @@ function Pricing() {
   );
 
   return (
-    <section className="lp-section lp-section--spotlight" id="pricing">
-      <div className="lp-container">
-        <div className="lp-reveal">
-          <div className="lp-eyebrow">
-            <span className="lp-eyebrow__dot" /> Pricing
-          </div>
-          <h2 className="lp-section-title">
+    <section className="bg-[oklch(0.08_0_0)] py-20 md:py-28" id="pricing">
+      <div className="mx-auto max-w-[1200px] px-6">
+        <div className="reveal mb-10 text-center">
+          <Eyebrow>Pricing</Eyebrow>
+          <h2 className="mt-1 mb-3 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
             Pay once. Use forever.
             <br />
-            <span className="lp-muted">
+            <span className="text-zinc-500">
               No subscriptions. No &ldquo;AI credits&rdquo;. No B.S.
             </span>
           </h2>
-          <p className="lp-section-sub">
-            A founders-week lifetime deal while we hit 1,000 customers.
-            Locked-in pricing. Every future update is included.
+          <p className="mx-auto max-w-[540px] text-base text-zinc-400 md:text-lg">
+            Early bird pricing — locks in your rate forever. Price increases
+            every 100 customers. Next increase: May 25.
           </p>
         </div>
-        <div className="lp-pricing-wrap lp-reveal">
-          <div className="lp-pricing">
-            <div className="lp-pricing__copy">
-              <div className="lp-pricing__deal">
-                <span className="lp-pricing__deal-pill">FOUNDERS</span>
-                <span>First 1,000 customers only</span>
-              </div>
-              <h3 className="lp-pricing__title">Backstage Lifetime</h3>
-              <p className="lp-pricing__sub">
-                One payment. Every feature. Every update. Every platform.
-                Forever.
-              </p>
-              <ul className="lp-pricing__includes">
-                {[
-                  "Layer editor, AI tools, video extractor, carousel",
-                  "Mac, Windows, and Linux signed binaries",
-                  "All future updates (template library, A/B analyzer, more)",
-                  "Priority email support, direct from the dev",
-                  "30-day refund. No questions asked.",
-                  "Use on every device you own",
-                ].map((item) => (
-                  <li key={item}>
-                    <CheckIcon />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <div className="lp-scarcity">
-                <svg
-                  fill="none"
-                  height="14"
-                  stroke="var(--lp-blue)"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                  width="14"
-                >
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M12 7v5l3 2" />
-                </svg>
-                <span>Founders-week pricing</span>
-                <div className="lp-scarcity__bar">
-                  <div className="lp-scarcity__bar-fill" />
+        <div className="reveal mx-auto max-w-3xl">
+          <div className="overflow-hidden rounded-2xl bg-zinc-900">
+            <div className="grid md:grid-cols-[1fr_280px]">
+              <div className="flex flex-col gap-5 p-8">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="rounded-full px-2.5 py-1 font-bold text-[11px] text-zinc-950"
+                    style={{ background: BLUE }}
+                  >
+                    EARLY BIRD
+                  </span>
+                  <span className="text-sm text-zinc-400">
+                    Price goes up every 100 users
+                  </span>
                 </div>
-                <span className="lp-scarcity__count">384/1000 sold</span>
+                <div>
+                  <h3 className="mb-1 font-heading font-medium text-white text-xl">
+                    Backstage Lifetime
+                  </h3>
+                  <p className="text-sm text-zinc-400">
+                    One payment. Every feature. Every update. Every platform.
+                    Forever.
+                  </p>
+                </div>
+                <ul className="flex flex-col gap-2.5">
+                  {[
+                    "Layer editor, AI tools, video extractor, carousel",
+                    "Mac, Windows, and Linux signed binaries",
+                    "All future updates (template library, A/B analyzer, more)",
+                    "Priority email support, direct from the dev",
+                    "30-day refund. No questions asked.",
+                    "Use on every device you own",
+                  ].map((item) => (
+                    <li
+                      className="flex items-start gap-2.5 text-sm text-zinc-300"
+                      key={item}
+                    >
+                      <CheckIcon />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-2 flex items-center gap-3">
+                  <svg
+                    fill="none"
+                    height="14"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    style={{ stroke: BLUE }}
+                    viewBox="0 0 24 24"
+                    width="14"
+                  >
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3 2" />
+                  </svg>
+                  <span className="text-sm text-zinc-400">
+                    Limited time deal — expires May 25
+                  </span>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-800">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: "38.4%", background: BLUE }}
+                    />
+                  </div>
+                  <span className="whitespace-nowrap text-sm text-zinc-400">
+                    384/1000 sold
+                  </span>
+                </div>
               </div>
-            </div>
-            <div className="lp-pricing__card">
-              <div className="lp-pricing__card-label">One-time payment</div>
-              <div className="lp-pricing__price">
-                <span className="lp-pricing__price-amount">$20</span>
-                <span className="lp-pricing__price-anchor">$99</span>
-              </div>
-              <div className="lp-pricing__price-unit">USD · Tax included</div>
-              <p className="lp-pricing__terms">
-                Billed once via Polar. No auto-renewal. No card on file.
-              </p>
-              <a className="lp-pricing__cta" href={CHECKOUT_URL}>
-                Buy Backstage Lifetime
-                <svg
-                  fill="none"
-                  height="18"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2.5"
-                  viewBox="0 0 24 24"
-                  width="18"
+              <div className="flex flex-col gap-4 p-8">
+                <div className="font-semibold text-xs text-zinc-500 uppercase tracking-widest">
+                  One-time payment
+                </div>
+                <div className="flex items-end gap-2">
+                  <span className="font-bold text-5xl text-white">$29</span>
+                  <span className="mb-1 text-xl text-zinc-600 line-through">
+                    $59
+                  </span>
+                </div>
+                <div className="text-xs text-zinc-500">USD · Tax included</div>
+                <p className="text-xs text-zinc-500">
+                  Billed once via Polar. No auto-renewal. No card on file.
+                </p>
+                <div className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2.5 py-2 text-amber-400 text-xs">
+                  <svg
+                    fill="none"
+                    height="12"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                    width="12"
+                  >
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" x2="12" y1="9" y2="13" />
+                    <line x1="12" x2="12.01" y1="17" y2="17" />
+                  </svg>
+                  <span>Goes to $35 on May 25 — lock in $29 now</span>
+                </div>
+                <Button
+                  asChild
+                  className="mt-1 h-12 w-full rounded-xl text-sm"
+                  size="lg"
                 >
-                  <line x1="5" x2="19" y1="12" y2="12" />
-                  <polyline points="12 5 19 12 12 19" />
-                </svg>
-              </a>
-              <p className="lp-pricing__fine">
-                Secure checkout via Polar. Instant license delivery.
-              </p>
-              <div className="lp-pricing__platforms">
-                <span>macOS</span>
-                <span>·</span>
-                <span>Windows</span>
-                <span>·</span>
-                <span>Linux</span>
+                  <a
+                    data-polar-checkout
+                    data-polar-checkout-theme="dark"
+                    href={CHECKOUT_URL}
+                  >
+                    Buy Backstage Lifetime
+                    <svg
+                      fill="none"
+                      height="16"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2.5"
+                      viewBox="0 0 24 24"
+                      width="16"
+                    >
+                      <line x1="5" x2="19" y1="12" y2="12" />
+                      <polyline points="12 5 19 12 12 19" />
+                    </svg>
+                  </a>
+                </Button>
+                <p className="text-center text-[11px] text-zinc-500">
+                  Secure checkout via Polar. Instant license delivery.
+                </p>
+                <div className="mt-1 flex items-center justify-center gap-2 rounded-lg bg-zinc-800/50 px-3 py-2.5">
+                  <svg
+                    aria-hidden="true"
+                    className="flex-shrink-0 text-emerald-400"
+                    fill="none"
+                    height="16"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                    width="16"
+                  >
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    <polyline points="9 12 11 14 15 10" />
+                  </svg>
+                  <span className="font-medium text-xs text-zinc-300">
+                    30-day money back guarantee
+                  </span>
+                </div>
+                <div className="mt-1 flex items-center justify-center gap-2 text-xs text-zinc-600">
+                  <span>macOS</span>
+                  <span>·</span>
+                  <span>Windows</span>
+                  <span>·</span>
+                  <span>Linux</span>
+                </div>
               </div>
             </div>
           </div>
@@ -2127,39 +2720,37 @@ function FAQ() {
     },
   ];
 
-  const PlusIcon = () => (
-    <span className="lp-faq__q-icon">
-      <svg
-        fill="none"
-        height="14"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        viewBox="0 0 24 24"
-        width="14"
-      >
-        <line x1="12" x2="12" y1="5" y2="19" />
-        <line x1="5" x2="19" y1="12" y2="12" />
-      </svg>
-    </span>
-  );
-
   return (
-    <section className="lp-section" id="faq">
-      <div className="lp-container">
-        <div className="lp-features-intro lp-reveal">
-          <div className="lp-eyebrow">
-            <span className="lp-eyebrow__dot" /> FAQ
-          </div>
-          <h2 className="lp-section-title">The honest answers.</h2>
+    <section className="py-20 md:py-28" id="faq">
+      <div className="mx-auto max-w-[1200px] px-6">
+        <div className="reveal mb-10 text-center">
+          <Eyebrow>FAQ</Eyebrow>
+          <h2 className="mt-1 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
+            The honest answers.
+          </h2>
         </div>
-        <div className="lp-faq lp-reveal">
+        <div className="reveal mx-auto flex max-w-2xl flex-col gap-0">
           {items.map((item) => (
-            <details className="lp-faq__item" key={item.q} open={item.open}>
-              <summary className="lp-faq__q">
+            <details className="last:pb-0" key={item.q} open={item.open}>
+              <summary className="flex cursor-pointer select-none list-none items-center justify-between gap-4 py-5 font-semibold text-base text-white transition-colors hover:text-zinc-200">
                 {item.q}
-                <PlusIcon />
+                <span className="faq-icon flex-shrink-0 text-zinc-500 transition-transform duration-200">
+                  <svg
+                    fill="none"
+                    height="14"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    viewBox="0 0 24 24"
+                    width="14"
+                  >
+                    <line x1="12" x2="12" y1="5" y2="19" />
+                    <line x1="5" x2="19" y1="12" y2="12" />
+                  </svg>
+                </span>
               </summary>
-              <div className="lp-faq__a">{item.a}</div>
+              <div className="pb-5 text-sm text-zinc-400 leading-relaxed">
+                {item.a}
+              </div>
             </details>
           ))}
         </div>
@@ -2171,33 +2762,40 @@ function FAQ() {
 // ─── CTA Strip ────────────────────────────────────────────────────────
 function CtaStrip() {
   return (
-    <section className="lp-section">
-      <div className="lp-container">
-        <div className="lp-cta-strip lp-reveal">
-          <div
-            className="lp-eyebrow"
-            style={{ justifyContent: "center", display: "inline-flex" }}
-          >
-            <span className="lp-eyebrow__dot" /> Last call
-          </div>
-          <h2 className="lp-cta-strip__title">
+    <section className="py-20 md:py-28">
+      <div className="mx-auto max-w-[1200px] px-6">
+        <div className="reveal flex flex-col items-center gap-5 text-center">
+          <Eyebrow>Last call</Eyebrow>
+          <h2 className="max-w-[560px] font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
             Ship better thumbnails this weekend.
           </h2>
-          <p className="lp-cta-strip__sub">
-            Pay $20 once. Use it for the rest of your career.
+          <p className="text-base text-zinc-400 md:text-lg">
+            Pay $29 once. Use it for the rest of your career.
           </p>
-          <div className="lp-cta-strip__ctas">
-            <a className="lp-btn lp-btn--cyan lp-btn--xl" href={CHECKOUT_URL}>
-              Get lifetime · $20
-            </a>
-            <a
-              className="lp-btn lp-btn--ghost lp-btn--xl"
-              href={GITHUB_URL}
-              rel="noopener"
-              target="_blank"
+          <div className="flex flex-wrap justify-center gap-3">
+            <Button
+              asChild
+              className="rounded-full px-7 py-3 text-base"
+              size="lg"
             >
-              View source on GitHub
-            </a>
+              <a
+                data-polar-checkout
+                data-polar-checkout-theme="dark"
+                href={CHECKOUT_URL}
+              >
+                Get lifetime · $29
+              </a>
+            </Button>
+            <Button
+              asChild
+              className="rounded-full px-7 py-3 text-base"
+              size="lg"
+              variant="secondary"
+            >
+              <a href={GITHUB_URL} rel="noopener" target="_blank">
+                View source on GitHub
+              </a>
+            </Button>
           </div>
         </div>
       </div>
@@ -2208,11 +2806,11 @@ function CtaStrip() {
 // ─── Footer ───────────────────────────────────────────────────────────
 function Footer() {
   return (
-    <footer className="lp-footer">
-      <div className="lp-container">
-        <div className="lp-footer__grid">
+    <footer className="py-16">
+      <div className="mx-auto max-w-[1200px] px-6">
+        <div className="mb-12 grid gap-10 md:grid-cols-4">
           <div>
-            <div className="lp-footer__brand">
+            <div className="mb-3 flex items-center gap-2 font-semibold text-sm text-white">
               <GalleryThumbnails
                 aria-hidden="true"
                 size={18}
@@ -2220,16 +2818,21 @@ function Footer() {
               />
               Backstage
             </div>
-            <p className="lp-footer__tag">
-              The open-source YouTube thumbnail studio. Built by{" "}
-              <a href="https://amajor.ai" style={{ color: "var(--lp-fg)" }}>
+            <p className="text-sm text-zinc-500">
+              The agentic thumbnail maker for YouTube creators. Built by{" "}
+              <a
+                className="text-zinc-300 no-underline transition-colors hover:text-white"
+                href="https://amajor.ai"
+              >
                 A Major
               </a>
               .
             </p>
           </div>
           <div>
-            <div className="lp-footer__col-head">Product</div>
+            <div className="mb-4 font-semibold text-xs text-zinc-500 uppercase tracking-widest">
+              Product
+            </div>
             {(
               [
                 ["#features", "Features"],
@@ -2238,13 +2841,19 @@ function Footer() {
                 ["#roadmap", "Roadmap"],
               ] as const
             ).map(([href, label]) => (
-              <a className="lp-footer__link" href={href} key={href}>
+              <a
+                className="mb-2 block text-sm text-zinc-400 no-underline transition-colors hover:text-white"
+                href={href}
+                key={href}
+              >
                 {label}
               </a>
             ))}
           </div>
           <div>
-            <div className="lp-footer__col-head">Open source</div>
+            <div className="mb-4 font-semibold text-xs text-zinc-500 uppercase tracking-widest">
+              Open source
+            </div>
             {[
               [GITHUB_URL, "GitHub"],
               [`${GITHUB_URL}/releases`, "Releases"],
@@ -2252,7 +2861,7 @@ function Footer() {
               [`${GITHUB_URL}/blob/master/LICENSE`, "License"],
             ].map(([href, label]) => (
               <a
-                className="lp-footer__link"
+                className="mb-2 block text-sm text-zinc-400 no-underline transition-colors hover:text-white"
                 href={href}
                 key={href}
                 rel="noopener"
@@ -2263,32 +2872,40 @@ function Footer() {
             ))}
           </div>
           <div>
-            <div className="lp-footer__col-head">Company</div>
+            <div className="mb-4 font-semibold text-xs text-zinc-500 uppercase tracking-widest">
+              Company
+            </div>
             <a
-              className="lp-footer__link"
+              className="mb-2 block text-sm text-zinc-400 no-underline transition-colors hover:text-white"
               href="https://amajor.ai"
               rel="noopener"
               target="_blank"
             >
               A Major
             </a>
-            <a className="lp-footer__link" href="mailto:hello@amajor.ai">
+            <a
+              className="mb-2 block text-sm text-zinc-400 no-underline transition-colors hover:text-white"
+              href="mailto:hello@amajor.ai"
+            >
               Contact
             </a>
             <a
-              className="lp-footer__link"
+              className="mb-2 block text-sm text-zinc-400 no-underline transition-colors hover:text-white"
               href="https://twitter.com/amajor_ai"
               rel="noopener"
               target="_blank"
             >
               X / Twitter
             </a>
-            <a className="lp-footer__link" href="#faq">
+            <a
+              className="mb-2 block text-sm text-zinc-400 no-underline transition-colors hover:text-white"
+              href="#faq"
+            >
               FAQ
             </a>
           </div>
         </div>
-        <div className="lp-footer__bottom">
+        <div className="flex items-center justify-between pt-6 text-xs text-zinc-600">
           <div>© 2026 A Major. All rights reserved.</div>
           <div>backstage.amajor.ai</div>
         </div>
@@ -2300,34 +2917,36 @@ function Footer() {
 // ─── Landing Page Root ────────────────────────────────────────────────
 export default function LandingPage() {
   useScrollReveal();
-  const { stars, version } = useGitHubData();
+  const { stars } = useGitHubData();
+
+  useEffect(() => {
+    PolarEmbedCheckout.init();
+  }, []);
 
   return (
-    <div className="lp">
+    <div className="dark min-h-screen overflow-x-hidden bg-zinc-950 font-sans text-white">
       <Nav stars={stars} />
-      <Hero version={version} />
+      <Hero />
       <Stats />
 
       {/* Background removal */}
-      <section className="lp-section" id="features">
-        <div className="lp-container">
-          <div className="lp-features-intro lp-reveal">
-            <div className="lp-eyebrow">
-              <span className="lp-eyebrow__dot" /> Built for thumbnails
-            </div>
-            <h2 className="lp-section-title">
+      <section className="py-20 md:py-28" id="features">
+        <div className="mx-auto max-w-[1200px] px-6">
+          <div className="reveal mb-10">
+            <Eyebrow>Built for thumbnails</Eyebrow>
+            <h2 className="mt-1 mb-3 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
               Every tool you need.
               <br />
-              <span className="lp-muted">Nothing you don&apos;t.</span>
+              <span className="text-zinc-500">Nothing you don&apos;t.</span>
             </h2>
-            <p className="lp-section-sub">
+            <p className="max-w-[540px] text-base text-zinc-400 md:text-lg">
               A purpose-built editor for YouTube thumbnails. Designed around how
               creators actually iterate on a hook.
             </p>
           </div>
-          <div className="lp-feature-showcase lp-reveal">
-            <div className="lp-feature-showcase__header">
-              <div className="lp-tag">
+          <div className="reveal flex flex-col gap-6 rounded-2xl bg-zinc-900 p-8">
+            <div>
+              <Tag>
                 <svg
                   fill="none"
                   height="12"
@@ -2341,25 +2960,31 @@ export default function LandingPage() {
                   <path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M15 9h0M17.8 6.2 19 5m-16 16 9-9M12.2 6.2 11 5" />
                 </svg>
                 Background removal
-              </div>
-              <h3 className="lp-feature-showcase__title">
+              </Tag>
+              <h3 className="mb-2 font-heading font-medium text-white text-xl">
                 One tap. Background gone. Runs on your machine.
               </h3>
-              <p className="lp-feature-showcase__body">
+              <p className="max-w-[520px] text-sm text-zinc-400">
                 Drag the handle to see it for yourself. WebAssembly inference on
                 every machine, every OS. Nothing uploads anywhere.
               </p>
             </div>
             <CompareSlider />
-            <ul className="lp-feature-showcase__list">
+            <ul className="grid gap-2 sm:grid-cols-2">
               {[
                 "Runs offline in WebAssembly. No upload. No usage cap.",
                 "Open-source build ships with BRIA RMBG-1.4 for sharper cutouts.",
                 "Queue dozens at once from the gallery.",
                 "Non-destructive. Your original layer is never touched.",
               ].map((item) => (
-                <li key={item}>
-                  <span className="lp-dot" />
+                <li
+                  className="flex items-start gap-2 text-sm text-zinc-400"
+                  key={item}
+                >
+                  <span
+                    className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                    style={{ background: BLUE }}
+                  />
                   {item}
                 </li>
               ))}
@@ -2369,11 +2994,11 @@ export default function LandingPage() {
       </section>
 
       {/* Gemini generation */}
-      <section className="lp-section">
-        <div className="lp-container">
-          <div className="lp-feature-showcase lp-reveal">
-            <div className="lp-feature-showcase__header">
-              <div className="lp-tag">
+      <section className="py-20 md:py-28">
+        <div className="mx-auto max-w-[1200px] px-6">
+          <div className="reveal flex flex-col gap-6 rounded-2xl bg-zinc-900 p-8">
+            <div>
+              <Tag>
                 <svg
                   fill="none"
                   height="12"
@@ -2387,14 +3012,14 @@ export default function LandingPage() {
                   <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z" />
                 </svg>
                 Gemini image gen
-              </div>
-              <h3 className="lp-feature-showcase__title">
+              </Tag>
+              <h3 className="mb-2 font-heading font-medium text-white text-xl">
                 AI at API rates. Not SaaS rates.
               </h3>
-              <p className="lp-feature-showcase__body">
+              <p className="max-w-[520px] text-sm text-zinc-400">
                 Bring your own Google AI Studio key. Pay Google directly at{" "}
-                <strong>~$0.04 per image</strong>. No middle-man markup. Type a
-                prompt below to see it in action.
+                <strong className="text-white">~$0.04 per image</strong>. No
+                middle-man markup. Type a prompt below to see it in action.
               </p>
             </div>
             <GeminiPanel />
@@ -2403,11 +3028,11 @@ export default function LandingPage() {
       </section>
 
       {/* Export dialog */}
-      <section className="lp-section">
-        <div className="lp-container">
-          <div className="lp-feature-showcase lp-reveal">
-            <div className="lp-feature-showcase__header">
-              <div className="lp-tag">
+      <section className="py-20 md:py-28">
+        <div className="mx-auto max-w-[1200px] px-6">
+          <div className="reveal flex flex-col gap-6 rounded-2xl bg-zinc-900 p-8">
+            <div>
+              <Tag>
                 <svg
                   fill="none"
                   height="12"
@@ -2423,11 +3048,11 @@ export default function LandingPage() {
                   <line x1="12" x2="12" y1="15" y2="3" />
                 </svg>
                 Export anywhere
-              </div>
-              <h3 className="lp-feature-showcase__title">
+              </Tag>
+              <h3 className="mb-2 font-heading font-medium text-white text-xl">
                 Every format. Every platform. One dialog.
               </h3>
-              <p className="lp-feature-showcase__body">
+              <p className="max-w-[520px] text-sm text-zinc-400">
                 PNG, JPEG, WebP, animated GIF and MP4. YouTube, Shorts, X,
                 custom sizes. Drag the quality slider below.
               </p>
@@ -2438,8 +3063,8 @@ export default function LandingPage() {
       </section>
 
       {/* Bento */}
-      <section className="lp-section">
-        <div className="lp-container">
+      <section className="py-20 md:py-28">
+        <div className="mx-auto max-w-[1200px] px-6">
           <Bento />
         </div>
       </section>

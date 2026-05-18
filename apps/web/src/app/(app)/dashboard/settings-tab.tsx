@@ -2,6 +2,7 @@
 
 import posthog from "posthog-js";
 import { useEffect, useState } from "react";
+import { sileo } from "sileo";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -28,11 +29,21 @@ export function SettingsTab() {
     } else {
       posthog.opt_out_capturing();
     }
+    sileo.success({
+      title: enabled
+        ? "Product Analytics enabled"
+        : "Product Analytics disabled",
+    });
   }
 
   function handlePerfChange(enabled: boolean) {
     setPerf(enabled);
     setPerfMonitoringEnabled(enabled);
+    sileo.success({
+      title: enabled
+        ? "Performance Monitoring enabled"
+        : "Performance Monitoring disabled",
+    });
   }
 
   return (

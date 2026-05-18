@@ -1,4 +1,4 @@
-{
+﻿{
   "hooks": {
     "PostToolUse": [
       {
@@ -11,5 +11,8 @@
         ]
       }
     ]
+  },
+  "worktree": {
+    "bgIsolation": "none"
   }
 }

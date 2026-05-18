@@ -159,7 +159,7 @@ export default function App() {
   }
 
   if (!isValidated) {
-    return <LicenseActivation />;
+    return <LicenseActivation onBack={() => setOnboardingCompleted(false)} />;
   }
 
   const handleExportSelected = () => {

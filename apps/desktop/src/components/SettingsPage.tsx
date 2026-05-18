@@ -1234,8 +1234,6 @@ function StorageSettings({
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [importPhase, setImportPhase] = useState("Reading…");
-  const [pendingZipPath, setPendingZipPath] = useState<string | null>(null);
-  const [pendingWipe, setPendingWipe] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [regenerateProgress, setRegenerateProgress] = useState("");
   const [isWiping, setIsWiping] = useState(false);
@@ -1429,17 +1427,23 @@ function StorageSettings({
       filters: [{ name: "ZIP Archive", extensions: ["zip"] }],
     });
     if (!filePath) return;
-    setPendingZipPath(filePath as string);
+    const zipPath = filePath as string;
+    const toastId = sileo.warning({
+      title: "Replace all current data?",
+      description:
+        "This will overwrite all your projects and settings. The app will restart automatically. This cannot be undone.",
+      duration: null,
+      button: {
+        title: "Yes, restore backup",
+        onClick: () => {
+          sileo.dismiss(toastId);
+          handleConfirmImport(zipPath);
+        },
+      },
+    });
   }, []);
 
-  const handleCancelImport = useCallback(() => {
-    setPendingZipPath(null);
-  }, []);
-
-  const handleConfirmImport = useCallback(async () => {
-    if (!pendingZipPath) return;
-    const zipPath = pendingZipPath;
-    setPendingZipPath(null);
+  const handleConfirmImport = useCallback(async (zipPath: string) => {
     setImporting(true);
     setImportProgress(0);
     setImportPhase("Reading…");
@@ -1558,10 +1562,9 @@ function StorageSettings({
       setImporting(false);
       setImportProgress(0);
     }
-  }, [pendingZipPath]);
+  }, []);
 
   const handleConfirmWipe = useCallback(async () => {
-    setPendingWipe(false);
     setIsWiping(true);
     try {
       await closeDb();
@@ -1676,7 +1679,7 @@ function StorageSettings({
         >
           <Button
             className="relative overflow-hidden"
-            disabled={importing || !!pendingZipPath}
+            disabled={importing}
             onClick={handlePickImport}
             size="sm"
           >
@@ -1728,29 +1731,6 @@ function StorageSettings({
             )}
           </Button>
         </SettingRow>
-        {pendingZipPath && (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
-            <p className="mb-1 font-medium text-sm">
-              Replace all current data?
-            </p>
-            <p className="mb-4 text-muted-foreground text-xs">
-              This will overwrite all your projects and settings. The app will
-              restart automatically. This cannot be undone.
-            </p>
-            <div className="flex gap-2">
-              <Button onClick={handleCancelImport} size="sm" variant="ghost">
-                Cancel
-              </Button>
-              <Button
-                onClick={handleConfirmImport}
-                size="sm"
-                variant="destructive"
-              >
-                Yes, restore backup
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="space-y-4">
@@ -1763,7 +1743,21 @@ function StorageSettings({
         >
           <Button
             disabled={isWiping}
-            onClick={() => setPendingWipe(true)}
+            onClick={() => {
+              const toastId = sileo.warning({
+                title: "Delete everything permanently?",
+                description:
+                  "All projects, images, thumbnails, revision history, and settings will be wiped. The app will restart. This cannot be undone.",
+                duration: null,
+                button: {
+                  title: "Yes, delete everything",
+                  onClick: () => {
+                    sileo.dismiss(toastId);
+                    handleConfirmWipe();
+                  },
+                },
+              });
+            }}
             size="sm"
             variant="destructive"
           >
@@ -1771,33 +1765,6 @@ function StorageSettings({
             {isWiping ? "Wiping…" : "Wipe"}
           </Button>
         </SettingRow>
-        {pendingWipe && (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
-            <p className="mb-1 font-medium text-sm">
-              Delete everything permanently?
-            </p>
-            <p className="mb-4 text-muted-foreground text-xs">
-              All projects, images, thumbnails, revision history, and settings
-              will be wiped. The app will restart. This cannot be undone.
-            </p>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => setPendingWipe(false)}
-                size="sm"
-                variant="ghost"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleConfirmWipe}
-                size="sm"
-                variant="destructive"
-              >
-                Yes, delete everything
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
