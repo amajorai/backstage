@@ -27,7 +27,7 @@ export function TitleBar({
   showIcon = true,
   className,
 }: TitleBarProps) {
-  const { showDecemberSnow } = useAppSettingsStore();
+  const { showDecemberSnow, previewSnow } = useAppSettingsStore();
   const isDecember = new Date().getMonth() === 11;
   const [bounceKey, setBounceKey] = useState(0);
 
@@ -61,7 +61,7 @@ export function TitleBar({
           data-tauri-drag-region
         />
 
-        {isDecember && showDecemberSnow && (
+        {(previewSnow || (isDecember && showDecemberSnow)) && (
           <SnowfallBackground
             className="pointer-events-none h-[50px]"
             color="#fff"

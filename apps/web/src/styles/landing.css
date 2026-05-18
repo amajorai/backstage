@@ -409,7 +409,7 @@
   font-weight: var(--weight-medium);
 }
 .lp-hero__title {
-  font-size: clamp(44px, 7.5vw, 92px);
+  font-size: clamp(32px, 4.8vw, 64px);
   line-height: 0.96;
   letter-spacing: -0.045em;
   font-weight: var(--weight-medium);

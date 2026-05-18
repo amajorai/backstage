@@ -756,7 +756,11 @@ export function GeminiImagePage({
       <>
         <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
           <EmptyState
-            action={{ label: "Open Settings", onClick: onSettings }}
+            action={{
+              icon: <Settings className="size-4" />,
+              label: "Open Settings",
+              onClick: onSettings,
+            }}
             description="Add your Gemini API key in Settings to generate images with AI."
             icon={<Sparkles className="size-10" />}
             title="Gemini API key required"

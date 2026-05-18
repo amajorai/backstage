@@ -267,6 +267,11 @@ export function ArchivePage({ onClose }: ArchivePageProps) {
               />
             ) : filteredItems.length === 0 ? (
               <EmptyState
+                action={{
+                  icon: <X className="size-4" />,
+                  label: "Clear Search",
+                  onClick: () => setSearchQuery(""),
+                }}
                 description="No items match your search"
                 icon={<Archive className="size-10" />}
                 title="No results"

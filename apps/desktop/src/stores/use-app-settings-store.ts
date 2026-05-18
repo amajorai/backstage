@@ -21,6 +21,7 @@ const ACP_TEXT_GEN_AGENT_ID_FIELD = "acp_text_gen_agent_id";
 const REMEMBER_WINDOW_BOUNDS_FIELD = "remember_window_bounds";
 const SAVE_SEARCH_HISTORY_FIELD = "save_search_history";
 const SHOW_FOLDER_BADGES_FIELD = "show_folder_badges";
+const ONBOARDING_COMPLETED_FIELD = "onboarding_completed";
 
 export type AppTheme = "light" | "dark" | "system";
 export type BgRemovalQuality = "fast" | "balanced" | "best";
@@ -64,9 +65,12 @@ interface AppSettingsState {
   rememberWindowBounds: boolean;
   saveSearchHistory: boolean;
   showFolderBadges: boolean;
+  onboardingCompleted: boolean;
   isInitialLoadDone: boolean;
+  previewSnow: boolean;
 
   // Actions
+  setPreviewSnow: (preview: boolean) => void;
   setShowDecemberSnow: (show: boolean) => Promise<void>;
   setTheme: (theme: AppTheme) => Promise<void>;
   setBgRemovalQuality: (quality: BgRemovalQuality) => Promise<void>;
@@ -85,6 +89,7 @@ interface AppSettingsState {
   setRememberWindowBounds: (enabled: boolean) => Promise<void>;
   setSaveSearchHistory: (enabled: boolean) => Promise<void>;
   setShowFolderBadges: (enabled: boolean) => Promise<void>;
+  setOnboardingCompleted: (completed: boolean) => Promise<void>;
   loadSettings: () => Promise<void>;
 }
 
@@ -107,7 +112,11 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
   rememberWindowBounds: false,
   saveSearchHistory: true,
   showFolderBadges: true,
+  onboardingCompleted: false,
   isInitialLoadDone: false,
+  previewSnow: false,
+
+  setPreviewSnow: (preview: boolean) => set({ previewSnow: preview }),
 
   setShowDecemberSnow: async (show: boolean) => {
     try {
@@ -420,6 +429,23 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
     }
   },
 
+  setOnboardingCompleted: async (completed: boolean) => {
+    try {
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
+      await store.set(ONBOARDING_COMPLETED_FIELD, completed);
+      await store.save();
+      set({ onboardingCompleted: completed });
+    } catch (error) {
+      logger.error(
+        { err: error },
+        "[Settings] Failed to save setting: onboardingCompleted"
+      );
+    }
+  },
+
   loadSettings: async () => {
     try {
       logger.info("[Settings] Loading app settings...");
@@ -471,6 +497,9 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
       const showFolderBadges = await store.get<boolean>(
         SHOW_FOLDER_BADGES_FIELD
       );
+      const onboardingCompleted = await store.get<boolean>(
+        ONBOARDING_COMPLETED_FIELD
+      );
 
       const finalTheme = theme ?? "dark";
 
@@ -493,6 +522,7 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
         rememberWindowBounds: rememberWindowBounds ?? false,
         saveSearchHistory: saveSearchHistory ?? true,
         showFolderBadges: showFolderBadges ?? true,
+        onboardingCompleted: onboardingCompleted ?? false,
         isInitialLoadDone: true,
       });
 

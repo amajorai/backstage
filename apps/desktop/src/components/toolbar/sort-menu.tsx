@@ -5,7 +5,6 @@ import {
   ChevronDown,
   Clock,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,17 +42,15 @@ export function SortMenu() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button className="gap-1" size="sm" variant="ghost">
-          {currentSortOption?.icon}
-          <span className="text-xs">{currentSortOption?.label}</span>
-          {sortOrder === "desc" ? (
-            <ArrowDownAZ className="size-3 text-muted-foreground" />
-          ) : (
-            <ArrowUpZA className="size-3 text-muted-foreground" />
-          )}
-          <ChevronDown className="size-3 text-muted-foreground" />
-        </Button>
+      <DropdownMenuTrigger className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground text-sm hover:bg-accent hover:text-accent-foreground focus-visible:outline-none">
+        {currentSortOption?.icon}
+        <span className="text-xs">{currentSortOption?.label}</span>
+        {sortOrder === "desc" ? (
+          <ArrowDownAZ className="size-3 text-muted-foreground" />
+        ) : (
+          <ArrowUpZA className="size-3 text-muted-foreground" />
+        )}
+        <ChevronDown className="size-3 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="top">
         {sortOptions.map((opt) => (

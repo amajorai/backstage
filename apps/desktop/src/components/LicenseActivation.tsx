@@ -1,5 +1,5 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { DoorOpen, Key, Loader2 } from "lucide-react";
+import { Check, DoorOpen, Key, Loader2 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,11 +35,28 @@ export function LicenseActivation() {
         </div>
 
         {/* Header */}
-        <div className="flex w-full flex-col">
-          <h1 className="font-medium text-xl">Activate Your License</h1>
-          <p className="font-medium text-muted-foreground text-xl">
-            Enter your license key to start
-          </p>
+        <div className="flex w-full flex-col gap-4">
+          <div>
+            <h1 className="font-medium text-xl">Activate Your License</h1>
+            <p className="font-medium text-muted-foreground text-xl">
+              Enter your license key to start
+            </p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {[
+              "One-time payment, not a subscription",
+              "Yours forever — all future updates included",
+              "Activate on up to 3 devices",
+            ].map((line) => (
+              <div
+                className="flex items-center gap-2 text-muted-foreground text-sm"
+                key={line}
+              >
+                <Check className="size-3.5 shrink-0 text-foreground" />
+                <span>{line}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Input */}

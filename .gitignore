@@ -118,3 +118,5 @@ temp
 /opencode.json.bak
 # END Ruler Generated Files
 /.claude/worktrees/
+
+.vercel

@@ -35,6 +35,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "A Major Pte. Ltd.",
     "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",

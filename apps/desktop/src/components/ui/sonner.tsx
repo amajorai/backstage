@@ -2,15 +2,18 @@
 
 import { Toaster as SileoToaster } from "sileo";
 import "sileo/styles.css";
-import { useTheme } from "next-themes";
+import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 
 const Toaster = () => {
-  const { resolvedTheme } = useTheme();
+  const theme = useAppSettingsStore((s) => s.theme);
+  const resolvedTheme =
+    theme === "system"
+      ? window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light"
+      : theme;
   return (
-    <SileoToaster
-      position="bottom-right"
-      theme={resolvedTheme as "light" | "dark"}
-    />
+    <SileoToaster offset={48} position="bottom-center" theme={resolvedTheme} />
   );
 };
 
