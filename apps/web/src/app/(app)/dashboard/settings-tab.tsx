@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
+import { Label } from "@repo/ui/label";
+import { Switch } from "@repo/ui/switch";
 import posthog from "posthog-js";
 import { useEffect, useState } from "react";
 import { sileo } from "sileo";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   getAnalyticsEnabled,
   getPerfMonitoringEnabled,

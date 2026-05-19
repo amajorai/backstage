@@ -1,3 +1,8 @@
+﻿import { Button } from "@repo/ui/button";
+import { Input } from "@repo/ui/input";
+import { Skeleton } from "@repo/ui/skeleton";
+import { Toaster } from "@repo/ui/sonner";
+import { Switch } from "@repo/ui/switch";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -27,11 +32,6 @@ import { AiMockup } from "@/components/onboarding/AiMockup";
 import { EditorMockup } from "@/components/onboarding/EditorMockup";
 import { ExploreMockup } from "@/components/onboarding/ExploreMockup";
 import { GalleryMockup } from "@/components/onboarding/GalleryMockup";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Toaster } from "@/components/ui/sonner";
-import { Switch } from "@/components/ui/switch";
 import {
   checkForUpdate,
   downloadAndInstall,

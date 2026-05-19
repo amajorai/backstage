@@ -1,5 +1,15 @@
-"use client";
+﻿"use client";
 
+import { Button } from "@repo/ui/button";
+import { Input } from "@repo/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/select";
 import { cva, type VariantProps } from "class-variance-authority";
 import { PipetteIcon } from "lucide-react";
 import {
@@ -8,20 +18,6 @@ import {
   Slot as SlotPrimitive,
 } from "radix-ui";
 import * as React from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { VisuallyHiddenInput } from "@/components/visually-hidden-input";
 import { useAsRef } from "@/hooks/use-as-ref";
 import { useIsomorphicLayoutEffect } from "@/hooks/use-isomorphic-layout-effect";
@@ -473,8 +469,9 @@ interface ColorPickerProps
   extends Omit<DivProps, "onValueChange">,
     Pick<
       React.ComponentProps<typeof Popover>,
-      "defaultOpen" | "open" | "onOpenChange" | "modal"
+      "defaultOpen" | "open" | "modal"
     > {
+  onOpenChange?: (open: boolean) => void;
   value?: string;
   defaultValue?: string;
   onValueChange?: (value: string) => void;
@@ -726,9 +723,18 @@ function ColorPickerImpl(props: ColorPickerImplProps) {
 }
 
 function ColorPickerTrigger(
-  props: React.ComponentProps<typeof PopoverTrigger>
+  props: Omit<React.ComponentProps<typeof PopoverTrigger>, "render"> &
+    Pick<React.ComponentProps<typeof Button>, "variant" | "size">
 ) {
-  const { asChild, disabled, ...triggerProps } = props;
+  const {
+    asChild,
+    disabled,
+    className,
+    style,
+    variant = "outline",
+    size,
+    ...triggerProps
+  } = props;
 
   const context = useColorPickerContext(TRIGGER_NAME);
 
@@ -741,8 +747,11 @@ function ColorPickerTrigger(
       disabled={isDisabled}
       render={
         <TriggerPrimitive
+          className={className as string | undefined}
           data-slot="color-picker-trigger"
-          variant="outline"
+          size={size}
+          style={style as React.CSSProperties | undefined}
+          variant={variant}
           {...triggerProps}
         />
       }
@@ -751,9 +760,9 @@ function ColorPickerTrigger(
 }
 
 function ColorPickerContent(
-  props: React.ComponentProps<typeof PopoverContent>
+  props: React.ComponentProps<typeof PopoverContent> & { asChild?: boolean }
 ) {
-  const { asChild, className, children, ...popoverContentProps } = props;
+  const { asChild, className, children, style, ...popoverContentProps } = props;
 
   const context = useColorPickerContext(CONTENT_NAME);
 
@@ -765,6 +774,7 @@ function ColorPickerContent(
         data-slot="color-picker-content"
         {...popoverContentProps}
         className={cn("flex w-[340px] flex-col gap-4 p-4", className)}
+        style={style as React.CSSProperties | undefined}
       >
         {children}
       </ContentPrimitive>
@@ -1152,7 +1162,7 @@ function ColorPickerFormatSelect(props: ColorPickerFormatSelectProps) {
       data-slot="color-picker-format-select"
       {...selectProps}
       disabled={isDisabled}
-      onValueChange={onFormatChange}
+      onValueChange={onFormatChange as (value: unknown) => void}
       value={format}
     >
       <SelectTrigger

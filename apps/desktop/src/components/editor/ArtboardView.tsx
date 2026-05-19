@@ -1,14 +1,14 @@
-import { Copy, Plus, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { KonvaCanvas } from "@/components/editor/KonvaCanvas";
-import { StaticPageCanvas } from "@/components/editor/StaticPageCanvas";
-import { Button } from "@/components/ui/button";
+﻿import { Button } from "@repo/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@repo/ui/tooltip";
+import { Copy, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { KonvaCanvas } from "@/components/editor/KonvaCanvas";
+import { StaticPageCanvas } from "@/components/editor/StaticPageCanvas";
 import type { Page } from "@/stores/use-editor-store";
 
 const ARTBOARD_GAP = 80;

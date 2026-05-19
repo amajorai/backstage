@@ -1,5 +1,5 @@
-"use client";
-import { Button } from "@/components/ui/button";
+﻿"use client";
+import { Button } from "@repo/ui/button";
 import { authClient } from "@/lib/auth-client";
 
 export default function Dashboard({

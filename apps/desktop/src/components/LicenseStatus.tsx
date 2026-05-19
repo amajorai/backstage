@@ -1,6 +1,6 @@
+﻿import { Button } from "@repo/ui/button";
 import { LogOut, ShieldCheck } from "lucide-react";
 import { useCallback } from "react";
-import { Button } from "@/components/ui/button";
 import { useLicenseStore } from "@/stores/use-license-store";
 
 export function LicenseStatus() {

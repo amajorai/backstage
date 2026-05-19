@@ -1,14 +1,12 @@
+﻿import { Button } from "@repo/ui/button";
+import { Input } from "@repo/ui/input";
+import { Label } from "@repo/ui/label";
 import { useForm } from "@tanstack/react-form";
 import { useRouter } from "next/navigation";
 import { sileo } from "sileo";
 import z from "zod";
-
 import { authClient } from "@/lib/auth-client";
-
 import Loader from "./loader";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
 
 export default function SignUpForm({
   onSwitchToSignIn,

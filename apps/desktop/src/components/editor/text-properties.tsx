@@ -1,3 +1,8 @@
+﻿import { Button } from "@repo/ui/button";
+import { Command, CommandInput, CommandList } from "@repo/ui/command";
+import { Input } from "@repo/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/popover";
+import { Slider } from "@repo/ui/slider";
 import {
   AlignCenter,
   AlignLeft,
@@ -12,7 +17,6 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { Button } from "@/components/ui/button";
 import {
   ColorPicker,
   ColorPickerAlphaSlider,
@@ -23,14 +27,6 @@ import {
   ColorPickerInput,
   ColorPickerTrigger,
 } from "@/components/ui/color-picker";
-import { Command, CommandInput, CommandList } from "@/components/ui/command";
-import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import type { Layer, TextLayer } from "@/stores/use-editor-store";
 

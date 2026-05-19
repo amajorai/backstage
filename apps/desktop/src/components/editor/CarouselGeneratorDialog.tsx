@@ -1,29 +1,30 @@
-import { Bot, ChevronDown, Loader2, Sparkles } from "lucide-react";
-import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+﻿import { Badge } from "@repo/ui/badge";
+import { Button } from "@repo/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+} from "@repo/ui/collapsible";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+} from "@repo/ui/dialog";
+import { Label } from "@repo/ui/label";
+import { RadioGroup, RadioGroupItem } from "@repo/ui/radio-group";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
+} from "@repo/ui/select";
+import { Slider } from "@repo/ui/slider";
+import { Textarea } from "@repo/ui/textarea";
+import { Bot, ChevronDown, Loader2, Sparkles } from "lucide-react";
+import { useState } from "react";
 import {
   TagsInput,
   TagsInputInput,
@@ -31,7 +32,6 @@ import {
   TagsInputItemDelete,
   TagsInputItemText,
 } from "@/components/ui/tags-input";
-import { Textarea } from "@/components/ui/textarea";
 import type { CanvasContext, CarouselGeneratorConfig } from "@/lib/gemini-text";
 
 const TONE_PRESETS = [

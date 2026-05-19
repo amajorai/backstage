@@ -1,3 +1,4 @@
+﻿import { Slider } from "@repo/ui/slider";
 import {
   ColorPicker,
   ColorPickerAlphaSlider,
@@ -8,7 +9,6 @@ import {
   ColorPickerInput,
   ColorPickerTrigger,
 } from "@/components/ui/color-picker";
-import { Slider } from "@/components/ui/slider";
 import type { Layer, TextLayer } from "@/stores/use-editor-store";
 
 interface ShadowPropertiesProps {

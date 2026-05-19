@@ -1,17 +1,17 @@
-import { Link2, Link2Off } from "lucide-react";
-import { useState } from "react";
-import { sileo } from "sileo";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+﻿import { Button } from "@repo/ui/button";
+import { Checkbox } from "@repo/ui/checkbox";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@repo/ui/dialog";
+import { Input } from "@repo/ui/input";
+import { Label } from "@repo/ui/label";
+import { Link2, Link2Off } from "lucide-react";
+import { useState } from "react";
+import { sileo } from "sileo";
 
 interface CanvasSizeDialogProps {
   open: boolean;

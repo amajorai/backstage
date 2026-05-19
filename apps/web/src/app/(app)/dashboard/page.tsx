@@ -1,6 +1,6 @@
+﻿import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/tabs";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authClient } from "@/lib/auth-client";
 
 import Dashboard from "./dashboard";

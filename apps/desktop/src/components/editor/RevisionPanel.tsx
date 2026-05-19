@@ -1,8 +1,4 @@
-import { Clock, RotateCcw, Trash2 } from "lucide-react";
-import { useState } from "react";
-import { sileo } from "sileo";
-import { ScrollFadeEffect } from "@/components/scroll-fade-effect";
-import {
+﻿import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -11,8 +7,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
+} from "@repo/ui/alert-dialog";
+import { Button } from "@repo/ui/button";
+import { Clock, RotateCcw, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { sileo } from "sileo";
+import { ScrollFadeEffect } from "@/components/scroll-fade-effect";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/stores/use-editor-store";
 import { useRevisionStore } from "@/stores/use-revision-store";

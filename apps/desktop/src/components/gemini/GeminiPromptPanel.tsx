@@ -1,8 +1,8 @@
+﻿import { Button } from "@repo/ui/button";
+import { Label } from "@repo/ui/label";
+import { Textarea } from "@repo/ui/textarea";
 import { AlertCircle } from "lucide-react";
 import type { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 
 interface GeminiPromptPanelProps {
   hasApiKey: boolean;

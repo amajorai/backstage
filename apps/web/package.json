@@ -16,6 +16,7 @@
     "@axiomhq/react": "^0.2.1",
     "@backstage/auth": "workspace:*",
     "@backstage/env": "workspace:*",
+    "@repo/ui": "workspace:*",
     "@base-ui/react": "^1.0.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.217.0",
     "@polar-sh/better-auth": "catalog:",

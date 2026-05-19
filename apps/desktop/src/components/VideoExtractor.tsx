@@ -1,8 +1,8 @@
+﻿import { Button } from "@repo/ui/button";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { useGalleryStore } from "@/stores/use-gallery-store";
 
 interface VideoExtractorProps {

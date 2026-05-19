@@ -1,5 +1,5 @@
+﻿import { Button } from "@repo/ui/button";
 import type { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
 
 interface EmptyStateProps {
   /** Icon to display */

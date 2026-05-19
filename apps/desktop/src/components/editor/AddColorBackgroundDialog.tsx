@@ -1,5 +1,13 @@
+﻿import { Button } from "@repo/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/dialog";
+import { Textarea } from "@repo/ui/textarea";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import {
   ColorPicker,
   ColorPickerAlphaSlider,
@@ -10,14 +18,6 @@ import {
   ColorPickerInput,
   ColorPickerTrigger,
 } from "@/components/ui/color-picker";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 
 interface AddColorBackgroundDialogProps {
   open: boolean;

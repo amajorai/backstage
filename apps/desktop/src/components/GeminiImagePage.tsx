@@ -1,3 +1,22 @@
+﻿import { Button, buttonVariants } from "@repo/ui/button";
+import { Checkbox } from "@repo/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@repo/ui/dropdown-menu";
+import { Input } from "@repo/ui/input";
+import { Label } from "@repo/ui/label";
+import { RadioGroup, RadioGroupItem } from "@repo/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@repo/ui/tooltip";
 import {
   ArrowLeft,
   ChevronLeft,
@@ -14,36 +33,13 @@ import { sileo } from "sileo";
 import { EmptyState } from "@/components/gallery/EmptyState";
 import { GeminiPromptPanel } from "@/components/gemini/GeminiPromptPanel";
 import { GeneratedImageGrid } from "@/components/gemini/GeneratedImageGrid";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   CompareSlider,
   CompareSliderAfter,
   CompareSliderBefore,
   CompareSliderHandle,
 } from "@/components/ui/compare-slider";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ResizablePanel } from "@/components/ui/resizable-panel";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { renderLayersToCanvas } from "@/lib/canvas-renderer";
 import {
   base64ToDataUrl,

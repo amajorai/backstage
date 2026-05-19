@@ -1,3 +1,6 @@
+﻿import { Button } from "@repo/ui/button";
+import { Input } from "@repo/ui/input";
+import { Toaster } from "@repo/ui/sonner";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   ArrowLeft,
@@ -10,9 +13,6 @@ import {
 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { sileo } from "sileo";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Toaster } from "@/components/ui/sonner";
 import {
   POLAR_EMBED_CHECKOUT_URL,
   usePolarCheckout,

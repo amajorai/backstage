@@ -1,4 +1,4 @@
-import { GalleryThumbnails } from "lucide-react";
+﻿import { GalleryThumbnails } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@repo/ui/tooltip";
 
 export function TitleBar({
   title,

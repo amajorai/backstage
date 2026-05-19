@@ -1,3 +1,4 @@
+﻿import { Slider } from "@repo/ui/slider";
 import { useEffect, useRef, useState } from "react";
 import { sileo } from "sileo";
 import { AdjustmentProperties } from "@/components/editor/adjustment-properties";
@@ -6,7 +7,6 @@ import { ShadowProperties } from "@/components/editor/shadow-properties";
 import { ShapeProperties } from "@/components/editor/shape-properties";
 import { SvgProperties } from "@/components/editor/svg-properties";
 import { TextProperties } from "@/components/editor/text-properties";
-import { Slider } from "@/components/ui/slider";
 import {
   type AnimatedImageLayer,
   DEFAULT_ADJUSTMENTS,

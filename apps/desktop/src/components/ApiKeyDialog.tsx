@@ -1,7 +1,4 @@
-import { openUrl } from "@tauri-apps/plugin-opener";
-import { ExternalLink, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+﻿import { Button } from "@repo/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,9 +6,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@repo/ui/dialog";
+import { Input } from "@repo/ui/input";
+import { Label } from "@repo/ui/label";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { ExternalLink, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { sileo } from "sileo";
 import {
   getGeminiApiKey,
   removeGeminiApiKey,

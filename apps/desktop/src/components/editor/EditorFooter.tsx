@@ -1,3 +1,5 @@
+﻿import { Button } from "@repo/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@repo/ui/tooltip";
 import {
   ChevronDown,
   Copy,
@@ -12,12 +14,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { CanvasSizeDialog } from "@/components/editor/CanvasSizeDialog";
-import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 export type EditorViewMode = "single" | "vertical" | "horizontal" | "artboard";
 

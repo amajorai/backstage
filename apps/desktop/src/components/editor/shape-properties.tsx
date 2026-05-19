@@ -1,6 +1,8 @@
+﻿import { Button } from "@repo/ui/button";
+import { Input } from "@repo/ui/input";
+import { Slider } from "@repo/ui/slider";
 import { Link, Unlink } from "lucide-react";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import {
   ColorPicker,
   ColorPickerAlphaSlider,
@@ -11,8 +13,6 @@ import {
   ColorPickerInput,
   ColorPickerTrigger,
 } from "@/components/ui/color-picker";
-import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
 import type { Layer, ShapeLayer } from "@/stores/use-editor-store";
 
 interface ShapePropertiesProps {

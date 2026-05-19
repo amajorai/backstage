@@ -1,7 +1,7 @@
+﻿import { Button } from "@repo/ui/button";
 import { Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { SelectionCheckbox } from "@/components/gallery/SelectionCheckbox";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { type TrashItem, useTrashStore } from "@/stores/use-trash-store";
 

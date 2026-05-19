@@ -1,3 +1,13 @@
+﻿import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@repo/ui/alert-dialog";
 import {
   useCallback,
   useEffect,
@@ -24,16 +34,6 @@ import { PropertiesPanel } from "@/components/editor/PropertiesPanel";
 import { RevisionPanel } from "@/components/editor/RevisionPanel";
 import { VerticalScrollView } from "@/components/editor/VerticalScrollView";
 import { GalleryPicker } from "@/components/GalleryPicker";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { ResizablePanel } from "@/components/ui/resizable-panel";
 import { VerticalResizablePanel } from "@/components/ui/vertical-resizable-panel";
 import { getGeminiApiKey } from "@/lib/gemini-store";

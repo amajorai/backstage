@@ -1,13 +1,13 @@
-import { Copy, Plus, Trash2 } from "lucide-react";
-import { useRef } from "react";
-import { StaticPageCanvas } from "@/components/editor/StaticPageCanvas";
-import { Button } from "@/components/ui/button";
+﻿import { Button } from "@repo/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@repo/ui/tooltip";
+import { Copy, Plus, Trash2 } from "lucide-react";
+import { useRef } from "react";
+import { StaticPageCanvas } from "@/components/editor/StaticPageCanvas";
 import type { Page } from "@/stores/use-editor-store";
 
 const STRIP_HEIGHT = 128;

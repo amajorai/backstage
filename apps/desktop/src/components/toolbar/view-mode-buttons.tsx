@@ -1,6 +1,6 @@
+﻿import { Button } from "@repo/ui/button";
 import { Grid2X2, Grid3X3, LayoutGrid, List } from "lucide-react";
 import type { ViewMode } from "@/App";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // Order: 5 (most dense) → 4 → 3 (least dense) → row

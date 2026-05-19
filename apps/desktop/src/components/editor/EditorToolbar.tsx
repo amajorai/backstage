@@ -1,3 +1,11 @@
+﻿import { Button, buttonVariants } from "@repo/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@repo/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@repo/ui/tooltip";
 import {
   Bot,
   Building2,
@@ -19,18 +27,6 @@ import {
   Undo2,
   Wand2,
 } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useEditorStore } from "@/stores/use-editor-store";
 import { IconPicker } from "./IconPicker";
 import { LogoPicker } from "./LogoPicker";

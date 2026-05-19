@@ -1,11 +1,11 @@
-import { ChevronLeft, ChevronRight, Copy, Plus, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+﻿import { Button } from "@repo/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@repo/ui/tooltip";
+import { ChevronLeft, ChevronRight, Copy, Plus, Trash2 } from "lucide-react";
 import { useEditorStore } from "@/stores/use-editor-store";
 
 export function PageCarousel() {

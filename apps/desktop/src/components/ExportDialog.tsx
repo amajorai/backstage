@@ -1,20 +1,20 @@
-import { open, save } from "@tauri-apps/plugin-dialog";
-import { writeFile } from "@tauri-apps/plugin-fs";
-import { CheckSquare2, Layers, Loader2, Square, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { sileo } from "sileo";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+﻿import { Button } from "@repo/ui/button";
+import { Input } from "@repo/ui/input";
+import { Label } from "@repo/ui/label";
+import { RadioGroup, RadioGroupItem } from "@repo/ui/radio-group";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
+} from "@repo/ui/select";
+import { Slider } from "@repo/ui/slider";
+import { open, save } from "@tauri-apps/plugin-dialog";
+import { writeFile } from "@tauri-apps/plugin-fs";
+import { CheckSquare2, Layers, Loader2, Square, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { sileo } from "sileo";
 import { renderLayersToCanvas } from "@/lib/canvas-renderer";
 import { exportCanvasFramesToGif } from "@/lib/gif-encoder";
 import { cn } from "@/lib/utils";

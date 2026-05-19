@@ -1,17 +1,13 @@
-import { FolderPlus, Image, LayoutTemplate, Plus, Video } from "lucide-react";
-import { useCallback, useState } from "react";
-import { buttonVariants } from "@/components/ui/button";
+﻿import { buttonVariants } from "@repo/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@repo/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@repo/ui/tooltip";
+import { FolderPlus, Image, LayoutTemplate, Plus, Video } from "lucide-react";
+import { useCallback, useState } from "react";
 import { openAndLoadImages } from "@/lib/image-file-utils";
 import { cn } from "@/lib/utils";
 import { useGalleryStore } from "@/stores/use-gallery-store";

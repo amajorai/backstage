@@ -1,7 +1,7 @@
+﻿import { Button } from "@repo/ui/button";
+import { Slider } from "@repo/ui/slider";
 import { Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import {
   DEFAULT_ADJUSTMENTS,
   type LayerAdjustments,

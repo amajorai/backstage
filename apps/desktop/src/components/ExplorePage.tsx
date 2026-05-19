@@ -1,3 +1,4 @@
+﻿import { Button } from "@repo/ui/button";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   ArrowLeft,
@@ -18,7 +19,6 @@ import { EmptyState } from "@/components/gallery/EmptyState";
 import { SearchHistoryDropdown } from "@/components/SearchHistoryDropdown";
 import { ScrollFadeEffect } from "@/components/scroll-fade-effect";
 import { ViewModeButtons } from "@/components/toolbar/view-mode-buttons";
-import { Button } from "@/components/ui/button";
 import { usePersistedViewMode } from "@/hooks/use-persisted-view-mode";
 import { cn } from "@/lib/utils";
 import {

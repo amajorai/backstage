@@ -1,5 +1,4 @@
-import { Loader2 } from "lucide-react";
-import {
+﻿import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -8,7 +7,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from "@repo/ui/alert-dialog";
+import { Loader2 } from "lucide-react";
 import type { TrashItem } from "@/stores/use-trash-store";
 
 interface RestoreAllDialogProps {

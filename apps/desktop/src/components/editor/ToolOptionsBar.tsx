@@ -1,3 +1,4 @@
+﻿import { Slider } from "@repo/ui/slider";
 import { Layers, Square } from "lucide-react";
 import {
   ColorPicker,
@@ -9,7 +10,6 @@ import {
   ColorPickerInput,
   ColorPickerTrigger,
 } from "@/components/ui/color-picker";
-import { Slider } from "@/components/ui/slider";
 import { useEditorStore } from "@/stores/use-editor-store";
 
 function Divider() {

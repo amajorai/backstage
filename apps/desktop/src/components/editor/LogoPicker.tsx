@@ -1,3 +1,11 @@
+﻿import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/dialog";
+import { Input } from "@repo/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@repo/ui/tooltip";
 import { invoke } from "@tauri-apps/api/core";
 import { Loader2, Moon, Search, Sun } from "lucide-react";
 import {
@@ -10,18 +18,6 @@ import {
   useState,
 } from "react";
 import { VirtuosoGrid } from "react-virtuoso";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import {
   addRecentLogo,
   getRecentLogos,

@@ -1,3 +1,10 @@
+﻿import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@repo/ui/dropdown-menu";
 import {
   ArrowDownAZ,
   ArrowUpZA,
@@ -5,13 +12,6 @@ import {
   ChevronDown,
   Clock,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { type SortField, useGalleryStore } from "@/stores/use-gallery-store";
 
 const sortOptions: {

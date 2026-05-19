@@ -1,5 +1,5 @@
+﻿import { Button } from "@repo/ui/button";
 import { Clock, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 interface SearchHistoryDropdownProps {
   items: string[];

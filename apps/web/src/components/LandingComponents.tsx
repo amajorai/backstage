@@ -1,12 +1,12 @@
-"use client";
+﻿"use client";
 
 import { PolarEmbedCheckout } from "@polar-sh/checkout/embed";
+import { Button } from "@repo/ui/button";
+import { Input } from "@repo/ui/input";
 import { Check, GalleryThumbnails, Loader2, X } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import "@/styles/landing.css";
 
@@ -504,17 +504,17 @@ function Hero() {
           data-delay="3"
         >
           <Button
-            asChild
             className="rounded-full px-7 py-3 text-base"
+            render={
+              <a
+                data-polar-checkout
+                data-polar-checkout-theme="dark"
+                href={CHECKOUT_URL}
+              />
+            }
             size="lg"
           >
-            <a
-              data-polar-checkout
-              data-polar-checkout-theme="dark"
-              href={CHECKOUT_URL}
-            >
-              Get lifetime · $29
-            </a>
+            Get lifetime · $29
           </Button>
           <Button
             className="rounded-full px-7 py-3 text-base"
@@ -2618,30 +2618,30 @@ function Pricing() {
                   <span>Goes to $35 on May 25 — lock in $29 now</span>
                 </div>
                 <Button
-                  asChild
                   className="mt-1 h-12 w-full rounded-xl text-sm"
+                  render={
+                    <a
+                      data-polar-checkout
+                      data-polar-checkout-theme="dark"
+                      href={CHECKOUT_URL}
+                    />
+                  }
                   size="lg"
                 >
-                  <a
-                    data-polar-checkout
-                    data-polar-checkout-theme="dark"
-                    href={CHECKOUT_URL}
+                  Buy Backstage Lifetime
+                  <svg
+                    fill="none"
+                    height="16"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2.5"
+                    viewBox="0 0 24 24"
+                    width="16"
                   >
-                    Buy Backstage Lifetime
-                    <svg
-                      fill="none"
-                      height="16"
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2.5"
-                      viewBox="0 0 24 24"
-                      width="16"
-                    >
-                      <line x1="5" x2="19" y1="12" y2="12" />
-                      <polyline points="12 5 19 12 12 19" />
-                    </svg>
-                  </a>
+                    <line x1="5" x2="19" y1="12" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
                 </Button>
                 <p className="text-center text-[11px] text-zinc-500">
                   Secure checkout via Polar. Instant license delivery.
@@ -2774,27 +2774,25 @@ function CtaStrip() {
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <Button
-              asChild
               className="rounded-full px-7 py-3 text-base"
+              render={
+                <a
+                  data-polar-checkout
+                  data-polar-checkout-theme="dark"
+                  href={CHECKOUT_URL}
+                />
+              }
               size="lg"
             >
-              <a
-                data-polar-checkout
-                data-polar-checkout-theme="dark"
-                href={CHECKOUT_URL}
-              >
-                Get lifetime · $29
-              </a>
+              Get lifetime · $29
             </Button>
             <Button
-              asChild
               className="rounded-full px-7 py-3 text-base"
+              render={<a href={GITHUB_URL} rel="noopener" target="_blank" />}
               size="lg"
               variant="secondary"
             >
-              <a href={GITHUB_URL} rel="noopener" target="_blank">
-                View source on GitHub
-              </a>
+              View source on GitHub
             </Button>
           </div>
         </div>

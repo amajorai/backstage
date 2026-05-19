@@ -1,3 +1,5 @@
+﻿import { Button, buttonVariants } from "@repo/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@repo/ui/tooltip";
 import {
   Archive,
   Copy,
@@ -11,12 +13,6 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { sileo } from "sileo";
-import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import type { ThumbnailItem } from "@/stores/use-gallery-store";
 import { useGalleryStore } from "@/stores/use-gallery-store";
 

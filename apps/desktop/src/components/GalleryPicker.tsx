@@ -1,9 +1,9 @@
+﻿import { Button } from "@repo/ui/button";
+import { Input } from "@repo/ui/input";
 import { FolderOpen, Image, Loader2, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useFolderStore } from "@/stores/use-folder-store";
 import { useGalleryStore } from "@/stores/use-gallery-store";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 
 interface GalleryPickerProps {
   onSelect: (dataUrl: string, name: string) => void;

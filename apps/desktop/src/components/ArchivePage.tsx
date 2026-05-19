@@ -1,4 +1,24 @@
-import { Archive, Loader2 } from "lucide-react";
+﻿import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@repo/ui/alert-dialog";
+import { Button } from "@repo/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/dialog";
+import { Input } from "@repo/ui/input";
+import { Archive, Loader2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { VirtuosoGrid } from "react-virtuoso";
 import { sileo } from "sileo";
@@ -12,26 +32,6 @@ import { ArchiveToolbar } from "@/components/archive/archive-toolbar";
 import { FolderColorPicker } from "@/components/FolderColorPicker";
 import { EmptyState } from "@/components/gallery/EmptyState";
 import { gridComponents } from "@/components/gallery/VirtuosoGridComponents";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { useDragSelection } from "@/hooks/use-drag-selection";
 import { usePersistedViewMode } from "@/hooks/use-persisted-view-mode";
 import {

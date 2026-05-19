@@ -1,7 +1,7 @@
+﻿import { Button } from "@repo/ui/button";
+import { ScrollArea } from "@repo/ui/scroll-area";
 import { CheckCircle2, ChevronDown, Loader2, X, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useBackgroundRemovalQueue } from "@/stores/use-background-removal-queue";
 

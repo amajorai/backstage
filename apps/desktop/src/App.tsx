@@ -1,3 +1,14 @@
+﻿import { Button } from "@repo/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/dialog";
+import { Input } from "@repo/ui/input";
+import { Toaster } from "@repo/ui/sonner";
 import { useEffect, useState } from "react";
 import { sileo } from "sileo";
 import { ArchivePage } from "@/components/ArchivePage";
@@ -18,18 +29,7 @@ import { LicenseActivation } from "@/components/LicenseActivation";
 import { OnboardingPage } from "@/components/OnboardingPage";
 import { SettingsPage } from "@/components/SettingsPage";
 import { TrashPage } from "@/components/TrashPage";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { ResizablePanel } from "@/components/ui/resizable-panel";
-import { Toaster } from "@/components/ui/sonner";
 import { VideoExtractor } from "@/components/VideoExtractor";
 import { useAppUpdater } from "@/hooks/use-app-updater";
 import { usePersistedViewMode } from "@/hooks/use-persisted-view-mode";
