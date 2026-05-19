@@ -37,7 +37,11 @@ import {
 } from "lucide-react";
 import { Fragment, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { SnowfallBackground } from "@/components/snow-flakes";
+import {
+  getCurrentSeason,
+  SEASONS,
+  SnowfallBackground,
+} from "@/components/snow-flakes";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import { useEditorStore } from "@/stores/use-editor-store";
 import type { TabEntry } from "@/stores/use-tabs-store";
@@ -78,9 +82,12 @@ export function TabBar({
   activePage?: ActivePage;
   onPageChange?: (page: ActivePage) => void;
 }) {
-  const { showDecemberSnow, previewSnow } = useAppSettingsStore();
-  const isDecember = new Date().getMonth() === 11;
-  const showSnow = previewSnow || (isDecember && showDecemberSnow);
+  const { seasonalEffectsEnabled, previewSeasonTheme } = useAppSettingsStore();
+  const activeSeason = previewSeasonTheme
+    ? SEASONS.find((s) => s.id === previewSeasonTheme)
+    : seasonalEffectsEnabled
+      ? getCurrentSeason()
+      : null;
 
   const [bounceKey, setBounceKey] = useState(0);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
@@ -295,16 +302,17 @@ export function TabBar({
           .tab-logo-bounce { animation: tab-logo-bounce 0.5s cubic-bezier(0.36,0.07,0.19,0.97); }
         `}</style>
 
-        {showSnow && (
+        {activeSeason && (
           <SnowfallBackground
             className="pointer-events-none h-[40px]"
-            color="#fff"
+            color={activeSeason.color}
             count={30}
+            emoji={activeSeason.emoji}
             fadeBottom
             maxOpacity={1}
-            maxSize={30}
+            maxSize={activeSeason.maxSize ?? 30}
             minOpacity={0}
-            minSize={1}
+            minSize={activeSeason.minSize ?? 1}
             speed={1}
             wind
             zIndex={50}

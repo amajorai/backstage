@@ -1170,7 +1170,7 @@ function ColorPickerFormatSelect(props: ColorPickerFormatSelectProps) {
         data-slot="color-picker-format-select-trigger"
         size={size ?? "sm"}
       >
-        <SelectValue />
+        <SelectValue>{format.toUpperCase()}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         {colorFormats.map((format) => (

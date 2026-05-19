@@ -1,7 +1,6 @@
-﻿import { Button } from "@repo/ui/button";
+import { Button } from "@repo/ui/button";
 import { Input } from "@repo/ui/input";
 import { Toaster } from "@repo/ui/sonner";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   ArrowLeft,
   Check,
@@ -13,11 +12,11 @@ import {
 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { sileo } from "sileo";
+import { CustomerPortalDialog } from "@/components/CustomerPortalDialog";
 import {
   POLAR_EMBED_CHECKOUT_URL,
   usePolarCheckout,
 } from "@/hooks/use-polar-checkout";
-import { POLAR_CONFIG } from "@/lib/polar-config";
 import { useLicenseStore } from "@/stores/use-license-store";
 
 const BENEFITS = [
@@ -38,21 +37,22 @@ const BENEFITS = [
 export function LicenseActivation({ onBack }: { onBack?: () => void }) {
   const [view, setView] = useState<"pricing" | "activation">("pricing");
   const [licenseKey, setLicenseKey] = useState("");
+  const [retrieveDialogOpen, setRetrieveDialogOpen] = useState(false);
+  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
+  const [conflictKey, setConflictKey] = useState("");
   const { isValidating, validateLicense } = useLicenseStore();
   const { openCheckout, anchorRef } = usePolarCheckout();
 
   const handleActivate = useCallback(async () => {
     if (!licenseKey.trim()) return;
     await validateLicense(licenseKey.trim());
-    const state = useLicenseStore.getState();
-    if (state.error) {
-      if (state.error.includes("already activated")) {
-        sileo.error({
-          title: state.error,
-          description: "Visit your account portal to manage devices.",
-        });
+    const { error } = useLicenseStore.getState();
+    if (error) {
+      if (error.includes("already activated")) {
+        setConflictKey(licenseKey.trim());
+        setConflictDialogOpen(true);
       } else {
-        sileo.error({ title: state.error });
+        sileo.error({ title: error });
       }
     }
   }, [licenseKey, validateLicense]);
@@ -247,10 +247,10 @@ export function LicenseActivation({ onBack }: { onBack?: () => void }) {
 
               <div className="flex w-full flex-col items-center gap-3">
                 <p className="text-muted-foreground text-sm">
-                  Already have a key?{" "}
+                  Don't have your key?{" "}
                   <button
                     className="cursor-pointer bg-transparent p-0 text-foreground hover:underline"
-                    onClick={() => openUrl(POLAR_CONFIG.customerPortalUrl)}
+                    onClick={() => setRetrieveDialogOpen(true)}
                     type="button"
                   >
                     Retrieve it from your account
@@ -298,6 +298,21 @@ export function LicenseActivation({ onBack }: { onBack?: () => void }) {
           </div>
         </div>
       </div>
+
+      {/* Retrieve license key dialog */}
+      <CustomerPortalDialog
+        mode="retrieve"
+        onOpenChange={setRetrieveDialogOpen}
+        open={retrieveDialogOpen}
+      />
+
+      {/* Already-activated conflict dialog */}
+      <CustomerPortalDialog
+        mode="conflict"
+        onOpenChange={setConflictDialogOpen}
+        open={conflictDialogOpen}
+        prefilledKey={conflictKey}
+      />
     </div>
   );
 }

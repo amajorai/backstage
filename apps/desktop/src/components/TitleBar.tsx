@@ -1,9 +1,15 @@
-﻿import { GalleryThumbnails } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@repo/ui/tooltip";
+import { GalleryThumbnails } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
-import { SnowfallBackground } from "./snow-flakes";
+import { getCurrentSeason, SEASONS, SnowfallBackground } from "./snow-flakes";
 
 interface TitleBarProps {
   title?: ReactNode;
@@ -13,13 +19,6 @@ interface TitleBarProps {
   className?: string;
 }
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@repo/ui/tooltip";
-
 export function TitleBar({
   title,
   actions,
@@ -27,9 +26,14 @@ export function TitleBar({
   showIcon = true,
   className,
 }: TitleBarProps) {
-  const { showDecemberSnow, previewSnow } = useAppSettingsStore();
-  const isDecember = new Date().getMonth() === 11;
+  const { seasonalEffectsEnabled, previewSeasonTheme } = useAppSettingsStore();
   const [bounceKey, setBounceKey] = useState(0);
+
+  const activeSeason = previewSeasonTheme
+    ? SEASONS.find((s) => s.id === previewSeasonTheme)
+    : seasonalEffectsEnabled
+      ? getCurrentSeason()
+      : null;
 
   const handleLogoClick = () => {
     setBounceKey((k) => k + 1);
@@ -61,16 +65,17 @@ export function TitleBar({
           data-tauri-drag-region
         />
 
-        {(previewSnow || (isDecember && showDecemberSnow)) && (
+        {activeSeason && (
           <SnowfallBackground
             className="pointer-events-none h-[50px]"
-            color="#fff"
+            color={activeSeason.color}
             count={30}
+            emoji={activeSeason.emoji}
             fadeBottom={true}
             maxOpacity={1}
-            maxSize={30}
+            maxSize={activeSeason.maxSize ?? 30}
             minOpacity={0}
-            minSize={1}
+            minSize={activeSeason.minSize ?? 1}
             speed={1}
             wind={true}
             zIndex={50}

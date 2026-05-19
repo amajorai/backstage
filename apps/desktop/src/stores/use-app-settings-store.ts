@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { logger } from "@/lib/logger";
 
 const SETTINGS_STORE_NAME = "settings.json";
-const SHOW_DECEMBER_SNOW_FIELD = "show_december_snow";
+const SEASONAL_EFFECTS_ENABLED_FIELD = "seasonal_effects_enabled";
 const THEME_FIELD = "app_theme";
 const BG_REMOVAL_QUALITY_FIELD = "bg_removal_quality";
 const BG_REMOVAL_PROVIDER_FIELD = "bg_removal_provider";
@@ -22,6 +22,7 @@ const REMEMBER_WINDOW_BOUNDS_FIELD = "remember_window_bounds";
 const SAVE_SEARCH_HISTORY_FIELD = "save_search_history";
 const SHOW_FOLDER_BADGES_FIELD = "show_folder_badges";
 const ONBOARDING_COMPLETED_FIELD = "onboarding_completed";
+const EXPERIMENTAL_FEATURES_FIELD = "experimental_features_enabled";
 
 export type AppTheme = "light" | "dark" | "system";
 export type BgRemovalQuality = "fast" | "balanced" | "best";
@@ -47,7 +48,8 @@ export const BG_REMOVAL_MODEL_MAP: Record<BgRemovalQuality, string> = {
 };
 
 interface AppSettingsState {
-  showDecemberSnow: boolean;
+  seasonalEffectsEnabled: boolean;
+  previewSeasonTheme: import("@/components/snow-flakes").SeasonalTheme | null;
   theme: AppTheme;
   bgRemovalQuality: BgRemovalQuality;
   bgRemovalProvider: BgRemovalProvider;
@@ -66,12 +68,14 @@ interface AppSettingsState {
   saveSearchHistory: boolean;
   showFolderBadges: boolean;
   onboardingCompleted: boolean;
+  experimentalFeaturesEnabled: boolean;
   isInitialLoadDone: boolean;
-  previewSnow: boolean;
 
   // Actions
-  setPreviewSnow: (preview: boolean) => void;
-  setShowDecemberSnow: (show: boolean) => Promise<void>;
+  setPreviewSeasonTheme: (
+    theme: import("@/components/snow-flakes").SeasonalTheme | null
+  ) => void;
+  setSeasonalEffectsEnabled: (enabled: boolean) => Promise<void>;
   setTheme: (theme: AppTheme) => Promise<void>;
   setBgRemovalQuality: (quality: BgRemovalQuality) => Promise<void>;
   setBgRemovalProvider: (provider: BgRemovalProvider) => Promise<void>;
@@ -90,11 +94,13 @@ interface AppSettingsState {
   setSaveSearchHistory: (enabled: boolean) => Promise<void>;
   setShowFolderBadges: (enabled: boolean) => Promise<void>;
   setOnboardingCompleted: (completed: boolean) => Promise<void>;
+  setExperimentalFeaturesEnabled: (enabled: boolean) => Promise<void>;
   loadSettings: () => Promise<void>;
 }
 
 export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
-  showDecemberSnow: true,
+  seasonalEffectsEnabled: true,
+  previewSeasonTheme: null,
   theme: "dark",
   bgRemovalQuality: "balanced",
   bgRemovalProvider: "imgly",
@@ -113,23 +119,23 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
   saveSearchHistory: true,
   showFolderBadges: true,
   onboardingCompleted: false,
+  experimentalFeaturesEnabled: false,
   isInitialLoadDone: false,
-  previewSnow: false,
 
-  setPreviewSnow: (preview: boolean) => set({ previewSnow: preview }),
+  setPreviewSeasonTheme: (theme) => set({ previewSeasonTheme: theme }),
 
-  setShowDecemberSnow: async (show: boolean) => {
+  setSeasonalEffectsEnabled: async (enabled: boolean) => {
     try {
       const store = await load(SETTINGS_STORE_NAME, {
         autoSave: true,
       });
-      await store.set(SHOW_DECEMBER_SNOW_FIELD, show);
+      await store.set(SEASONAL_EFFECTS_ENABLED_FIELD, enabled);
       await store.save();
-      set({ showDecemberSnow: show });
+      set({ seasonalEffectsEnabled: enabled });
     } catch (error) {
       logger.error(
         { err: error },
-        "[Settings] Failed to save setting: showDecemberSnow"
+        "[Settings] Failed to save setting: seasonalEffectsEnabled"
       );
     }
   },
@@ -446,6 +452,23 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
     }
   },
 
+  setExperimentalFeaturesEnabled: async (enabled: boolean) => {
+    try {
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
+      await store.set(EXPERIMENTAL_FEATURES_FIELD, enabled);
+      await store.save();
+      set({ experimentalFeaturesEnabled: enabled });
+    } catch (error) {
+      logger.error(
+        { err: error },
+        "[Settings] Failed to save setting: experimentalFeaturesEnabled"
+      );
+    }
+  },
+
   loadSettings: async () => {
     try {
       logger.info("[Settings] Loading app settings...");
@@ -453,7 +476,9 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
         defaults: {},
         autoSave: false,
       });
-      const showSnow = await store.get<boolean>(SHOW_DECEMBER_SNOW_FIELD);
+      const seasonalEffectsEnabled = await store.get<boolean>(
+        SEASONAL_EFFECTS_ENABLED_FIELD
+      );
       const theme = await store.get<AppTheme>(THEME_FIELD);
       const bgRemovalQuality = await store.get<BgRemovalQuality>(
         BG_REMOVAL_QUALITY_FIELD
@@ -500,11 +525,14 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
       const onboardingCompleted = await store.get<boolean>(
         ONBOARDING_COMPLETED_FIELD
       );
+      const experimentalFeaturesEnabled = await store.get<boolean>(
+        EXPERIMENTAL_FEATURES_FIELD
+      );
 
       const finalTheme = theme ?? "dark";
 
       set({
-        showDecemberSnow: showSnow ?? true,
+        seasonalEffectsEnabled: seasonalEffectsEnabled ?? true,
         theme: finalTheme,
         bgRemovalQuality: bgRemovalQuality ?? "balanced",
         bgRemovalProvider: bgRemovalProvider ?? "imgly",
@@ -523,6 +551,7 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
         saveSearchHistory: saveSearchHistory ?? true,
         showFolderBadges: showFolderBadges ?? true,
         onboardingCompleted: onboardingCompleted ?? false,
+        experimentalFeaturesEnabled: experimentalFeaturesEnabled ?? false,
         isInitialLoadDone: true,
       });
 

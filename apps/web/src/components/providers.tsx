@@ -1,9 +1,9 @@
 "use client";
 
+import { Toaster } from "@repo/ui/sonner";
 import { AxiomWebVitals } from "./axiom-web-vitals";
 import { PostHogProvider } from "./posthog-provider";
 import { ThemeProvider } from "./theme-provider";
-import { Toaster } from "./ui/sonner";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (

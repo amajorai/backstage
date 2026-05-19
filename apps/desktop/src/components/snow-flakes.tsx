@@ -1,31 +1,139 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
+export type SeasonalTheme =
+  | "christmas"
+  | "cny"
+  | "valentine"
+  | "easter"
+  | "halloween"
+  | "new_year"
+  | "st_patrick";
+
+export interface SeasonConfig {
+  id: SeasonalTheme;
+  label: string;
+  /** Single emoji or array — if array, each particle picks one randomly */
+  emoji: string | string[];
+  /** Optional CSS color for the particle (use for non-emoji characters like snowflakes) */
+  color?: string;
+  /** Emoji shown in the UI dropdown (falls back to first emoji if not set) */
+  displayEmoji?: string;
+  /** Override max particle size in px (defaults to 30) */
+  maxSize?: number;
+  /** Override min particle size in px (defaults to 1) */
+  minSize?: number;
+  isActive: (date: Date) => boolean;
+}
+
+export const SEASONS: SeasonConfig[] = [
+  {
+    id: "new_year",
+    label: "New Year's",
+    emoji: ["🥳", "🍾", "🎉", "🎊", "🪅"],
+    minSize: 8,
+    maxSize: 18,
+    isActive: (d) => {
+      const m = d.getMonth();
+      const day = d.getDate();
+      return (m === 11 && day === 31) || (m === 0 && day <= 2);
+    },
+  },
+  {
+    id: "cny",
+    label: "Chinese New Year",
+    emoji: "🧧",
+    minSize: 8,
+    maxSize: 18,
+    isActive: (d) => {
+      const m = d.getMonth();
+      const day = d.getDate();
+      return (m === 0 && day >= 20) || (m === 1 && day <= 18);
+    },
+  },
+  {
+    id: "valentine",
+    label: "Valentine's Day",
+    emoji: "❤️",
+    minSize: 8,
+    maxSize: 18,
+    isActive: (d) => d.getMonth() === 1 && d.getDate() <= 14,
+  },
+  {
+    id: "st_patrick",
+    label: "St. Patrick's Day",
+    emoji: "🍀",
+    minSize: 8,
+    maxSize: 18,
+    isActive: (d) => d.getMonth() === 2 && d.getDate() === 17,
+  },
+  {
+    id: "easter",
+    label: "Easter",
+    emoji: "🐰",
+    minSize: 8,
+    maxSize: 18,
+    isActive: (d) => {
+      const m = d.getMonth();
+      return (m === 2 && d.getDate() >= 15) || (m === 3 && d.getDate() <= 25);
+    },
+  },
+  {
+    id: "halloween",
+    label: "Halloween",
+    emoji: "🎃",
+    minSize: 8,
+    maxSize: 18,
+    isActive: (d) => d.getMonth() === 9,
+  },
+  {
+    id: "christmas",
+    label: "Christmas",
+    emoji: "*",
+    color: "#fff",
+    displayEmoji: "❄️",
+    isActive: (d) => d.getMonth() === 11,
+  },
+];
+
+export function getCurrentSeason(date = new Date()): SeasonConfig | null {
+  return SEASONS.find((s) => s.isActive(date)) ?? null;
+}
+
+/** Returns the display emoji for a season (uses displayEmoji if set, else first emoji) */
+export function getSeasonDisplayEmoji(season: SeasonConfig): string {
+  if (season.displayEmoji) return season.displayEmoji;
+  return Array.isArray(season.emoji) ? season.emoji[0] : season.emoji;
+}
+
 interface SnowflakeProps {
   id: number;
   size: number;
   left: number;
   animationDuration: number;
   opacity: number;
-  color: string;
+  emoji: string;
+  color?: string;
 }
 
 interface SnowfallBackgroundProps {
-  /** Number of snowflakes */
+  /** Number of particles */
   count?: number;
-  /** Snow color */
+  /** Emoji(s) to use — if array, each particle picks one randomly */
+  emoji?: string | string[];
+  /** Optional CSS color for the particle */
   color?: string;
   /** Animation speed multiplier (lower = slower) */
   speed?: number;
-  /** Minimum snowflake size in pixels */
+  /** Minimum particle size in pixels */
   minSize?: number;
-  /** Maximum snowflake size in pixels */
+  /** Maximum particle size in pixels */
   maxSize?: number;
   /** Minimum opacity */
   minOpacity?: number;
   /** Maximum opacity */
   maxOpacity?: number;
-  /** Z-index for the snow layer */
+  /** Z-index for the layer */
   zIndex?: number;
   /** Whether to enable wind effect */
   wind?: boolean;
@@ -41,6 +149,7 @@ const Snowflake = ({
   left,
   animationDuration,
   opacity,
+  emoji,
   color,
 }: SnowflakeProps) => (
   <div
@@ -49,18 +158,28 @@ const Snowflake = ({
       left: `${left}%`,
       fontSize: `${size}px`,
       opacity,
-      color,
       animation: `snowfall-${id} ${animationDuration}s linear infinite`,
-      textShadow: "0 0 1px rgba(255,255,255,0.8)",
+      ...(color && {
+        color,
+        textShadow: "0 0 1px rgba(255,255,255,0.8)",
+      }),
     }}
   >
-    *
+    {emoji}
   </div>
 );
 
+function pickEmoji(emoji: string | string[]): string {
+  if (Array.isArray(emoji)) {
+    return emoji[Math.floor(Math.random() * emoji.length)];
+  }
+  return emoji;
+}
+
 export function SnowfallBackground({
   count = 50,
-  color = "#ffffff",
+  emoji = "*",
+  color,
   speed = 1,
   minSize = 10,
   maxSize = 20,
@@ -74,60 +193,45 @@ export function SnowfallBackground({
   const [snowflakes, setSnowflakes] = useState<SnowflakeProps[]>([]);
   const [mounted, setMounted] = useState(false);
 
+  const emojiKey = Array.isArray(emoji) ? emoji.join(",") : emoji;
+
   useEffect(() => {
     setMounted(true);
 
-    const generateSnowflakes = () => {
-      const flakes: SnowflakeProps[] = [];
-
-      for (let i = 0; i < count; i++) {
-        const size = Math.random() * (maxSize - minSize) + minSize;
-        const left = Math.random() * 100;
-        const animationDuration = (Math.random() * 3 + 2) / speed;
-        const opacity = Math.random() * (maxOpacity - minOpacity) + minOpacity;
-
-        flakes.push({
-          id: i,
-          size,
-          left,
-          animationDuration,
-          opacity,
-          color,
-        });
-      }
-
-      setSnowflakes(flakes);
-    };
-
-    generateSnowflakes();
-  }, [count, color, speed, minSize, maxSize, minOpacity, maxOpacity]);
+    const flakes: SnowflakeProps[] = [];
+    for (let i = 0; i < count; i++) {
+      flakes.push({
+        id: i,
+        size: Math.random() * (maxSize - minSize) + minSize,
+        left: Math.random() * 100,
+        animationDuration: (Math.random() * 3 + 2) / speed,
+        opacity: Math.random() * (maxOpacity - minOpacity) + minOpacity,
+        emoji: pickEmoji(emoji),
+        color,
+      });
+    }
+    setSnowflakes(flakes);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [count, emojiKey, speed, minSize, maxSize, minOpacity, maxOpacity]);
 
   useEffect(() => {
     if (!mounted) {
       return;
     }
 
-    // Generate CSS animations for each snowflake
     const styleSheet = document.createElement("style");
     styleSheet.type = "text/css";
 
     let cssRules = "";
-
-    snowflakes.forEach((flake) => {
+    for (const flake of snowflakes) {
       const windOffset = wind ? Math.random() * 100 - 50 : 0;
-
-      // Use % instead of vh to render correctly in smaller containers
       cssRules += `
         @keyframes snowfall-${flake.id} {
-          0% {
-            transform: translateY(-20%) translateX(0px) rotate(0deg);
-          }
-          100% {
-            transform: translateY(120%) translateX(${windOffset}px) rotate(360deg);
-          }
+          0% { transform: translateY(-20%) translateX(0px) rotate(0deg); }
+          100% { transform: translateY(120%) translateX(${windOffset}px) rotate(360deg); }
         }
       `;
-    });
+    }
 
     styleSheet.innerHTML = cssRules;
     document.head.appendChild(styleSheet);

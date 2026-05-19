@@ -400,8 +400,7 @@ function LicenseForm({ onComplete }: { onComplete: () => void }) {
 }
 
 function PreferencesStep() {
-  const { theme, setTheme, persistTabs, setPersistTabs } =
-    useAppSettingsStore();
+  const { theme, setTheme } = useAppSettingsStore();
 
   const themes: { value: AppTheme; label: string; icon: React.ReactNode }[] = [
     { value: "light", label: "Light", icon: <Sun className="size-4" /> },
@@ -433,21 +432,91 @@ function PreferencesStep() {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
 
-      <div style={{ animation: "fade-slide-up 0.38s ease-out 220ms both" }}>
-        <p className="mb-3 font-medium text-muted-foreground text-xs">
-          Startup
-        </p>
-        <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3">
+function StartupStep() {
+  const {
+    persistTabs,
+    setPersistTabs,
+    rememberWindowBounds,
+    setRememberWindowBounds,
+  } = useAppSettingsStore();
+  const [launchAtStartup, setLaunchAtStartupState] = useState<boolean | null>(
+    null
+  );
+
+  useEffect(() => {
+    import("@tauri-apps/plugin-autostart").then(({ isEnabled }) => {
+      isEnabled()
+        .then((v) => setLaunchAtStartupState(v))
+        .catch(() => setLaunchAtStartupState(false));
+    });
+  }, []);
+
+  const handleLaunchAtStartup = useCallback(async (enabled: boolean) => {
+    try {
+      const { enable, disable } = await import("@tauri-apps/plugin-autostart");
+      if (enabled) {
+        await enable();
+      } else {
+        await disable();
+      }
+      setLaunchAtStartupState(enabled);
+    } catch {}
+  }, []);
+
+  const items = [
+    {
+      title: "Launch at startup",
+      desc: "Open Backstage automatically when you log in to your computer",
+      checked: launchAtStartup ?? false,
+      disabled: launchAtStartup === null,
+      onCheckedChange: handleLaunchAtStartup,
+      delay: "120ms",
+    },
+    {
+      title: "Restore tabs on startup",
+      desc: "Re-open your last open projects when launching the app",
+      checked: persistTabs,
+      disabled: false,
+      onCheckedChange: setPersistTabs,
+      delay: "200ms",
+    },
+    {
+      title: "Remember window position & size",
+      desc: "Save and restore window position and size between sessions",
+      checked: rememberWindowBounds,
+      disabled: false,
+      onCheckedChange: setRememberWindowBounds,
+      delay: "280ms",
+    },
+  ];
+
+  return (
+    <div className="flex w-full flex-col gap-2">
+      {items.map((item) => (
+        <div
+          className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3"
+          key={item.title}
+          style={{
+            animation: `fade-slide-up 0.38s ease-out ${item.delay} both`,
+          }}
+        >
           <div className="flex-1 pr-4">
-            <p className="font-medium text-sm">Restore tabs on launch</p>
+            <p className="font-medium text-sm">{item.title}</p>
             <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
-              Re-open your last open files when you start Backstage
+              {item.desc}
             </p>
           </div>
-          <Switch checked={persistTabs} onCheckedChange={setPersistTabs} />
+          <Switch
+            checked={item.checked}
+            disabled={item.disabled}
+            onCheckedChange={item.onCheckedChange}
+          />
         </div>
-      </div>
+      ))}
     </div>
   );
 }
@@ -651,18 +720,18 @@ const PROVIDERS: {
   {
     value: "imgly",
     label: "ISNet (img.ly)",
-    desc: "Runs on your device, no extra download needed",
+    desc: "No extra download needed",
   },
   {
     value: "briaai",
     label: "BRIA RMBG-1.4",
-    desc: "Higher accuracy, one-time ~176 MB model download",
+    desc: "Higher accuracy · one-time ~176 MB download",
     briaOnly: true,
   },
   {
     value: "briaai2",
     label: "BRIA RMBG-2.0",
-    desc: "Best accuracy, one-time ~890 MB model download, requires HuggingFace token",
+    desc: "Best accuracy · one-time ~890 MB download · non-commercial license",
     briaOnly: true,
   },
 ];
@@ -771,10 +840,10 @@ function BgRemovalStep() {
       <div className="flex flex-col gap-2">
         {visibleProviders.map((p, i) => (
           <button
-            className={`flex items-start gap-3 rounded-lg border px-4 py-3 text-left transition-colors ${
+            className={`flex items-start gap-3 rounded-lg px-4 py-3 text-left transition-colors ${
               bgRemovalProvider === p.value
-                ? "border-foreground bg-muted"
-                : "border-border hover:border-foreground/40"
+                ? "bg-foreground text-background"
+                : "bg-muted/50 hover:bg-muted"
             }`}
             key={p.value}
             onClick={() => setBgRemovalProvider(p.value)}
@@ -785,12 +854,14 @@ function BgRemovalStep() {
           >
             <div className="flex-1">
               <p className="font-medium text-sm">{p.label}</p>
-              <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
+              <p
+                className={`mt-0.5 text-xs leading-snug ${bgRemovalProvider === p.value ? "text-background/60" : "text-muted-foreground"}`}
+              >
                 {p.desc}
               </p>
             </div>
             {bgRemovalProvider === p.value && (
-              <Check className="mt-0.5 size-4 shrink-0 text-foreground" />
+              <Check className="mt-0.5 size-4 shrink-0 text-background" />
             )}
           </button>
         ))}
@@ -813,12 +884,7 @@ function BgRemovalStep() {
             </p>
           </div>
           {!briaStatus?.exists && (
-            <Button
-              disabled={isDownloading}
-              onClick={handleDownload}
-              size="sm"
-              variant="outline"
-            >
+            <Button disabled={isDownloading} onClick={handleDownload} size="sm">
               {isDownloading ? (
                 <>
                   <Loader2 className="mr-1.5 size-3 animate-spin" />
@@ -910,7 +976,6 @@ function BgRemovalStep() {
                 disabled={isDownloadingV2 || !hfTokenSaved}
                 onClick={handleDownloadV2}
                 size="sm"
-                variant="outline"
               >
                 {isDownloadingV2 ? (
                   <>
@@ -946,15 +1011,9 @@ function PrivacyStep() {
 
   return (
     <div className="flex w-full flex-col gap-4">
-      <p
-        className="font-medium text-muted-foreground text-xs"
-        style={{ animation: "fade-slide-up 0.38s ease-out 120ms both" }}
-      >
-        Search
-      </p>
       <div
         className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3"
-        style={{ animation: "fade-slide-up 0.38s ease-out 180ms both" }}
+        style={{ animation: "fade-slide-up 0.38s ease-out 120ms both" }}
       >
         <div className="flex-1 pr-4">
           <p className="font-medium text-sm">Save search history</p>
@@ -968,12 +1027,6 @@ function PrivacyStep() {
         />
       </div>
 
-      <p
-        className="mt-2 font-medium text-muted-foreground text-xs"
-        style={{ animation: "fade-slide-up 0.38s ease-out 260ms both" }}
-      >
-        Analytics & Telemetry
-      </p>
       <div className="flex flex-col gap-2">
         <div
           className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3"
@@ -1054,6 +1107,11 @@ const STEPS = [
     id: "preferences",
     title: "Make it yours",
     subtitle: "Set up Backstage to match how you work",
+  },
+  {
+    id: "startup",
+    title: "Start your way",
+    subtitle: "Control how Backstage behaves when your computer starts",
   },
   {
     id: "welcome",
@@ -1213,6 +1271,7 @@ export function OnboardingPage({
   const isWelcomeStep = step.id === "welcome";
   const isLocalStep = step.id === "local";
   const isPreferencesStep = step.id === "preferences";
+  const isStartupStep = step.id === "startup";
   const isGeminiStep = step.id === "gemini";
   const isYoutubeStep = step.id === "youtube";
   const isBgRemovalStep = step.id === "bgremoval";
@@ -1227,8 +1286,13 @@ export function OnboardingPage({
     step.id === "explore";
 
   const go = (dir: "forward" | "backward", nextIndex: number) => {
+    let idx = nextIndex;
+    // Skip the pricing step when the license is already active
+    if (isLicenseActive && STEPS[idx]?.id === "license-info") {
+      idx = dir === "forward" ? idx + 1 : idx - 1;
+    }
     setAnimDir(dir);
-    setStepIndex(nextIndex);
+    setStepIndex(Math.max(0, Math.min(STEPS.length - 1, idx)));
     setAnimKey((k) => k + 1);
   };
 
@@ -1366,6 +1430,7 @@ export function OnboardingPage({
               )}
 
               {isPreferencesStep && <PreferencesStep />}
+              {isStartupStep && <StartupStep />}
               {isGeminiStep && <GeminiKeyStep />}
               {isYoutubeStep && <YoutubeKeyStep />}
               {isBgRemovalStep && <BgRemovalStep />}

@@ -1,4 +1,12 @@
 ﻿import { Button } from "@repo/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/dialog";
+import { Frame, FrameHeader, FramePanel } from "@repo/ui/frame";
 import { Input } from "@repo/ui/input";
 import {
   Select,
@@ -19,7 +27,6 @@ import {
 } from "@tauri-apps/plugin-dialog";
 import {
   exists,
-  mkdir,
   readDir,
   readFile,
   remove,
@@ -37,16 +44,19 @@ import {
   MessageCircle,
   Monitor,
   Moon,
+  Pencil,
   RefreshCw,
-  Sparkles,
   Sun,
   Trash2,
   Upload,
-  Wand2,
-  Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { sileo } from "sileo";
+import {
+  getSeasonDisplayEmoji,
+  SEASONS,
+  type SeasonalTheme,
+} from "@/components/snow-flakes";
 import {
   ColorPicker,
   ColorPickerAlphaSlider,
@@ -72,17 +82,17 @@ import {
 import { getHfToken, removeHfToken, setHfToken } from "@/lib/hf-store";
 import { POLAR_CONFIG } from "@/lib/polar-config";
 import {
+  deleteEmbeddingsBatch,
+  getEmbeddedProjectIds,
+  getEmbeddingStats,
+} from "@/lib/semantic-search";
+import {
   getYoutubeApiKey,
   removeYoutubeApiKey,
   setYoutubeApiKey,
 } from "@/lib/youtube-store";
-import {
-  type AcpAgent,
-  type AcpAgentEnvVar,
-  type BgRemovalProvider,
-  type BgRemovalQuality,
-  useAppSettingsStore,
-} from "@/stores/use-app-settings-store";
+import { useAppSettingsStore } from "@/stores/use-app-settings-store";
+import { useGalleryStore } from "@/stores/use-gallery-store";
 import { useLicenseStore } from "@/stores/use-license-store";
 
 interface SettingsPageProps {
@@ -216,6 +226,16 @@ function GeminiKeySection() {
   const [apiKey, setApiKey] = useState("");
   const [hasKey, setHasKey] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showRemoveDialog, setShowRemoveDialog] = useState(false);
+  const [clearEmbeddings, setClearEmbeddings] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  const {
+    bgRemovalGeminiEnabled,
+    setBgRemovalGeminiEnabled,
+    semanticSearchEnabled,
+    setSemanticSearchEnabled,
+  } = useAppSettingsStore();
 
   useEffect(() => {
     getGeminiApiKey()
@@ -241,15 +261,35 @@ function GeminiKeySection() {
     }
   }, [apiKey]);
 
-  const handleRemove = useCallback(async () => {
+  const handleConfirmRemove = useCallback(async () => {
+    setIsRemoving(true);
     try {
       await removeGeminiApiKey();
       setHasKey(false);
+      if (bgRemovalGeminiEnabled) await setBgRemovalGeminiEnabled(false);
+      if (semanticSearchEnabled) {
+        await setSemanticSearchEnabled(false);
+        if (clearEmbeddings) {
+          const ids = await getEmbeddedProjectIds();
+          await deleteEmbeddingsBatch(ids);
+        }
+      }
+      setShowRemoveDialog(false);
       sileo.success({ title: "API key removed" });
     } catch {
       sileo.error({ title: "Failed to remove API key" });
+    } finally {
+      setIsRemoving(false);
     }
-  }, []);
+  }, [
+    bgRemovalGeminiEnabled,
+    setBgRemovalGeminiEnabled,
+    semanticSearchEnabled,
+    setSemanticSearchEnabled,
+    clearEmbeddings,
+  ]);
+
+  const willDisableAnything = bgRemovalGeminiEnabled || semanticSearchEnabled;
 
   if (isLoading) {
     return (
@@ -261,56 +301,119 @@ function GeminiKeySection() {
 
   return (
     <div className="space-y-4">
+      <Dialog onOpenChange={setShowRemoveDialog} open={showRemoveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Gemini API key?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {willDisableAnything && (
+              <>
+                <p className="text-muted-foreground text-sm">
+                  This will also disable:
+                </p>
+                <ul className="space-y-1 text-sm">
+                  {bgRemovalGeminiEnabled && (
+                    <li className="text-muted-foreground">
+                      • Gemini Pre-processing
+                    </li>
+                  )}
+                  {semanticSearchEnabled && (
+                    <li className="text-muted-foreground">
+                      • Image Embeddings (Semantic Search)
+                    </li>
+                  )}
+                </ul>
+              </>
+            )}
+            {semanticSearchEnabled && (
+              <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3">
+                <div className="flex-1 pr-4">
+                  <p className="font-medium text-sm">Clear stored embeddings</p>
+                  <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
+                    Free up disk space, or keep them ready to use if you
+                    re-enable later
+                  </p>
+                </div>
+                <Switch
+                  checked={clearEmbeddings}
+                  onCheckedChange={setClearEmbeddings}
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowRemoveDialog(false)} variant="ghost">
+              Cancel
+            </Button>
+            <Button
+              disabled={isRemoving}
+              onClick={handleConfirmRemove}
+              variant="destructive"
+            >
+              {isRemoving ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 size-4" />
+              )}
+              Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
         API Keys
       </p>
-      <SettingRow
-        description={
-          <>
-            Required for AI image generation.{" "}
-            <button
-              className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
-              onClick={() => openUrl("https://aistudio.google.com/apikey")}
-              type="button"
+      <div>
+        <SettingRow
+          description="Required for AI image generation."
+          title="Gemini"
+        >
+          {hasKey ? (
+            <Button
+              onClick={() => setShowRemoveDialog(true)}
+              size="sm"
+              variant="destructive"
             >
-              <ExternalLink className="size-3" />
-              Get your key from Google AI Studio
-            </button>
-          </>
-        }
-        title="Gemini"
-      >
-        {hasKey ? (
-          <Button onClick={handleRemove} size="sm" variant="destructive">
-            <Trash2 className="mr-2 size-4" />
-            Remove
-          </Button>
-        ) : (
-          <div className="flex items-center gap-2">
-            <Input
-              className="w-64"
-              id="gemini-api-key"
-              onChange={(e) => setApiKey(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSave();
-              }}
-              placeholder="Enter your API key"
-              type="password"
-              value={apiKey}
-            />
-            {apiKey.trim().length > 0 && (
-              <Button
-                className="size-8 text-muted-foreground hover:text-foreground"
-                onClick={handleSave}
-                size="icon"
-                variant="ghost"
-              >
-                <Check className="size-4" />
-              </Button>
-            )}
-          </div>
-        )}
-      </SettingRow>
+              <Trash2 className="mr-2 size-4" />
+              Remove
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Input
+                className="w-64"
+                id="gemini-api-key"
+                onChange={(e) => setApiKey(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSave();
+                }}
+                placeholder="Enter your API key"
+                type="password"
+                value={apiKey}
+              />
+              {apiKey.trim().length > 0 && (
+                <Button
+                  className="size-8 text-muted-foreground hover:text-foreground"
+                  onClick={handleSave}
+                  size="icon"
+                  variant="ghost"
+                >
+                  <Check className="size-4" />
+                </Button>
+              )}
+            </div>
+          )}
+        </SettingRow>
+        <button
+          className="mt-1.5 inline-flex items-center gap-1 pl-4 text-muted-foreground text-xs hover:text-foreground hover:underline"
+          onClick={() => openUrl("https://aistudio.google.com/apikey")}
+          type="button"
+        >
+          <ExternalLink className="size-3" />
+          Get your key from Google AI Studio
+        </button>
+      </div>
     </div>
   );
 }
@@ -367,57 +470,55 @@ function ExploreSettings() {
         <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
           API Keys
         </p>
-        <SettingRow
-          description={
-            <>
-              Required for the Discovery page.{" "}
-              <button
-                className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
-                onClick={() =>
-                  openUrl(
-                    "https://console.cloud.google.com/apis/library/youtube.googleapis.com"
-                  )
-                }
-                type="button"
-              >
-                <ExternalLink className="size-3" />
-                Enable YouTube Data API v3 in Google Cloud Console
-              </button>
-            </>
-          }
-          title="YouTube"
-        >
-          {hasYoutubeKey ? (
-            <Button onClick={handleRemove} size="sm" variant="destructive">
-              <Trash2 className="mr-2 size-4" />
-              Remove
-            </Button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Input
-                className="w-64"
-                id="youtube-api-key"
-                onChange={(e) => setYoutubeKey(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSave();
-                }}
-                placeholder="Enter your API key"
-                type="password"
-                value={youtubeKey}
-              />
-              {youtubeKey.trim().length > 0 && (
-                <Button
-                  className="size-8 text-muted-foreground hover:text-foreground"
-                  onClick={handleSave}
-                  size="icon"
-                  variant="ghost"
-                >
-                  <Check className="size-4" />
-                </Button>
-              )}
-            </div>
-          )}
-        </SettingRow>
+        <div>
+          <SettingRow
+            description="Required for the Discovery page."
+            title="YouTube"
+          >
+            {hasYoutubeKey ? (
+              <Button onClick={handleRemove} size="sm" variant="destructive">
+                <Trash2 className="mr-2 size-4" />
+                Remove
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Input
+                  className="w-64"
+                  id="youtube-api-key"
+                  onChange={(e) => setYoutubeKey(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSave();
+                  }}
+                  placeholder="Enter your API key"
+                  type="password"
+                  value={youtubeKey}
+                />
+                {youtubeKey.trim().length > 0 && (
+                  <Button
+                    className="size-8 text-muted-foreground hover:text-foreground"
+                    onClick={handleSave}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <Check className="size-4" />
+                  </Button>
+                )}
+              </div>
+            )}
+          </SettingRow>
+          <button
+            className="mt-1.5 inline-flex items-center gap-1 pl-4 text-muted-foreground text-xs hover:text-foreground hover:underline"
+            onClick={() =>
+              openUrl(
+                "https://console.cloud.google.com/apis/library/youtube.googleapis.com"
+              )
+            }
+            type="button"
+          >
+            <ExternalLink className="size-3" />
+            Enable YouTube Data API v3 in Google Cloud Console
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -433,15 +534,40 @@ function OnboardingSettings() {
       <p className="pl-2 font-medium text-muted-foreground text-xs">
         Onboarding
       </p>
-      <SettingRow
-        description="Replay the getting-started tour to rediscover features."
-        title="Reset onboarding"
-      >
-        <Button onClick={() => setOnboardingCompleted(false)} size="sm">
-          <RefreshCw className="mr-1.5 size-3.5" />
-          Reset
-        </Button>
-      </SettingRow>
+      <div>
+        <SettingRow
+          description="Replay the getting-started tour to rediscover features."
+          title="Reset onboarding"
+        >
+          <Button onClick={() => setOnboardingCompleted(false)} size="sm">
+            <RefreshCw className="mr-1.5 size-3.5" />
+            Reset
+          </Button>
+        </SettingRow>
+      </div>
+    </div>
+  );
+}
+
+function ExperimentalSettings() {
+  const { experimentalFeaturesEnabled, setExperimentalFeaturesEnabled } =
+    useAppSettingsStore();
+  return (
+    <div className="space-y-4">
+      <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
+        Experimental
+      </p>
+      <div className="space-y-2">
+        <SettingRow
+          description="Enable early-access features that are still in development. Changes take effect immediately."
+          title="Experimental features"
+        >
+          <Switch
+            checked={experimentalFeaturesEnabled}
+            onCheckedChange={setExperimentalFeaturesEnabled}
+          />
+        </SettingRow>
+      </div>
     </div>
   );
 }
@@ -453,48 +579,208 @@ function GeneralSettings() {
       <AppearanceSettings />
       <OnboardingSettings />
       <BillingSettings />
+      <ExperimentalSettings />
+    </div>
+  );
+}
+
+function EmbeddingSettings() {
+  const { semanticSearchEnabled, setSemanticSearchEnabled } =
+    useAppSettingsStore();
+  const [hasGeminiKey, setHasGeminiKey] = useState(false);
+  const [keyLoading, setKeyLoading] = useState(true);
+  const [isBackfilling, setIsBackfilling] = useState(false);
+  const [backfillProgress, setBackfillProgress] = useState<{
+    current: number;
+    total: number;
+    failed: number;
+  } | null>(null);
+  const [showClearPrompt, setShowClearPrompt] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const [embeddedCount, setEmbeddedCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    getGeminiApiKey()
+      .then((k) => setHasGeminiKey(!!k))
+      .finally(() => setKeyLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (semanticSearchEnabled) {
+      getEmbeddingStats()
+        .then((s) => setEmbeddedCount(s.embedded))
+        .catch(() => {});
+    }
+  }, [semanticSearchEnabled]);
+
+  const handleToggle = useCallback(
+    async (enabled: boolean) => {
+      if (enabled) {
+        await setSemanticSearchEnabled(true);
+        setShowClearPrompt(false);
+        setIsBackfilling(true);
+        setBackfillProgress({ current: 0, total: 0, failed: 0 });
+        try {
+          const { useEmbeddingStore } = await import(
+            "@/stores/use-embedding-store"
+          );
+          const allIds = useGalleryStore.getState().thumbnails.map((t) => t.id);
+          await useEmbeddingStore
+            .getState()
+            .checkAndEmbedMissing(allIds, (p) => setBackfillProgress(p));
+          const stats = await getEmbeddingStats();
+          setEmbeddedCount(stats.embedded);
+        } finally {
+          setIsBackfilling(false);
+          setBackfillProgress(null);
+        }
+      } else {
+        await setSemanticSearchEnabled(false);
+        setShowClearPrompt(true);
+      }
+    },
+    [setSemanticSearchEnabled]
+  );
+
+  const handleClear = useCallback(async () => {
+    setIsClearing(true);
+    try {
+      const ids = await getEmbeddedProjectIds();
+      await deleteEmbeddingsBatch(ids);
+      setEmbeddedCount(0);
+      setShowClearPrompt(false);
+      sileo.success({ title: "Embeddings cleared" });
+    } catch {
+      sileo.error({ title: "Failed to clear embeddings" });
+    } finally {
+      setIsClearing(false);
+    }
+  }, []);
+
+  const disabled = keyLoading || !hasGeminiKey;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between pr-2 pl-2">
+        <p className="font-medium text-muted-foreground text-xs">
+          Semantic Search
+        </p>
+        <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-medium text-amber-600 text-xs dark:text-amber-400">
+          Experimental
+        </span>
+      </div>
+      <div className="space-y-2">
+        <SettingRow
+          description={
+            hasGeminiKey || keyLoading
+              ? semanticSearchEnabled && embeddedCount !== null
+                ? `${embeddedCount} project${embeddedCount !== 1 ? "s" : ""} indexed`
+                : "Index project thumbnails for visual semantic search"
+              : "Requires a Gemini API key"
+          }
+          title="Image Embeddings"
+        >
+          <Switch
+            checked={semanticSearchEnabled}
+            disabled={disabled}
+            onCheckedChange={handleToggle}
+          />
+        </SettingRow>
+        {isBackfilling && (
+          <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-4 py-3">
+            <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+            <p className="text-muted-foreground text-xs">
+              {backfillProgress && backfillProgress.total > 0
+                ? `Indexing ${backfillProgress.current} / ${backfillProgress.total}…${backfillProgress.failed > 0 ? ` (${backfillProgress.failed} failed)` : ""}`
+                : "Indexing projects…"}
+            </p>
+          </div>
+        )}
+        {showClearPrompt && (
+          <div className="space-y-3 rounded-lg bg-muted/50 px-4 py-3">
+            <p className="font-medium text-sm">Clear embeddings?</p>
+            <p className="text-muted-foreground text-xs leading-snug">
+              Stored embeddings are kept on disk. Keep them so they're ready if
+              you re-enable later, or clear them to free up space.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setShowClearPrompt(false)}
+                size="sm"
+                variant="ghost"
+              >
+                Keep
+              </Button>
+              <Button
+                disabled={isClearing}
+                onClick={handleClear}
+                size="sm"
+                variant="destructive"
+              >
+                {isClearing ? (
+                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-1.5 size-3.5" />
+                )}
+                Clear
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 function AiSettings() {
+  const experimentalFeaturesEnabled = useAppSettingsStore(
+    (s) => s.experimentalFeaturesEnabled
+  );
   return (
     <div className="space-y-6">
       <h2 className="pl-2 font-semibold text-lg">AI</h2>
       <GeminiKeySection />
+      {experimentalFeaturesEnabled && <EmbeddingSettings />}
       <ProcessingSettings />
-      <AgentSettings />
+      {experimentalFeaturesEnabled && <AgentSettings />}
     </div>
   );
 }
 
 function AppearanceSettings() {
   const {
-    showDecemberSnow,
-    setShowDecemberSnow,
+    seasonalEffectsEnabled,
+    setSeasonalEffectsEnabled,
     theme,
     setTheme,
     persistTabs,
     setPersistTabs,
     rememberWindowBounds,
     setRememberWindowBounds,
-    previewSnow,
-    setPreviewSnow,
+    previewSeasonTheme,
+    setPreviewSeasonTheme,
   } = useAppSettingsStore();
+
+  const [selectedPreviewSeason, setSelectedPreviewSeason] =
+    useState<SeasonalTheme>("christmas");
+
+  const selectedSeasonConfig = SEASONS.find(
+    (s) => s.id === selectedPreviewSeason
+  );
 
   const [previewTimer, setPreviewTimer] = useState<ReturnType<
     typeof setTimeout
   > | null>(null);
 
-  const handlePreviewSnow = useCallback(() => {
+  const handlePreviewSeason = useCallback(() => {
     if (previewTimer) clearTimeout(previewTimer);
-    setPreviewSnow(true);
+    setPreviewSeasonTheme(selectedPreviewSeason);
     const t = setTimeout(() => {
-      setPreviewSnow(false);
+      setPreviewSeasonTheme(null);
       setPreviewTimer(null);
     }, 5000);
     setPreviewTimer(t);
-  }, [previewTimer, setPreviewSnow]);
+  }, [previewTimer, setPreviewSeasonTheme, selectedPreviewSeason]);
 
   const [launchAtStartup, setLaunchAtStartupState] = useState<boolean | null>(
     null
@@ -524,31 +810,33 @@ function AppearanceSettings() {
 
   return (
     <div className="space-y-4">
-      <SettingRow
-        description="Open Backstage automatically when you log in to your computer."
-        title="Launch at startup"
-      >
-        <Switch
-          checked={launchAtStartup ?? false}
-          disabled={launchAtStartup === null}
-          onCheckedChange={handleLaunchAtStartup}
-        />
-      </SettingRow>
-      <SettingRow
-        description="Reopen your last open projects when launching the app."
-        title="Restore tabs on startup"
-      >
-        <Switch checked={persistTabs} onCheckedChange={setPersistTabs} />
-      </SettingRow>
-      <SettingRow
-        description="Save and restore window position and size between sessions."
-        title="Remember window position & size"
-      >
-        <Switch
-          checked={rememberWindowBounds}
-          onCheckedChange={setRememberWindowBounds}
-        />
-      </SettingRow>
+      <div className="space-y-2">
+        <SettingRow
+          description="Open Backstage automatically when you log in to your computer."
+          title="Launch at startup"
+        >
+          <Switch
+            checked={launchAtStartup ?? false}
+            disabled={launchAtStartup === null}
+            onCheckedChange={handleLaunchAtStartup}
+          />
+        </SettingRow>
+        <SettingRow
+          description="Reopen your last open projects when launching the app."
+          title="Restore tabs on startup"
+        >
+          <Switch checked={persistTabs} onCheckedChange={setPersistTabs} />
+        </SettingRow>
+        <SettingRow
+          description="Save and restore window position and size between sessions."
+          title="Remember window position & size"
+        >
+          <Switch
+            checked={rememberWindowBounds}
+            onCheckedChange={setRememberWindowBounds}
+          />
+        </SettingRow>
+      </div>
       <p className="pl-2 font-medium text-muted-foreground text-xs">
         Appearance
       </p>
@@ -595,20 +883,58 @@ function AppearanceSettings() {
           </SelectContent>
         </Select>
       </SettingRow>
-      <SettingRow
-        description="Show a festive snowfall effect in the title bar during December."
-        title="December Snowfall"
-      >
-        <div className="flex items-center gap-2">
-          <Button disabled={previewSnow} onClick={handlePreviewSnow} size="sm">
-            {previewSnow ? "Previewing…" : "Preview"}
-          </Button>
-          <Switch
-            checked={showDecemberSnow}
-            onCheckedChange={setShowDecemberSnow}
-          />
-        </div>
-      </SettingRow>
+      <Frame>
+        <FrameHeader className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex-1 pr-4">
+              <p className="font-medium text-sm">Seasonal Effects</p>
+              <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
+                Show festive effects in the title bar during special dates.
+              </p>
+            </div>
+            <Switch
+              checked={seasonalEffectsEnabled}
+              onCheckedChange={setSeasonalEffectsEnabled}
+            />
+          </div>
+        </FrameHeader>
+        <FramePanel className="px-4 py-3">
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <Select
+                onValueChange={(v) =>
+                  setSelectedPreviewSeason(v as SeasonalTheme)
+                }
+                value={selectedPreviewSeason}
+              >
+                <SelectTrigger
+                  className="w-full border-none bg-transparent shadow-none focus:bg-transparent dark:bg-transparent"
+                  size="sm"
+                >
+                  <SelectValue>
+                    {selectedSeasonConfig &&
+                      `${getSeasonDisplayEmoji(selectedSeasonConfig)} ${selectedSeasonConfig.label}`}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {SEASONS.map((season) => (
+                    <SelectItem key={season.id} value={season.id}>
+                      {getSeasonDisplayEmoji(season)} {season.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              disabled={!!previewSeasonTheme}
+              onClick={handlePreviewSeason}
+              size="sm"
+            >
+              {previewSeasonTheme ? "Previewing…" : "Preview"}
+            </Button>
+          </div>
+        </FramePanel>
+      </Frame>
     </div>
   );
 }
@@ -616,31 +942,19 @@ function AppearanceSettings() {
 const BG_QUALITY_OPTIONS: {
   value: BgRemovalQuality;
   label: string;
-  description: string;
-  detail: string;
-  icon: React.ReactNode;
+  size: string;
+  accuracy: number;
+  speed: number;
 }[] = [
-  {
-    value: "fast",
-    label: "Fast",
-    description: "Quickest processing, good for previews",
-    detail: "~40 MB model · lowest resource usage",
-    icon: <Zap className="size-5" />,
-  },
+  { value: "fast", label: "Fast", size: "40 MB", accuracy: 40, speed: 95 },
   {
     value: "balanced",
     label: "Balanced",
-    description: "Great results with reasonable speed",
-    detail: "~80 MB model · recommended",
-    icon: <Wand2 className="size-5" />,
+    size: "80 MB",
+    accuracy: 70,
+    speed: 65,
   },
-  {
-    value: "best",
-    label: "Best Quality",
-    description: "Sharpest edges, highest accuracy",
-    detail: "~160 MB model · slower, more memory",
-    icon: <Sparkles className="size-5" />,
-  },
+  { value: "best", label: "Best", size: "160 MB", accuracy: 95, speed: 30 },
 ];
 
 const BG_PROVIDER_OPTIONS: {
@@ -651,18 +965,18 @@ const BG_PROVIDER_OPTIONS: {
   {
     value: "imgly",
     label: "ISNet (img.ly)",
-    description: "Runs in-browser, no extra download needed",
+    description: "No extra download needed",
   },
   {
     value: "briaai",
     label: "BRIA RMBG-1.4",
-    description: "Higher accuracy · requires one-time ~176 MB model download",
+    description: "Higher accuracy · one-time ~176 MB download",
   },
   {
     value: "briaai2",
     label: "BRIA RMBG-2.0",
     description:
-      "Latest BRIA model · improved accuracy · requires one-time ~890 MB model download · non-commercial license",
+      "Best accuracy · one-time ~890 MB download · non-commercial license",
   },
 ];
 
@@ -720,39 +1034,47 @@ function BriaModelRow({
   }
 
   return (
-    <SettingRow description={description} title={title}>
-      {briaStatus?.exists ? (
-        <Button
-          disabled={isDownloading}
-          onClick={onDownload}
-          size="sm"
-          variant="ghost"
-        >
-          Re-download
-        </Button>
-      ) : (
-        <div className="flex flex-col items-end gap-2">
-          {isDownloading && downloadProgress && (
-            <div className="w-40 space-y-1">
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full bg-primary transition-all"
-                  style={{ width: `${downloadPercent ?? 0}%` }}
-                />
-              </div>
-              <p className="text-muted-foreground text-xs">
-                {formatBytes(downloadProgress.downloaded)} /{" "}
-                {formatBytes(downloadProgress.total)} ({downloadPercent}%)
-              </p>
-            </div>
-          )}
-          <Button disabled={isDownloading} onClick={onDownload} size="sm">
-            <Download className="mr-2 size-4" />
-            {isDownloading ? "Downloading…" : "Download Model"}
+    <div className="flex items-center justify-between">
+      <div className="flex-1 pr-4">
+        <p className="font-medium text-sm">{title}</p>
+        <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
+          {description}
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        {briaStatus?.exists ? (
+          <Button
+            disabled={isDownloading}
+            onClick={onDownload}
+            size="sm"
+            variant="ghost"
+          >
+            Re-download
           </Button>
-        </div>
-      )}
-    </SettingRow>
+        ) : (
+          <div className="flex flex-col items-end gap-2">
+            {isDownloading && downloadProgress && (
+              <div className="w-40 space-y-1">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full bg-primary transition-all"
+                    style={{ width: `${downloadPercent ?? 0}%` }}
+                  />
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  {formatBytes(downloadProgress.downloaded)} /{" "}
+                  {formatBytes(downloadProgress.total)} ({downloadPercent}%)
+                </p>
+              </div>
+            )}
+            <Button disabled={isDownloading} onClick={onDownload} size="sm">
+              <Download className="mr-2 size-4" />
+              {isDownloading ? "Downloading…" : "Download Model"}
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -773,6 +1095,11 @@ function ProcessingSettings() {
   } = useAppSettingsStore();
 
   const [isBriaAvailable, setIsBriaAvailable] = useState(false);
+  const [hasGeminiKey, setHasGeminiKey] = useState(false);
+
+  useEffect(() => {
+    getGeminiApiKey().then((k) => setHasGeminiKey(!!k));
+  }, []);
 
   // HuggingFace token (for gated models like RMBG-2.0)
   const [hfToken, setHfTokenState] = useState("");
@@ -914,212 +1241,251 @@ function ProcessingSettings() {
   return (
     <div className="space-y-6">
       <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
-        Processing
+        Background Removal
       </p>
 
       <div className="space-y-4">
-        {/* Provider selector, hidden in commercial builds without BRIA */}
-        {isBriaAvailable && (
-          <div className="pt-2">
-            <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
-              Background Removal Engine
-            </p>
-            <div className="flex flex-col gap-2">
-              {BG_PROVIDER_OPTIONS.map((option) => {
-                const isSelected = bgRemovalProvider === option.value;
-                return (
-                  <button
-                    className={`flex items-center gap-4 rounded-lg border p-4 text-left transition-colors ${
-                      isSelected
-                        ? "border-primary bg-primary/5"
-                        : "border-transparent bg-muted/50 hover:bg-muted"
-                    }`}
-                    key={option.value}
-                    onClick={() => setBgRemovalProvider(option.value)}
-                    type="button"
-                  >
-                    <div className="flex-1">
-                      <span className="font-medium text-sm">
-                        {option.label}
-                      </span>
-                      <p className="text-muted-foreground text-xs">
-                        {option.description}
-                      </p>
-                    </div>
-                    {isSelected && (
-                      <Check className="size-4 shrink-0 text-primary" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* BRIA model download status */}
-        {isBriaAvailable && bgRemovalProvider === "briaai" && (
-          <BriaModelRow
-            briaStatus={briaStatus}
-            downloadPercent={downloadPercent}
-            downloadProgress={downloadProgress}
-            downloadSizeMb="176 MB"
-            isDownloading={isDownloading}
-            onDownload={handleDownload}
-            title="BRIA RMBG-1.4 Model"
-          />
-        )}
-        {isBriaAvailable && bgRemovalProvider === "briaai2" && (
-          <>
-            <SettingRow
-              description={
-                hfTokenSaved ? (
-                  "Token saved · used for gated model downloads"
-                ) : (
-                  <>
-                    RMBG-2.0 is gated. Agree to the license then enter your
-                    access token.{" "}
+        <Frame>
+          {isBriaAvailable && (
+            <FrameHeader className="px-4 py-3">
+              <p className="mb-3 font-medium text-sm">Engine</p>
+              <div className="flex flex-col gap-2">
+                {BG_PROVIDER_OPTIONS.map((option) => {
+                  const isSelected = bgRemovalProvider === option.value;
+                  return (
                     <button
-                      className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
-                      onClick={() =>
-                        openUrl("https://huggingface.co/briaai/RMBG-2.0")
-                      }
+                      className={`flex items-center gap-4 rounded-lg p-4 text-left transition-colors ${
+                        isSelected
+                          ? "bg-foreground text-background"
+                          : "bg-muted/50 hover:bg-muted"
+                      }`}
+                      key={option.value}
+                      onClick={() => setBgRemovalProvider(option.value)}
                       type="button"
                     >
-                      <ExternalLink className="size-3" />
-                      Agree &amp; get token
-                    </button>
-                  </>
-                )
-              }
-              title="HuggingFace Access Token"
-            >
-              {hfTokenSaved ? (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
-                    <div className="size-2 rounded-full bg-green-500" />
-                    Saved
-                  </div>
-                  <Button
-                    onClick={async () => {
-                      await removeHfToken();
-                      setHfTokenSaved(false);
-                      sileo.success({ title: "Token removed" });
-                    }}
-                    size="sm"
-                    variant="ghost"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Input
-                    className="w-52"
-                    onChange={(e) => setHfTokenState(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleSaveHfToken();
-                    }}
-                    placeholder="hf_…"
-                    type="password"
-                    value={hfToken}
-                  />
-                  <Button
-                    disabled={!hfToken.trim()}
-                    onClick={handleSaveHfToken}
-                    size="sm"
-                  >
-                    Save
-                  </Button>
-                </div>
-              )}
-            </SettingRow>
-            <BriaModelRow
-              briaStatus={briaV2Status}
-              downloadPercent={downloadPercentV2}
-              downloadProgress={downloadProgressV2}
-              downloadSizeMb="~890 MB"
-              isDownloading={isDownloadingV2}
-              onDownload={handleDownloadV2}
-              title="BRIA RMBG-2.0 Model"
-            />
-          </>
-        )}
-
-        {/* Quality tiers are only applicable when using the imgly provider */}
-        {bgRemovalProvider === "imgly" && (
-          <div className="pt-2">
-            <p className="mb-1 pl-2 font-medium text-muted-foreground text-xs">
-              Background Removal Quality
-            </p>
-            <p className="mb-3 pl-2 text-muted-foreground text-xs">
-              Higher quality uses a larger AI model downloaded on first use. The
-              model is cached locally after that.
-            </p>
-            <div className="flex flex-col gap-2">
-              {BG_QUALITY_OPTIONS.map((option) => {
-                const isSelected = bgRemovalQuality === option.value;
-                return (
-                  <button
-                    className={`flex items-center gap-4 rounded-lg border p-4 text-left transition-colors ${
-                      isSelected
-                        ? "border-primary bg-primary/5"
-                        : "border-transparent bg-muted/50 hover:bg-muted"
-                    }`}
-                    key={option.value}
-                    onClick={() => setBgRemovalQuality(option.value)}
-                    type="button"
-                  >
-                    <div
-                      className={`shrink-0 ${isSelected ? "text-primary" : "text-muted-foreground"}`}
-                    >
-                      {option.icon}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">
-                          {option.label}
-                        </span>
-                        {option.value === "balanced" && (
-                          <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
-                            Default
-                          </span>
-                        )}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-sm">{option.label}</p>
+                          {option.value === "imgly" && (
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs ${isSelected ? "bg-background/20 text-background/70" : "bg-muted text-muted-foreground"}`}
+                            >
+                              Default
+                            </span>
+                          )}
+                          {isSelected && (
+                            <Check className="size-3.5 shrink-0 text-background" />
+                          )}
+                        </div>
+                        <p
+                          className={`mt-0.5 text-xs leading-snug ${isSelected ? "text-background/60" : "text-muted-foreground"}`}
+                        >
+                          {option.description}
+                        </p>
                       </div>
-                      <p className="text-muted-foreground text-sm">
-                        {option.description}
-                      </p>
-                      <p className="mt-0.5 text-muted-foreground/70 text-xs">
-                        {option.detail}
-                      </p>
-                    </div>
-                    {isSelected && (
-                      <Check className="size-4 shrink-0 text-primary" />
+                    </button>
+                  );
+                })}
+              </div>
+            </FrameHeader>
+          )}
+          {bgRemovalProvider === "imgly" && (
+            <FramePanel className="px-4 py-3">
+              <p className="mb-1 font-medium text-sm">Quality</p>
+              <p className="mb-3 text-muted-foreground text-xs">
+                Higher quality uses a larger AI model downloaded on first use.
+                The model is cached locally after that.
+              </p>
+              <div className="flex flex-col gap-2">
+                {BG_QUALITY_OPTIONS.map((option) => {
+                  const isSelected = bgRemovalQuality === option.value;
+                  return (
+                    <button
+                      className={`flex items-center gap-4 rounded-lg p-3 text-left transition-colors ${
+                        isSelected
+                          ? "bg-foreground text-background"
+                          : "bg-muted/50 hover:bg-muted"
+                      }`}
+                      key={option.value}
+                      onClick={() => setBgRemovalQuality(option.value)}
+                      type="button"
+                    >
+                      {/* Left: label + size */}
+                      <div className="flex flex-1 flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">
+                            {option.label}
+                          </span>
+                          {option.value === "balanced" && (
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs ${isSelected ? "bg-background/20 text-background/70" : "bg-muted text-muted-foreground"}`}
+                            >
+                              Default
+                            </span>
+                          )}
+                          {isSelected && (
+                            <Check className="size-3.5 shrink-0 text-background" />
+                          )}
+                        </div>
+                        <div
+                          className={`flex items-center gap-1 ${isSelected ? "text-background/60" : "text-muted-foreground"}`}
+                        >
+                          <Download className="size-3 shrink-0" />
+                          <span className="text-xs">{option.size}</span>
+                        </div>
+                      </div>
+                      {/* Right: progress bars */}
+                      <div className="flex w-32 shrink-0 flex-col gap-1.5">
+                        {[
+                          { label: "Accuracy", value: option.accuracy },
+                          { label: "Speed", value: option.speed },
+                        ].map((bar) => (
+                          <div
+                            className="flex items-center gap-2"
+                            key={bar.label}
+                          >
+                            <span
+                              className={`w-12 shrink-0 text-xs ${isSelected ? "text-background/60" : "text-muted-foreground"}`}
+                            >
+                              {bar.label}
+                            </span>
+                            <div
+                              className={`h-1 flex-1 overflow-hidden rounded-full ${isSelected ? "bg-background/20" : "bg-muted"}`}
+                            >
+                              <div
+                                className={`h-full rounded-full transition-all ${isSelected ? "bg-background" : "bg-foreground/40"}`}
+                                style={{ width: `${bar.value}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </FramePanel>
+          )}
+          {bgRemovalProvider === "briaai" && (
+            <FramePanel className="px-4 py-3">
+              <BriaModelRow
+                briaStatus={briaStatus}
+                downloadPercent={downloadPercent}
+                downloadProgress={downloadProgress}
+                downloadSizeMb="176 MB"
+                isDownloading={isDownloading}
+                onDownload={handleDownload}
+                title="BRIA RMBG-1.4 Model"
+              />
+            </FramePanel>
+          )}
+          {bgRemovalProvider === "briaai2" && (
+            <FramePanel className="overflow-hidden p-0">
+              <div className="px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 pr-4">
+                    <p className="font-medium text-sm">
+                      HuggingFace Access Token
+                    </p>
+                    <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
+                      {hfTokenSaved
+                        ? "Token saved · used for gated model downloads"
+                        : "RMBG-2.0 is gated. Agree to the license then enter your access token."}
+                    </p>
+                    {!hfTokenSaved && (
+                      <button
+                        className="mt-1.5 inline-flex items-center gap-1 text-muted-foreground text-xs hover:text-foreground hover:underline"
+                        onClick={() =>
+                          openUrl("https://huggingface.co/briaai/RMBG-2.0")
+                        }
+                        type="button"
+                      >
+                        <ExternalLink className="size-3" />
+                        Agree &amp; get token
+                      </button>
                     )}
-                  </button>
-                );
-              })}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {hfTokenSaved ? (
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+                          <div className="size-2 rounded-full bg-green-500" />
+                          Saved
+                        </div>
+                        <Button
+                          onClick={async () => {
+                            await removeHfToken();
+                            setHfTokenSaved(false);
+                            sileo.success({ title: "Token removed" });
+                          }}
+                          size="sm"
+                          variant="ghost"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          className="w-52"
+                          onChange={(e) => setHfTokenState(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSaveHfToken();
+                          }}
+                          placeholder="hf_…"
+                          type="password"
+                          value={hfToken}
+                        />
+                        <Button
+                          disabled={!hfToken.trim()}
+                          onClick={handleSaveHfToken}
+                          size="sm"
+                        >
+                          Save
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="mx-4 h-px bg-border" />
+              <div className="px-4 py-3">
+                <BriaModelRow
+                  briaStatus={briaV2Status}
+                  downloadPercent={downloadPercentV2}
+                  downloadProgress={downloadProgressV2}
+                  downloadSizeMb="~890 MB"
+                  isDownloading={isDownloadingV2}
+                  onDownload={handleDownloadV2}
+                  title="BRIA RMBG-2.0 Model"
+                />
+              </div>
+            </FramePanel>
+          )}
+        </Frame>
+
+        <Frame>
+          <FrameHeader className="px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 pr-4">
+                <p className="font-medium text-sm">Gemini Pre-processing</p>
+                <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
+                  {hasGeminiKey
+                    ? "Use Gemini to fill the background with a solid color before running background removal for potentially cleaner subject cuts"
+                    : "Requires a Gemini API key"}
+                </p>
+              </div>
+              <Switch
+                checked={bgRemovalGeminiEnabled}
+                disabled={!hasGeminiKey}
+                onCheckedChange={setBgRemovalGeminiEnabled}
+              />
             </div>
-          </div>
-        )}
-
-        {/* Gemini Pre-processing */}
-        <div className="pt-2">
-          <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
-            Gemini Pre-processing
-          </p>
-          <SettingRow
-            description="Use Gemini to fill the background with a solid color before running background removal for potentially cleaner subject cuts"
-            title="Enable Pre-processing"
-          >
-            <Switch
-              checked={bgRemovalGeminiEnabled}
-              onCheckedChange={setBgRemovalGeminiEnabled}
-            />
-          </SettingRow>
-
+          </FrameHeader>
           {bgRemovalGeminiEnabled && (
-            <div className="mt-2 space-y-3">
-              <SettingRow title="Gemini Model">
+            <FramePanel className="overflow-hidden p-0">
+              <div className="flex items-center justify-between px-4 py-3">
+                <p className="font-medium text-sm">Gemini Model</p>
                 <Select
                   onValueChange={(v) => v && setBgRemovalGeminiModel(v)}
                   value={bgRemovalGeminiModel}
@@ -1128,7 +1494,13 @@ function ProcessingSettings() {
                     className="w-56 border-none bg-transparent shadow-none focus:bg-transparent dark:bg-transparent"
                     size="sm"
                   >
-                    <SelectValue />
+                    <SelectValue>
+                      {
+                        GEMINI_BG_MODELS.find(
+                          (m) => m.value === bgRemovalGeminiModel
+                        )?.label
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {GEMINI_BG_MODELS.map((m) => (
@@ -1138,13 +1510,16 @@ function ProcessingSettings() {
                     ))}
                   </SelectContent>
                 </Select>
-              </SettingRow>
-
-              <SettingRow
-                description="Color Gemini fills the background with before removal"
-                title="Background Color"
-              >
-                <div className="flex items-center gap-3">
+              </div>
+              <div className="mx-4 h-px bg-border" />
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex-1 pr-4">
+                  <p className="font-medium text-sm">Background Color</p>
+                  <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
+                    Color Gemini fills the background with before removal
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-3">
                   <div className="flex gap-1.5">
                     {["#00ff00", "#000000", "#808080", "#ffffff"].map((c) => (
                       <button
@@ -1180,20 +1555,24 @@ function ProcessingSettings() {
                     </ColorPickerContent>
                   </ColorPicker>
                 </div>
-              </SettingRow>
-
-              <SettingRow
-                description="Pass Gemini output through the background remover for a transparent result"
-                title="Auto-remove background"
-              >
+              </div>
+              <div className="mx-4 h-px bg-border" />
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex-1 pr-4">
+                  <p className="font-medium text-sm">Auto-remove background</p>
+                  <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
+                    Pass Gemini output through the background remover for a
+                    transparent result
+                  </p>
+                </div>
                 <Switch
                   checked={bgRemovalGeminiAutoRemove}
                   onCheckedChange={setBgRemovalGeminiAutoRemove}
                 />
-              </SettingRow>
-            </div>
+              </div>
+            </FramePanel>
           )}
-        </div>
+        </Frame>
       </div>
     </div>
   );
@@ -1417,6 +1796,91 @@ function StorageSettings({
     }
   }, []);
 
+  const handleConfirmImport = useCallback(async (zipPath: string) => {
+    setImporting(true);
+    setImportProgress(0);
+    setImportPhase("Extracting…");
+    let succeeded = false;
+
+    const emitToast = (msg: string) => {
+      progressLatest["import-progress"] = msg;
+      window.dispatchEvent(new CustomEvent("import-progress", { detail: msg }));
+    };
+    const setPhase = (label: string) => {
+      setImportPhase(label);
+      emitToast(label);
+    };
+
+    const loadingId = sileo.info({
+      id: "import-backup",
+      title: "Restoring backup…",
+      description: <ProgressDescription event="import-progress" />,
+      duration: null,
+      autopilot: { expand: 0 },
+    });
+
+    // Wire up Tauri event → UI progress before invoking Rust
+    const unlisten = await listen<{ pct: number; name: string }>(
+      "import-progress",
+      (event) => {
+        const { pct, name } = event.payload;
+        setImportProgress(pct);
+        const section = name.split("/")[0];
+        setPhase(`Restoring ${section}…`);
+        emitToast(`${name.split("/").pop()} · ${pct}%`);
+      }
+    );
+
+    try {
+      setPhase("Extracting backup…");
+      // Checkpoint the WAL into the main DB file before closing so no stale
+      // WAL pages are left on disk to corrupt the restored database on reopen.
+      try {
+        const db = await getDb();
+        await db.execute("PRAGMA wal_checkpoint(TRUNCATE)");
+      } catch {
+        // Non-fatal — best effort; the Rust side also cleans up WAL after extract.
+      }
+      await closeDb();
+      await invoke("import_backup", { zipPath });
+      unlisten();
+      sileo.dismiss(loadingId);
+      sileo.success({ title: "Backup restored. Restarting…" });
+      succeeded = true;
+    } catch (err) {
+      unlisten();
+      sileo.dismiss(loadingId);
+      sileo.error({
+        title: "Import failed",
+        description: String(err),
+        duration: null,
+      });
+    } finally {
+      // Keep UI locked on success so nothing re-activates DB queries during
+      // the restart window. Only re-enable on failure.
+      if (!succeeded) {
+        setImporting(false);
+        setImportProgress(0);
+      }
+    }
+
+    if (succeeded) {
+      setTimeout(async () => {
+        try {
+          await relaunch();
+        } catch (err) {
+          setImporting(false);
+          setImportProgress(0);
+          sileo.error({
+            title: "Restart failed — please relaunch manually",
+            description: String(err),
+            duration: null,
+          });
+        }
+      }, 1500);
+    }
+  }, []);
+
   const handlePickImport = useCallback(async () => {
     const filePath = await openDialog({
       multiple: false,
@@ -1437,128 +1901,7 @@ function StorageSettings({
         },
       },
     });
-  }, []);
-
-  const handleConfirmImport = useCallback(async (zipPath: string) => {
-    setImporting(true);
-    setImportProgress(0);
-    setImportPhase("Reading…");
-    try {
-      await sileo.promise(
-        (async () => {
-          const emitToast = (msg: string) => {
-            progressLatest["import-progress"] = msg;
-            window.dispatchEvent(
-              new CustomEvent("import-progress", { detail: msg })
-            );
-          };
-          const setPhase = (label: string) => {
-            setImportPhase(label);
-            emitToast(label);
-          };
-
-          setPhase("Reading archive…");
-          const bytes = await readFile(zipPath);
-
-          const hexOf = (b: Uint8Array, n: number) =>
-            Array.from(b.subarray(0, n))
-              .map((x) => x.toString(16).padStart(2, "0"))
-              .join(" ");
-          const head16 = hexOf(bytes, 16);
-          const tail16 = hexOf(
-            bytes.subarray(Math.max(0, bytes.length - 16)),
-            16
-          );
-
-          if (bytes.length < 4) {
-            throw new Error(
-              `File is empty (${bytes.length} bytes). head: ${head16}`
-            );
-          }
-
-          // Find PK\x03\x04 local-file-header signature — handles garbage prepended to zip
-          let zipStart = 0;
-          if (
-            !(
-              bytes[0] === 0x50 &&
-              bytes[1] === 0x4b &&
-              bytes[2] === 0x03 &&
-              bytes[3] === 0x04
-            )
-          ) {
-            zipStart = -1;
-            for (let i = 1; i < Math.min(bytes.length - 4, 65_536); i++) {
-              if (
-                bytes[i] === 0x50 &&
-                bytes[i + 1] === 0x4b &&
-                bytes[i + 2] === 0x03 &&
-                bytes[i + 3] === 0x04
-              ) {
-                zipStart = i;
-                break;
-              }
-            }
-            if (zipStart < 0) {
-              throw new Error(
-                `Not a valid ZIP. size=${bytes.length} head=[${head16}] tail=[${tail16}]`
-              );
-            }
-          }
-
-          const zipBytes = zipStart > 0 ? bytes.slice(zipStart) : bytes;
-          let zip: JSZip;
-          try {
-            zip = await JSZip.loadAsync(zipBytes);
-          } catch (e) {
-            throw new Error(
-              `JSZip failed (file likely truncated — only tail chunk survived export): ${e instanceof Error ? e.message : String(e)}. size=${bytes.length} zipStart=${zipStart} head=[${head16}] tail=[${tail16}]`
-            );
-          }
-          const appData = await appDataDir();
-          await closeDb();
-          const fileEntries = Object.entries(zip.files).filter(
-            ([, f]) => !f.dir
-          );
-          const total = fileEntries.length;
-          let lastSection = "";
-          for (let i = 0; i < fileEntries.length; i++) {
-            const [entryPath, zipFile] = fileEntries[i];
-            const slashIdx = entryPath.lastIndexOf("/");
-            if (slashIdx > 0) {
-              await mkdir(
-                await join(appData, entryPath.substring(0, slashIdx)),
-                { recursive: true }
-              ).catch(() => {});
-            }
-            const content = await zipFile.async("uint8array");
-            await writeFile(await join(appData, entryPath), content);
-            const p = Math.round(((i + 1) / total) * 100);
-            setImportProgress(p);
-            const section = entryPath.split("/")[0];
-            if (section !== lastSection) {
-              lastSection = section;
-              setPhase(`Restoring ${section}…`);
-            }
-            emitToast(`${entryPath.split("/").pop()} · ${p}%`);
-          }
-        })(),
-        {
-          loading: {
-            title: "Restoring backup…",
-            description: <ProgressDescription event="import-progress" />,
-            duration: 600_000,
-            autopilot: { expand: 0 },
-          },
-          success: { title: "Backup restored. Restarting…" },
-          error: (err: unknown) => ({ title: `Import failed: ${err}` }),
-        }
-      );
-      setTimeout(() => relaunch(), 1500);
-    } catch {
-      setImporting(false);
-      setImportProgress(0);
-    }
-  }, []);
+  }, [handleConfirmImport]);
 
   const handleConfirmWipe = useCallback(async () => {
     setIsWiping(true);
@@ -1599,11 +1942,13 @@ function StorageSettings({
     }
   }, []);
 
+  const busy = exporting || importing;
+
   const sizeLabel =
     storageSize === null
       ? "Calculating…"
       : storageSize === 0
-        ? "No data stored"
+        ? "0 MB"
         : formatBytes(storageSize);
 
   return (
@@ -1611,156 +1956,173 @@ function StorageSettings({
       <h2 className="pl-2 font-semibold text-lg">Storage</h2>
 
       <div className="space-y-4">
-        <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
-          Revision History
+        <p className="pl-2 font-medium text-muted-foreground text-xs">
+          Backup &amp; Restore
         </p>
-        <SettingRow
-          description="Remove all saved revision checkpoints to free up disk space."
-          title="Revision History"
-        >
-          <Button
-            disabled={isPurging}
-            onClick={handlePurge}
-            size="sm"
-            variant="destructive"
+        <div className="space-y-2">
+          <SettingRow
+            description="All projects, images, revision history, and settings."
+            title="Export Full Backup"
           >
-            <Trash2 className="mr-2 size-4" />
-            {isPurging ? "Purging…" : `Purge ${sizeLabel}`}
-          </Button>
-        </SettingRow>
+            <Button
+              className="relative overflow-hidden"
+              disabled={busy}
+              onClick={handleExport}
+              size="sm"
+            >
+              {exporting && (
+                <span
+                  className="absolute inset-0 bg-primary/20 transition-[width] duration-200"
+                  style={{ width: `${exportProgress}%` }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5">
+                {exporting ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Download className="size-4" />
+                )}
+                {exporting ? (
+                  <>
+                    <span>{exportPhase}</span>
+                    {exportProgress > 0 && (
+                      <span className="shrink-0">{exportProgress}%</span>
+                    )}
+                  </>
+                ) : (
+                  "Export"
+                )}
+              </span>
+            </Button>
+          </SettingRow>
+          <SettingRow
+            description="Restore from a previously exported backup ZIP."
+            title="Import Backup"
+          >
+            <Button
+              className="relative overflow-hidden"
+              disabled={busy}
+              onClick={handlePickImport}
+              size="sm"
+            >
+              {importing && (
+                <span
+                  className="absolute inset-0 bg-primary/20 transition-[width] duration-200"
+                  style={{ width: `${importProgress}%` }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5">
+                {importing ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Upload className="size-4" />
+                )}
+                {importing ? (
+                  <>
+                    <span>{importPhase}</span>
+                    {importProgress > 0 && (
+                      <span className="shrink-0">{importProgress}%</span>
+                    )}
+                  </>
+                ) : (
+                  "Import"
+                )}
+              </span>
+            </Button>
+          </SettingRow>
+        </div>
       </div>
 
       <div className="space-y-4">
-        <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
-          Data Transfer
+        <p className="pl-2 font-medium text-muted-foreground text-xs">
+          Maintenance
         </p>
-        <SettingRow
-          description="All projects, images, revision history, and settings."
-          title="Export Full Backup"
-        >
-          <Button
-            className="relative overflow-hidden"
-            disabled={exporting}
-            onClick={handleExport}
-            size="sm"
+        <div>
+          <SettingRow
+            description="Regenerate preview images for items missing thumbnails."
+            title="Regenerate Previews"
           >
-            {exporting && (
-              <span
-                className="absolute inset-0 bg-primary/20 transition-[width] duration-200"
-                style={{ width: `${exportProgress}%` }}
-              />
-            )}
-            <span className="relative z-10 flex items-center gap-1.5">
-              {exporting ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Download className="size-4" />
-              )}
-              {exporting ? (
+            <Button
+              disabled={regenerating || busy}
+              onClick={handleRegeneratePreviews}
+              size="sm"
+              variant="default"
+            >
+              {regenerating ? (
                 <>
-                  <span className="max-w-[140px] truncate">{exportPhase}</span>
-                  {exportProgress > 0 && (
-                    <span className="shrink-0">{exportProgress}%</span>
-                  )}
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  {regenerateProgress || "Regenerating…"}
                 </>
               ) : (
-                "Export"
-              )}
-            </span>
-          </Button>
-        </SettingRow>
-        <SettingRow
-          description="Restore from a previously exported backup ZIP."
-          title="Import Backup"
-        >
-          <Button
-            className="relative overflow-hidden"
-            disabled={importing}
-            onClick={handlePickImport}
-            size="sm"
-          >
-            {importing && (
-              <span
-                className="absolute inset-0 bg-primary/20 transition-[width] duration-200"
-                style={{ width: `${importProgress}%` }}
-              />
-            )}
-            <span className="relative z-10 flex items-center gap-1.5">
-              {importing ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Upload className="size-4" />
-              )}
-              {importing ? (
                 <>
-                  <span className="max-w-[140px] truncate">{importPhase}</span>
-                  {importProgress > 0 && (
-                    <span className="shrink-0">{importProgress}%</span>
-                  )}
+                  <RefreshCw className="mr-2 size-4" />
+                  Regenerate
                 </>
-              ) : (
-                "Import"
               )}
-            </span>
-          </Button>
-        </SettingRow>
-        <SettingRow
-          description="Regenerate preview images for items missing thumbnails."
-          title="Regenerate Previews"
-        >
-          <Button
-            disabled={regenerating}
-            onClick={handleRegeneratePreviews}
-            size="sm"
-            variant="default"
-          >
-            {regenerating ? (
-              <>
-                <Loader2 className="mr-2 size-4 animate-spin" />
-                {regenerateProgress || "Regenerating…"}
-              </>
-            ) : (
-              <>
-                <RefreshCw className="mr-2 size-4" />
-                Regenerate
-              </>
-            )}
-          </Button>
-        </SettingRow>
+            </Button>
+          </SettingRow>
+        </div>
       </div>
 
       <div className="space-y-4">
-        <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
+        <p className="pl-2 font-medium text-muted-foreground text-xs">
           Danger Zone
         </p>
-        <SettingRow
-          description="Permanently delete all projects, images, settings, and revision history. This cannot be undone."
-          title="Delete Workspace"
-        >
-          <Button
-            disabled={isWiping}
-            onClick={() => {
-              const toastId = sileo.warning({
-                title: "Delete everything permanently?",
-                description:
-                  "All projects, images, thumbnails, revision history, and settings will be wiped. The app will restart. This cannot be undone.",
-                duration: null,
-                button: {
-                  title: "Yes, delete everything",
-                  onClick: () => {
-                    sileo.dismiss(toastId);
-                    handleConfirmWipe();
-                  },
-                },
-              });
-            }}
-            size="sm"
-            variant="destructive"
-          >
-            <Trash2 className="mr-2 size-4" />
-            {isWiping ? "Wiping…" : "Wipe"}
-          </Button>
-        </SettingRow>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+            <div className="flex-1 pr-4">
+              <p className="font-medium text-sm">Purge Revision History</p>
+              <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
+                Remove all saved revision checkpoints to free up disk space.
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                disabled={isPurging || storageSize === 0 || busy}
+                onClick={handlePurge}
+                size="sm"
+                variant="destructive"
+              >
+                <Trash2 className="mr-2 size-4" />
+                {isPurging ? "Purging…" : `Purge ${sizeLabel}`}
+              </Button>
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+            <div className="flex-1 pr-4">
+              <p className="font-medium text-sm">Delete Workspace</p>
+              <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
+                Permanently delete all projects, images, settings, and revision
+                history. This cannot be undone.
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                disabled={isWiping || busy}
+                onClick={() => {
+                  const toastId = sileo.warning({
+                    title: "Delete everything permanently?",
+                    description:
+                      "All projects, images, thumbnails, revision history, and settings will be wiped. The app will restart. This cannot be undone.",
+                    duration: null,
+                    button: {
+                      title: "Yes, delete everything",
+                      onClick: () => {
+                        sileo.dismiss(toastId);
+                        handleConfirmWipe();
+                      },
+                    },
+                  });
+                }}
+                size="sm"
+                variant="destructive"
+              >
+                <Trash2 className="mr-2 size-4" />
+                {isWiping ? "Wiping…" : "Wipe"}
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1780,25 +2142,25 @@ function BillingSettings() {
 
   return (
     <div className="space-y-4">
-      <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
-        Billing
-      </p>
-      <SettingRow
-        description={
-          validatedData?.customerEmail
-            ? `${validatedData.customerEmail} · To transfer to another device, deactivate here first and reactivate via the portal.`
-            : "To transfer to another device, deactivate here first and reactivate via the portal."
-        }
-        title="Lifetime License"
-      >
-        <Button onClick={handleManageLicense} size="sm" variant="ghost">
-          <ExternalLink className="mr-2 size-4" />
-          Manage
-        </Button>
-        <Button onClick={handleDeactivate} size="sm" variant="destructive">
-          Deactivate
-        </Button>
-      </SettingRow>
+      <p className="pl-2 font-medium text-muted-foreground text-xs">Billing</p>
+      <div>
+        <SettingRow
+          description={
+            validatedData?.customerEmail
+              ? `${validatedData.customerEmail} · To transfer to another device, deactivate here first and reactivate via the portal.`
+              : "To transfer to another device, deactivate here first and reactivate via the portal."
+          }
+          title="Lifetime License"
+        >
+          <Button onClick={handleManageLicense} size="sm" variant="ghost">
+            <ExternalLink className="mr-2 size-4" />
+            Manage
+          </Button>
+          <Button onClick={handleDeactivate} size="sm" variant="destructive">
+            Deactivate
+          </Button>
+        </SettingRow>
+      </div>
     </div>
   );
 }
@@ -1819,46 +2181,43 @@ function PrivacySettings() {
 
       <div className="space-y-4">
         <p className="pl-2 font-medium text-muted-foreground text-xs">Search</p>
-
-        <SettingRow
-          description="Save recent searches in Home, Discovery, and Trash. Up to 10 per page."
-          title="Search History"
-        >
-          <Switch
-            checked={saveSearchHistory}
-            onCheckedChange={setSaveSearchHistory}
-          />
-        </SettingRow>
+        <div>
+          <SettingRow
+            description="Save recent searches in Home, Discovery, and Trash. Up to 10 per page."
+            title="Search History"
+          >
+            <Switch
+              checked={saveSearchHistory}
+              onCheckedChange={setSaveSearchHistory}
+            />
+          </SettingRow>
+        </div>
       </div>
 
       <div className="space-y-4">
         <p className="pl-2 font-medium text-muted-foreground text-xs">
           Analytics &amp; Telemetry
         </p>
-
-        <SettingRow
-          description="Helps us understand how you use the app so we can improve it. No personal data is collected."
-          title="Product Analytics"
-        >
-          <Switch
-            checked={analyticsEnabled}
-            onCheckedChange={setAnalyticsEnabled}
-          />
-        </SettingRow>
-
-        <SettingRow
-          description="Sends app logs and error reports to help diagnose issues."
-          title="Diagnostic Logging"
-        >
-          <Switch
-            checked={loggingEnabled}
-            onCheckedChange={setLoggingEnabled}
-          />
-        </SettingRow>
-
-        <p className="pl-2 text-muted-foreground text-xs">
-          Both are enabled by default. Changes take effect immediately.
-        </p>
+        <div className="space-y-2">
+          <SettingRow
+            description="Helps us understand how you use the app so we can improve it. No personal data is collected."
+            title="Product Analytics"
+          >
+            <Switch
+              checked={analyticsEnabled}
+              onCheckedChange={setAnalyticsEnabled}
+            />
+          </SettingRow>
+          <SettingRow
+            description="Sends app logs and error reports to help diagnose issues."
+            title="Diagnostic Logging"
+          >
+            <Switch
+              checked={loggingEnabled}
+              onCheckedChange={setLoggingEnabled}
+            />
+          </SettingRow>
+        </div>
       </div>
     </div>
   );
@@ -1898,39 +2257,37 @@ function UpdateSettings() {
       <h2 className="pl-2 font-semibold text-lg">Updates</h2>
 
       <div className="space-y-4">
-        <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
+        <p className="pl-2 font-medium text-muted-foreground text-xs">
           Version
         </p>
-
-        <SettingRow
-          description={
-            currentVersion ? `Current version: ${currentVersion}` : undefined
-          }
-          title="Backstage"
-        >
-          <div className="flex items-center gap-2">
-            {available && !downloading && (
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary text-xs">
-                v{available.version} available
-              </span>
-            )}
-            <Button
-              disabled={checking || downloading}
-              onClick={handleCheckNow}
-              size="sm"
-              variant="ghost"
-            >
-              <RefreshCw
-                className={`mr-2 size-4 ${checking ? "animate-spin" : ""}`}
-              />
-              {checking ? "Checking…" : "Check for updates"}
-            </Button>
-          </div>
-        </SettingRow>
-
-        {available && (
-          <div className="space-y-3">
-            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+        <div className="space-y-2">
+          <SettingRow
+            description={
+              currentVersion ? `Current version: ${currentVersion}` : undefined
+            }
+            title="Backstage"
+          >
+            <div className="flex items-center gap-2">
+              {available && !downloading && (
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary text-xs">
+                  v{available.version} available
+                </span>
+              )}
+              <Button
+                disabled={checking || downloading}
+                onClick={handleCheckNow}
+                size="sm"
+                variant="ghost"
+              >
+                <RefreshCw
+                  className={`mr-2 size-4 ${checking ? "animate-spin" : ""}`}
+                />
+                {checking ? "Checking…" : "Check for updates"}
+              </Button>
+            </div>
+          </SettingRow>
+          {available && (
+            <div className="rounded-lg bg-muted/50 p-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-0.5">
                   <p className="font-medium text-sm">
@@ -1956,7 +2313,6 @@ function UpdateSettings() {
                   {downloading ? "Installing…" : "Update now"}
                 </Button>
               </div>
-
               {downloading && (
                 <div className="mt-3 space-y-1">
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-primary/20">
@@ -1969,13 +2325,15 @@ function UpdateSettings() {
                 </div>
               )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
+      </div>
 
-        <div className="pt-2">
-          <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
-            Preferences
-          </p>
+      <div className="space-y-4">
+        <p className="pl-2 font-medium text-muted-foreground text-xs">
+          Preferences
+        </p>
+        <div>
           <SettingRow
             description="Automatically check for updates when the app starts"
             title="Check for updates automatically"
@@ -2014,8 +2372,12 @@ async function addDirToZip(
 const AGENT_PRESETS: Pick<AcpAgent, "name" | "command" | "args" | "envVars">[] =
   [
     { name: "Claude Code", command: "claude", args: ["--acp"], envVars: [] },
+    { name: "Gemini CLI", command: "gemini", args: ["--acp"], envVars: [] },
     { name: "OpenAI Codex", command: "codex", args: ["--acp"], envVars: [] },
     { name: "Cursor", command: "cursor-agent", args: ["--acp"], envVars: [] },
+    { name: "Amp", command: "amp", args: ["--acp"], envVars: [] },
+    { name: "Aider", command: "aider", args: ["--acp"], envVars: [] },
+    { name: "Continue", command: "continue", args: ["--acp"], envVars: [] },
   ];
 
 function serializeEnvVars(vars: AcpAgentEnvVar[]): string {
@@ -2037,29 +2399,41 @@ function AgentSettings() {
   const { acpAgents, acpTextGenAgentId, setAcpAgents, setAcpTextGenAgentId } =
     useAppSettingsStore();
 
-  const [isAdding, setIsAdding] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAgent, setEditingAgent] = useState<AcpAgent | null>(null);
+  const [presetChosen, setPresetChosen] = useState(false);
   const [formName, setFormName] = useState("");
   const [formCommand, setFormCommand] = useState("");
   const [formArgs, setFormArgs] = useState("");
   const [formEnvVars, setFormEnvVars] = useState("");
 
   const resetForm = useCallback(() => {
-    setIsAdding(false);
+    setDialogOpen(false);
     setEditingAgent(null);
+    setPresetChosen(false);
     setFormName("");
     setFormCommand("");
     setFormArgs("");
     setFormEnvVars("");
   }, []);
 
+  const openAddDialog = useCallback(() => {
+    setEditingAgent(null);
+    setPresetChosen(false);
+    setFormName("");
+    setFormCommand("");
+    setFormArgs("");
+    setFormEnvVars("");
+    setDialogOpen(true);
+  }, []);
+
   const handleEdit = useCallback((agent: AcpAgent) => {
     setEditingAgent(agent);
-    setIsAdding(true);
     setFormName(agent.name);
     setFormCommand(agent.command);
     setFormArgs(agent.args.join(" "));
     setFormEnvVars(serializeEnvVars(agent.envVars));
+    setDialogOpen(true);
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -2127,187 +2501,167 @@ function AgentSettings() {
   }, []);
 
   return (
-    <div className="space-y-6">
-      <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
-        Agents
-      </p>
-
-      <div className="space-y-3">
-        <p className="pl-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-          Text generation
-        </p>
-        <div className="rounded-lg bg-muted/50 p-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="font-medium">Active agent</p>
-              <p className="text-muted-foreground text-sm">
-                Used for auto-rename and other text tasks
-              </p>
-            </div>
-            <Select
-              onValueChange={(v) =>
-                setAcpTextGenAgentId(v === "none" ? null : v)
-              }
-              value={acpTextGenAgentId ?? "none"}
-            >
-              <SelectTrigger className="w-44" size="sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Gemini (default)</SelectItem>
-                {acpAgents.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+    <div className="space-y-4">
+      <div className="mb-3 flex items-center justify-between pr-2 pl-2">
+        <p className="font-medium text-muted-foreground text-xs">Agents</p>
+        <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-medium text-amber-600 text-xs dark:text-amber-400">
+          Experimental
+        </span>
       </div>
 
-      <div className="space-y-3">
-        <p className="pl-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-          Configured agents
-        </p>
-
-        {acpAgents.length === 0 && !isAdding && (
-          <p className="pl-2 text-muted-foreground text-sm">
-            No agents configured yet.
-          </p>
-        )}
-
-        {acpAgents.map((agent) => (
-          <div
-            className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3"
-            key={agent.id}
-          >
-            <div className="min-w-0">
-              <p className="font-medium text-sm">{agent.name}</p>
-              <p className="truncate text-muted-foreground text-xs">
-                {agent.command} {agent.args.join(" ")}
-              </p>
-            </div>
-            <div className="ml-2 flex shrink-0 items-center gap-1">
-              <Button
-                onClick={() => handleEdit(agent)}
-                size="icon-sm"
-                variant="ghost"
-              >
-                <Wand2 className="size-4" />
-              </Button>
-              <Button
-                onClick={() => handleDelete(agent.id)}
-                size="icon-sm"
-                variant="ghost"
-              >
-                <Trash2 className="size-4 text-destructive" />
-              </Button>
-            </div>
-          </div>
-        ))}
-
-        {isAdding ? (
-          <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
-            <p className="font-medium text-sm">
+      <Dialog onOpenChange={setDialogOpen} open={dialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
               {editingAgent ? "Edit agent" : "Add agent"}
-            </p>
+            </DialogTitle>
+          </DialogHeader>
 
-            {!editingAgent && (
-              <div className="flex flex-wrap gap-2">
-                {AGENT_PRESETS.map((p) => (
-                  <Button key={p.name} onClick={() => applyPreset(p)} size="sm">
-                    {p.name}
-                  </Button>
-                ))}
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <label
-                className="text-muted-foreground text-xs"
-                htmlFor="agent-name"
-              >
-                Name
-              </label>
+          {editingAgent || presetChosen ? (
+            <div className="space-y-3">
               <Input
-                id="agent-name"
+                className="h-14"
                 onChange={(e) => setFormName(e.target.value)}
-                placeholder="Claude Code"
+                placeholder="Name"
                 value={formName}
               />
-            </div>
-
-            <div className="space-y-1.5">
-              <label
-                className="text-muted-foreground text-xs"
-                htmlFor="agent-command"
-              >
-                Command
-              </label>
               <Input
-                id="agent-command"
+                className="h-14"
                 onChange={(e) => setFormCommand(e.target.value)}
-                placeholder="claude"
+                placeholder="Command (e.g. claude)"
                 value={formCommand}
               />
-            </div>
-
-            <div className="space-y-1.5">
-              <label
-                className="text-muted-foreground text-xs"
-                htmlFor="agent-args"
-              >
-                Arguments{" "}
-                <span className="text-muted-foreground/60">
-                  (space-separated)
-                </span>
-              </label>
               <Input
-                id="agent-args"
+                className="h-14"
                 onChange={(e) => setFormArgs(e.target.value)}
-                placeholder="--acp"
+                placeholder="Arguments, space-separated (e.g. --acp)"
                 value={formArgs}
               />
-            </div>
-
-            <div className="space-y-1.5">
-              <label
-                className="text-muted-foreground text-xs"
-                htmlFor="agent-env"
-              >
-                Environment variables{" "}
-                <span className="text-muted-foreground/60">
-                  (KEY=VALUE, one per line)
-                </span>
-              </label>
               <textarea
-                className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 font-mono text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                id="agent-env"
+                className="w-full resize-none rounded-3xl border border-transparent bg-input/50 px-3 py-3 font-mono text-sm placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
                 onChange={(e) => setFormEnvVars(e.target.value)}
                 placeholder={
-                  "ANTHROPIC_API_KEY=sk-ant-...\nCLAUDE_CODE_MAX_THINKING_TOKENS=5000"
+                  "Environment variables, one per line\nANTHROPIC_API_KEY=sk-ant-…"
                 }
                 rows={3}
                 value={formEnvVars}
               />
             </div>
+          ) : (
+            <Select
+              onValueChange={(v) => {
+                if (v !== "custom") {
+                  const preset = AGENT_PRESETS.find((p) => p.name === v);
+                  if (preset) applyPreset(preset);
+                }
+                setPresetChosen(true);
+              }}
+              value=""
+            >
+              <SelectTrigger className="w-full" size="lg">
+                <SelectValue placeholder="Choose a preset or start from scratch…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="custom">Custom</SelectItem>
+                {AGENT_PRESETS.map((p) => (
+                  <SelectItem key={p.name} value={p.name}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
-            <div className="flex justify-end gap-2 pt-1">
-              <Button onClick={resetForm} size="sm" variant="ghost">
-                Cancel
-              </Button>
+          <DialogFooter>
+            <Button onClick={resetForm} size="sm" variant="ghost">
+              Cancel
+            </Button>
+            {(editingAgent || presetChosen) && (
               <Button onClick={handleSave} size="sm">
                 Save
               </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+
+        <Frame>
+          <FrameHeader className="px-4 py-3">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 pr-2">
+                <p className="font-medium text-sm">Active agent</p>
+                <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
+                  Used for auto-rename and other text tasks
+                </p>
+              </div>
+              <Select
+                onValueChange={(v) =>
+                  setAcpTextGenAgentId(v === "none" ? null : v)
+                }
+                value={acpTextGenAgentId ?? "none"}
+              >
+                <SelectTrigger
+                  className="w-44 border-none bg-transparent shadow-none focus:bg-transparent dark:bg-transparent"
+                  size="sm"
+                >
+                  <SelectValue>
+                    {acpTextGenAgentId === null
+                      ? "Gemini (default)"
+                      : (acpAgents.find((a) => a.id === acpTextGenAgentId)
+                          ?.name ?? "Gemini (default)")}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Gemini (default)</SelectItem>
+                  {acpAgents.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={openAddDialog} size="sm">
+                + Add agent
+              </Button>
             </div>
-          </div>
-        ) : (
-          <Button className="ml-2" onClick={() => setIsAdding(true)} size="sm">
-            + Add agent
-          </Button>
-        )}
-      </div>
+          </FrameHeader>
+          {acpAgents.length === 0 && (
+            <FramePanel className="px-4 py-3">
+              <p className="text-muted-foreground text-xs">
+                No agents configured yet.
+              </p>
+            </FramePanel>
+          )}
+          {acpAgents.map((agent) => (
+            <FramePanel
+              className="flex items-center justify-between px-4 py-3"
+              key={agent.id}
+            >
+              <div className="min-w-0">
+                <p className="font-medium text-sm">{agent.name}</p>
+                <p className="truncate text-muted-foreground text-xs">
+                  {agent.command} {agent.args.join(" ")}
+                </p>
+              </div>
+              <div className="ml-2 flex shrink-0 items-center gap-1">
+                <Button
+                  onClick={() => handleEdit(agent)}
+                  size="icon-sm"
+                  variant="ghost"
+                >
+                  <Pencil className="size-4" />
+                </Button>
+                <Button
+                  onClick={() => handleDelete(agent.id)}
+                  size="icon-sm"
+                  variant="ghost"
+                >
+                  <Trash2 className="size-4 text-destructive" />
+                </Button>
+              </div>
+            </FramePanel>
+          ))}
+        </Frame>
+      </Dialog>
     </div>
   );
 }

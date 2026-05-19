@@ -8,8 +8,8 @@ import {
   DialogTitle,
 } from "@repo/ui/dialog";
 import { Input } from "@repo/ui/input";
-import { Toaster } from "@repo/ui/sonner";
-import { useEffect, useState } from "react";
+import { TooltipProvider } from "@repo/ui/tooltip";
+import { useEffect, useRef, useState } from "react";
 import { sileo } from "sileo";
 import { ArchivePage } from "@/components/ArchivePage";
 import { AutoRenameQueue } from "@/components/AutoRenameQueue";
@@ -30,6 +30,7 @@ import { OnboardingPage } from "@/components/OnboardingPage";
 import { SettingsPage } from "@/components/SettingsPage";
 import { TrashPage } from "@/components/TrashPage";
 import { ResizablePanel } from "@/components/ui/resizable-panel";
+import { Toaster } from "@/components/ui/sonner";
 import { VideoExtractor } from "@/components/VideoExtractor";
 import { useAppUpdater } from "@/hooks/use-app-updater";
 import { usePersistedViewMode } from "@/hooks/use-persisted-view-mode";
@@ -105,6 +106,8 @@ export default function App() {
   const editorVisible = useTabsStore((s) => s.editorVisible);
   const openTab = useTabsStore((s) => s.openTab);
   const setEditorVisible = useTabsStore((s) => s.setEditorVisible);
+
+  const mainContentRef = useRef<HTMLDivElement>(null);
 
   const { isValidated, isValidating, loadStoredLicense } = useLicenseStore();
   const {
@@ -288,236 +291,238 @@ export default function App() {
   const showGallery = page === "gallery" && !editorVisible;
 
   return (
-    <div className="flex h-screen flex-col bg-muted">
-      <TabBar
-        activePage={editorVisible ? "gallery" : page}
-        onPageChange={(p) => {
-          setEditorVisible(false);
-          if (p === "ai-generate") {
-            handleOpenAiGenerateFromGallery();
-          } else {
-            setPage(p);
-          }
-        }}
-      />
-
-      {/* Gallery — always mounted so scroll/state survives navigation */}
-      <div
-        className={contentClass}
-        style={{ display: showGallery ? "flex" : "none" }}
-      >
-        <Gallery
-          onAddVideoClick={() => setShowExtractor(true)}
-          onExportClick={setExportingThumbnail}
-          onNewFolderClick={() => setNewFolderOpen(true)}
-          onNewProjectClick={() => setNewProjectOpen(true)}
-          onThumbnailClick={handleEditThumbnail}
-          viewMode={viewMode}
+    <TooltipProvider>
+      <div className="flex h-screen flex-col bg-muted">
+        <TabBar
+          activePage={editorVisible ? "gallery" : page}
+          onPageChange={(p) => {
+            setEditorVisible(false);
+            if (p === "ai-generate") {
+              handleOpenAiGenerateFromGallery();
+            } else {
+              setPage(p);
+            }
+          }}
         />
-      </div>
 
-      {/* Editor — stays mounted while tabs exist; right panel for settings / AI */}
-      {activeTab && activeThumbnail && (
+        {/* Gallery — always mounted so scroll/state survives navigation */}
         <div
-          className="mx-1 mb-1 flex flex-1 overflow-hidden"
-          style={{ display: editorVisible ? "flex" : "none" }}
+          className={contentClass}
+          style={{ display: showGallery ? "flex" : "none" }}
         >
-          <div className="flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
-            <ImageEditor
-              onAiGenerate={handleOpenAiGenerate}
-              onClose={() => setEditorVisible(false)}
-              onExport={() => setExportingThumbnail(activeThumbnail)}
-              onOpenSettings={() => setEditorRightPanel("settings")}
-              snapshot={activeTab.snapshot}
-              tabId={activeTabId!}
-              thumbnail={activeThumbnail}
-            />
-          </div>
-
-          {editorRightPanel && (
-            <ResizablePanel
-              className="ml-1"
-              defaultWidth={600}
-              maxWidth={1100}
-              minWidth={400}
-              side="right"
-            >
-              {editorRightPanel === "settings" ? (
-                <SettingsPage onClose={() => setEditorRightPanel(null)} />
-              ) : (
-                <div className="flex h-full flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
-                  <GeminiImagePage
-                    canvasHeight={aiCanvasHeight}
-                    canvasWidth={aiCanvasWidth}
-                    editorLayers={aiEditorLayers}
-                    onClose={handleCloseAiGenerate}
-                    onSaveAsImage={handleSaveAiImage}
-                    onSaveAsLayer={handleSaveAiLayer}
-                    onSettings={() => setEditorRightPanel("settings")}
-                  />
-                </div>
-              )}
-            </ResizablePanel>
-          )}
-        </div>
-      )}
-
-      {/* AI Generate — full page from gallery or remix */}
-      {page === "ai-generate" &&
-        (aiGenerateSource === "gallery" || aiGenerateSource === "remix") && (
-          <GeminiImagePage
-            canvasHeight={aiCanvasHeight}
-            canvasWidth={aiCanvasWidth}
-            editorLayers={null}
-            fullPage
-            onClose={handleCloseAiGenerate}
-            onSaveAsImage={handleSaveAiImage}
-            onSaveAsLayer={undefined}
-            onSettings={() => setPage("settings")}
-            remixSourceUrl={remixSourceUrl ?? undefined}
-            remixTitle={remixTitle ?? undefined}
-          />
-        )}
-
-      {/* Explore */}
-      {page === "explore" && !editorVisible && (
-        <ExplorePage
-          onClose={() => setPage("gallery")}
-          onRemix={handleRemix}
-          onSettings={() => setPage("settings")}
-        />
-      )}
-
-      {/* Trash */}
-      {page === "trash" && !editorVisible && (
-        <TrashPage onClose={() => setPage("gallery")} />
-      )}
-
-      {/* Archive */}
-      {page === "archive" && !editorVisible && (
-        <ArchivePage onClose={() => setPage("gallery")} />
-      )}
-
-      {/* Settings */}
-      {page === "settings" && !editorVisible && (
-        <SettingsPage onClose={() => setPage("gallery")} />
-      )}
-
-      {showGallery && (
-        <div className="mx-1 mb-1">
-          <BottomToolbar
+          <Gallery
             onAddVideoClick={() => setShowExtractor(true)}
-            onArchiveClick={() => setPage("archive")}
-            onExportSelected={handleExportSelected}
+            onExportClick={setExportingThumbnail}
             onNewFolderClick={() => setNewFolderOpen(true)}
             onNewProjectClick={() => setNewProjectOpen(true)}
-            onSettingsClick={() => setPage("settings")}
-            onTrashClick={() => setPage("trash")}
-            onViewModeChange={setViewMode}
+            onThumbnailClick={handleEditThumbnail}
             viewMode={viewMode}
           />
         </div>
-      )}
 
-      {showExtractor && (
-        <VideoExtractor onClose={() => setShowExtractor(false)} />
-      )}
-      {exportingThumbnail && (
-        <ExportDialog
-          onClose={() => setExportingThumbnail(null)}
-          thumbnail={exportingThumbnail}
-          useCurrentEditorState={editorVisible}
-        />
-      )}
-      {exportingThumbnails.length > 0 && (
-        <ExportDialog
-          onClose={() => setExportingThumbnails([])}
-          thumbnails={exportingThumbnails}
-        />
-      )}
-      <NewProjectDialog
-        onCreate={handleCreateProject}
-        onOpenChange={setNewProjectOpen}
-        open={newProjectOpen}
-      />
-      <Dialog
-        onOpenChange={(open) => {
-          setNewFolderOpen(open);
-          if (!open) {
-            setNewFolderName("");
-            setNewFolderColor(null);
-          }
-        }}
-        open={newFolderOpen}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New Folder</DialogTitle>
-          </DialogHeader>
-          <Input
-            autoFocus
-            onChange={(e) => setNewFolderName(e.target.value)}
-            onKeyDown={async (e) => {
-              if (e.key === "Enter" && newFolderName.trim()) {
-                await useFolderStore
-                  .getState()
-                  .createFolder(newFolderName.trim(), newFolderColor);
-                sileo.success({
-                  title: `Folder "${newFolderName.trim()}" created`,
-                });
-                setNewFolderName("");
-                setNewFolderColor(null);
-                setNewFolderOpen(false);
-              }
-            }}
-            placeholder="Folder name"
-            value={newFolderName}
+        {/* Editor — stays mounted while tabs exist; right panel for settings / AI */}
+        {activeTab && activeThumbnail && (
+          <div
+            className="mx-1 mb-1 flex flex-1 overflow-hidden"
+            style={{ display: editorVisible ? "flex" : "none" }}
+          >
+            <div className="flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+              <ImageEditor
+                onAiGenerate={handleOpenAiGenerate}
+                onClose={() => setEditorVisible(false)}
+                onExport={() => setExportingThumbnail(activeThumbnail)}
+                onOpenSettings={() => setEditorRightPanel("settings")}
+                snapshot={activeTab.snapshot}
+                tabId={activeTabId!}
+                thumbnail={activeThumbnail}
+              />
+            </div>
+
+            {editorRightPanel && (
+              <ResizablePanel
+                className="ml-1"
+                defaultWidth={600}
+                maxWidth={1100}
+                minWidth={400}
+                side="right"
+              >
+                {editorRightPanel === "settings" ? (
+                  <SettingsPage onClose={() => setEditorRightPanel(null)} />
+                ) : (
+                  <div className="flex h-full flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+                    <GeminiImagePage
+                      canvasHeight={aiCanvasHeight}
+                      canvasWidth={aiCanvasWidth}
+                      editorLayers={aiEditorLayers}
+                      onClose={handleCloseAiGenerate}
+                      onSaveAsImage={handleSaveAiImage}
+                      onSaveAsLayer={handleSaveAiLayer}
+                      onSettings={() => setEditorRightPanel("settings")}
+                    />
+                  </div>
+                )}
+              </ResizablePanel>
+            )}
+          </div>
+        )}
+
+        {/* AI Generate — full page from gallery or remix */}
+        {page === "ai-generate" &&
+          (aiGenerateSource === "gallery" || aiGenerateSource === "remix") && (
+            <GeminiImagePage
+              canvasHeight={aiCanvasHeight}
+              canvasWidth={aiCanvasWidth}
+              editorLayers={null}
+              fullPage
+              onClose={handleCloseAiGenerate}
+              onSaveAsImage={handleSaveAiImage}
+              onSaveAsLayer={undefined}
+              onSettings={() => setPage("settings")}
+              remixSourceUrl={remixSourceUrl ?? undefined}
+              remixTitle={remixTitle ?? undefined}
+            />
+          )}
+
+        {/* Explore */}
+        {page === "explore" && !editorVisible && (
+          <ExplorePage
+            onClose={() => setPage("gallery")}
+            onRemix={handleRemix}
+            onSettings={() => setPage("settings")}
           />
-          <FolderColorPicker
-            onChange={setNewFolderColor}
-            value={newFolderColor}
+        )}
+
+        {/* Trash */}
+        {page === "trash" && !editorVisible && (
+          <TrashPage onClose={() => setPage("gallery")} />
+        )}
+
+        {/* Archive */}
+        {page === "archive" && !editorVisible && (
+          <ArchivePage onClose={() => setPage("gallery")} />
+        )}
+
+        {/* Settings */}
+        {page === "settings" && !editorVisible && (
+          <SettingsPage onClose={() => setPage("gallery")} />
+        )}
+
+        {showGallery && (
+          <div className="mx-1 mb-1">
+            <BottomToolbar
+              onAddVideoClick={() => setShowExtractor(true)}
+              onArchiveClick={() => setPage("archive")}
+              onExportSelected={handleExportSelected}
+              onNewFolderClick={() => setNewFolderOpen(true)}
+              onNewProjectClick={() => setNewProjectOpen(true)}
+              onSettingsClick={() => setPage("settings")}
+              onTrashClick={() => setPage("trash")}
+              onViewModeChange={setViewMode}
+              viewMode={viewMode}
+            />
+          </div>
+        )}
+
+        {showExtractor && (
+          <VideoExtractor onClose={() => setShowExtractor(false)} />
+        )}
+        {exportingThumbnail && (
+          <ExportDialog
+            onClose={() => setExportingThumbnail(null)}
+            thumbnail={exportingThumbnail}
+            useCurrentEditorState={editorVisible}
           />
-          <DialogFooter>
-            <DialogClose render={<Button variant="ghost" />}>
-              Cancel
-            </DialogClose>
-            <Button
-              disabled={!newFolderName.trim()}
-              onClick={async () => {
-                if (!newFolderName.trim()) return;
-                await useFolderStore
-                  .getState()
-                  .createFolder(newFolderName.trim(), newFolderColor);
-                sileo.success({
-                  title: `Folder "${newFolderName.trim()}" created`,
-                });
-                setNewFolderName("");
-                setNewFolderColor(null);
-                setNewFolderOpen(false);
+        )}
+        {exportingThumbnails.length > 0 && (
+          <ExportDialog
+            onClose={() => setExportingThumbnails([])}
+            thumbnails={exportingThumbnails}
+          />
+        )}
+        <NewProjectDialog
+          onCreate={handleCreateProject}
+          onOpenChange={setNewProjectOpen}
+          open={newProjectOpen}
+        />
+        <Dialog
+          onOpenChange={(open) => {
+            setNewFolderOpen(open);
+            if (!open) {
+              setNewFolderName("");
+              setNewFolderColor(null);
+            }
+          }}
+          open={newFolderOpen}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>New Folder</DialogTitle>
+            </DialogHeader>
+            <Input
+              autoFocus
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={async (e) => {
+                if (e.key === "Enter" && newFolderName.trim()) {
+                  await useFolderStore
+                    .getState()
+                    .createFolder(newFolderName.trim(), newFolderColor);
+                  sileo.success({
+                    title: `Folder "${newFolderName.trim()}" created`,
+                  });
+                  setNewFolderName("");
+                  setNewFolderColor(null);
+                  setNewFolderOpen(false);
+                }
               }}
-            >
-              Create
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <CommandPalette
-        onAddVideo={() => setShowExtractor(true)}
-        onAiGenerate={handleOpenAiGenerateFromGallery}
-        onNewFolder={() => setNewFolderOpen(true)}
-        onNewProject={() => setNewProjectOpen(true)}
-        onOpenChange={setCommandOpen}
-        onPageChange={(p) => {
-          setEditorVisible(false);
-          setPage(p);
-        }}
-        open={commandOpen}
-      />
-      <Toaster />
-      <BackgroundRemovalQueue />
-      <AutoRenameQueue />
-      <UpdateChecker />
-      <WindowBoundsManager />
-    </div>
+              placeholder="Folder name"
+              value={newFolderName}
+            />
+            <FolderColorPicker
+              onChange={setNewFolderColor}
+              value={newFolderColor}
+            />
+            <DialogFooter>
+              <DialogClose render={<Button variant="ghost" />}>
+                Cancel
+              </DialogClose>
+              <Button
+                disabled={!newFolderName.trim()}
+                onClick={async () => {
+                  if (!newFolderName.trim()) return;
+                  await useFolderStore
+                    .getState()
+                    .createFolder(newFolderName.trim(), newFolderColor);
+                  sileo.success({
+                    title: `Folder "${newFolderName.trim()}" created`,
+                  });
+                  setNewFolderName("");
+                  setNewFolderColor(null);
+                  setNewFolderOpen(false);
+                }}
+              >
+                Create
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <CommandPalette
+          onAddVideo={() => setShowExtractor(true)}
+          onAiGenerate={handleOpenAiGenerateFromGallery}
+          onNewFolder={() => setNewFolderOpen(true)}
+          onNewProject={() => setNewProjectOpen(true)}
+          onOpenChange={setCommandOpen}
+          onPageChange={(p) => {
+            setEditorVisible(false);
+            setPage(p);
+          }}
+          open={commandOpen}
+        />
+        <Toaster />
+        <BackgroundRemovalQueue />
+        <AutoRenameQueue />
+        <UpdateChecker />
+        <WindowBoundsManager />
+      </div>
+    </TooltipProvider>
   );
 }

@@ -25,6 +25,7 @@ import {
   Layers,
   Loader2,
   Search,
+  Settings,
   Sparkles,
   Users,
 } from "lucide-react";
@@ -551,7 +552,13 @@ export function GeminiImagePage({
           value={characterSetFolderId ?? "none"}
         >
           <SelectTrigger className="h-7 text-xs">
-            <SelectValue placeholder="None" />
+            <SelectValue>
+              {characterSetFolderId == null
+                ? "None"
+                : (characterSetFolders.find(
+                    (f) => f.id === characterSetFolderId
+                  )?.name ?? "None")}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="none">None</SelectItem>

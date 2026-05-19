@@ -33,7 +33,13 @@
     "fs:allow-size",
     {
       "identifier": "fs:scope",
-      "allow": [{ "path": "$APPDATA/**" }]
+      "allow": [
+        { "path": "$APPDATA/**" },
+        { "path": "$HOME/**" },
+        { "path": "$DOWNLOAD/**" },
+        { "path": "$DESKTOP/**" },
+        { "path": "$DOCUMENT/**" }
+      ]
     },
     "sql:default",
     "sql:allow-load",

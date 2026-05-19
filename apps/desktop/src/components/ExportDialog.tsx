@@ -1071,7 +1071,10 @@ export function ExportDialog({
                       value={String(selectedLayerIndex)}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue />
+                        <SelectValue>
+                          {layerList[selectedLayerIndex]?.name ||
+                            `Layer ${selectedLayerIndex + 1}`}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {layerList.map((layer: any, i: number) => (
@@ -1169,7 +1172,9 @@ export function ExportDialog({
               value={resolution}
             >
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>
+                  {resolutionPresets.find((r) => r.value === resolution)?.label}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {resolutionPresets.map((r) => (

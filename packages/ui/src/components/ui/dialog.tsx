@@ -1,8 +1,12 @@
-﻿import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { XIcon } from "lucide-react";
 import type * as React from "react";
+import { createContext, useContext } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
+
+const DialogContainerContext =
+  createContext<React.RefObject<HTMLElement | null> | null>(null);
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
@@ -12,8 +16,19 @@ function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
   return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />;
 }
 
-function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
-  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
+function DialogPortal({ container, ...props }: DialogPrimitive.Portal.Props) {
+  const containerRef = useContext(DialogContainerContext);
+  return (
+    <DialogPrimitive.Portal
+      container={
+        container ??
+        (containerRef as React.RefObject<HTMLElement | null> | undefined) ??
+        undefined
+      }
+      data-slot="dialog-portal"
+      {...props}
+    />
+  );
 }
 
 function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
@@ -24,10 +39,12 @@ function DialogOverlay({
   className,
   ...props
 }: DialogPrimitive.Backdrop.Props) {
+  const containerRef = useContext(DialogContainerContext);
   return (
     <DialogPrimitive.Backdrop
       className={cn(
-        "data-open:fade-in-0 data-closed:fade-out-0 fixed inset-0 isolate z-50 bg-black/30 duration-100 data-closed:animate-out data-open:animate-in supports-backdrop-filter:backdrop-blur-sm",
+        "data-open:fade-in-0 data-closed:fade-out-0 inset-0 isolate z-50 bg-black/30 duration-100 data-closed:animate-out data-open:animate-in supports-backdrop-filter:backdrop-blur-sm",
+        containerRef ? "absolute" : "fixed",
         className
       )}
       data-slot="dialog-overlay"
@@ -44,12 +61,14 @@ function DialogContent({
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean;
 }) {
+  const containerRef = useContext(DialogContainerContext);
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Popup
         className={cn(
-          "data-open:fade-in-0 data-open:zoom-in-95 data-closed:fade-out-0 data-closed:zoom-out-95 fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 rounded-4xl bg-popover p-6 text-popover-foreground text-sm shadow-xl outline-none ring-1 ring-foreground/5 duration-100 data-closed:animate-out data-open:animate-in sm:max-w-md dark:ring-foreground/10",
+          "data-open:fade-in-0 data-open:zoom-in-95 data-closed:fade-out-0 data-closed:zoom-out-95 top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 rounded-4xl bg-popover p-6 text-popover-foreground text-sm shadow-xl outline-none ring-1 ring-foreground/5 duration-100 data-closed:animate-out data-open:animate-in sm:max-w-md dark:ring-foreground/10",
+          containerRef ? "absolute" : "fixed",
           className
         )}
         data-slot="dialog-content"
@@ -145,6 +164,7 @@ function DialogDescription({
 export {
   Dialog,
   DialogClose,
+  DialogContainerContext,
   DialogContent,
   DialogDescription,
   DialogFooter,

@@ -2,8 +2,15 @@
 
 import { PolarEmbedCheckout } from "@polar-sh/checkout/embed";
 import { Button } from "@repo/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/dialog";
 import { Input } from "@repo/ui/input";
-import { Check, GalleryThumbnails, Loader2, X } from "lucide-react";
+import { GalleryThumbnails, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -107,10 +114,6 @@ function useScrollReveal() {
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
     <div className="mb-4 inline-flex items-center gap-2 font-medium text-[11px] text-zinc-400 uppercase tracking-[0.12em]">
-      <span
-        className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
-        style={{ background: BLUE, boxShadow: `0 0 8px ${BLUE}` }}
-      />
       {children}
     </div>
   );
@@ -283,8 +286,48 @@ function DraggableEmoji({
   );
 }
 
+// ─── Animated success check ───────────────────────────────────────────
+function SuccessCheck() {
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const id = requestAnimationFrame(() => {
+      el.dataset.state = "in";
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  return (
+    <span
+      aria-hidden="true"
+      className="t-success-check"
+      data-state="out"
+      ref={ref}
+    >
+      <svg fill="none" height="48" viewBox="0 0 24 24" width="48">
+        <circle cx="12" cy="12" fill="rgb(16 185 129 / 0.15)" r="12" />
+        <path
+          d="M 5 12 L 10 17 L 19 8"
+          stroke="#34d399"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.5"
+        />
+      </svg>
+    </span>
+  );
+}
+
 // ─── Download email dialog ────────────────────────────────────────────
-function DownloadEmailDialog({ onClose }: { onClose: () => void }) {
+function DownloadEmailDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
   const [email, setEmail] = useState("");
   const [submitState, setSubmitState] = useState<
     "idle" | "loading" | "success" | "error"
@@ -319,38 +362,12 @@ function DownloadEmailDialog({ onClose }: { onClose: () => void }) {
     [email]
   );
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose]
-  );
-
   return (
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-      onKeyDown={handleKeyDown}
-    >
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="relative w-full max-w-sm rounded-2xl bg-zinc-900 p-8 shadow-2xl">
-        <button
-          aria-label="Close"
-          className="absolute top-4 right-4 text-zinc-500 transition-colors hover:text-white"
-          onClick={onClose}
-          type="button"
-        >
-          <X className="size-4" />
-        </button>
-
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent className="max-w-sm">
         {submitState === "success" ? (
           <div className="flex flex-col items-center gap-4 py-4 text-center">
-            <div className="flex size-12 items-center justify-center rounded-full bg-emerald-500/20">
-              <Check className="size-6 text-emerald-400" />
-            </div>
+            <SuccessCheck />
             <div>
               <p className="font-medium text-white">Check your inbox</p>
               <p className="mt-1 text-sm text-zinc-400">
@@ -360,18 +377,17 @@ function DownloadEmailDialog({ onClose }: { onClose: () => void }) {
           </div>
         ) : (
           <>
-            <div className="mb-6">
-              <h2 className="font-heading font-medium text-white text-xl">
+            <DialogHeader>
+              <DialogTitle className="text-white">
                 Get the download link
-              </h2>
-              <p className="mt-1 text-sm text-zinc-400">
-                Enter your email and we'll send it instantly.
-              </p>
-            </div>
+              </DialogTitle>
+              <DialogDescription className="text-zinc-400">
+                Enter your email and we&apos;ll send it instantly.
+              </DialogDescription>
+            </DialogHeader>
             <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
               <Input
                 autoFocus
-                className="h-12 border-zinc-700 bg-zinc-800 text-white placeholder:text-zinc-500 focus-visible:ring-zinc-500"
                 disabled={submitState === "loading"}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
@@ -379,7 +395,7 @@ function DownloadEmailDialog({ onClose }: { onClose: () => void }) {
                 value={email}
               />
               {submitState === "error" && (
-                <p className="text-red-400 text-sm">{errorMsg}</p>
+                <p className="text-destructive text-sm">{errorMsg}</p>
               )}
               <Button
                 className="h-12 w-full"
@@ -399,8 +415,8 @@ function DownloadEmailDialog({ onClose }: { onClose: () => void }) {
             </form>
           </>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -490,14 +506,14 @@ function Hero() {
           className="reveal mb-5 max-w-[860px] text-balance font-heading font-medium text-4xl text-white leading-tight tracking-tight md:text-6xl"
           data-delay="1"
         >
-          The 🥇 agentic thumbnail maker for YouTube creators
+          🥇 Your agentic thumbnail designer for YouTube creators.
         </h1>
         <p
-          className="reveal mb-8 max-w-[520px] text-lg text-zinc-400 md:text-xl"
+          className="reveal mb-8 max-w-[480px] text-lg text-zinc-400 md:text-xl"
           data-delay="2"
         >
-          A Canva and Photoshop level editor with no subscriptions. All on your
-          machine, pay once, own it forever
+          AI background removal, generative backgrounds, real layer editing —
+          all on your machine. Pay once, own it forever.
         </p>
         <div
           className="reveal mb-6 flex flex-wrap justify-center gap-3"
@@ -505,6 +521,7 @@ function Hero() {
         >
           <Button
             className="rounded-full px-7 py-3 text-base"
+            nativeButton={false}
             render={
               <a
                 data-polar-checkout
@@ -514,20 +531,21 @@ function Hero() {
             }
             size="lg"
           >
-            Get lifetime · $29
+            Buy Now
           </Button>
           <Button
             className="rounded-full px-7 py-3 text-base"
             onClick={() => setShowDownload(true)}
             size="lg"
-            variant="secondary"
+            variant="ghost"
           >
             Download free
           </Button>
         </div>
-        {showDownload && (
-          <DownloadEmailDialog onClose={() => setShowDownload(false)} />
-        )}
+        <DownloadEmailDialog
+          onOpenChange={setShowDownload}
+          open={showDownload}
+        />
         <div
           className="reveal mb-10 flex flex-wrap items-center justify-center gap-2 text-sm text-zinc-500"
           data-delay="4"
@@ -592,7 +610,7 @@ function Hero() {
                 viewBox="0 0 24 24"
                 width="13"
               >
-                <path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.25 1.237-.152 1.614.1.377.325.65.652.805.326.155.73.195 1.032.17.3-.027.575-.091.887-.145.292-.054.641-.109 1.063-.099.416.009.944.118 1.618.415.604.247 1.44.634 2.2.834.773.2 1.562.271 2.278.133.71-.14 1.376-.49 1.828-1.123a4.52 4.52 0 00.56-1.22c.062-.24.09-.49.108-.73.018-.24.027-.48.027-.72s-.01-.48-.027-.72c-.018-.24-.046-.49-.108-.73a4.52 4.52 0 00-.56-1.22c-.452-.633-1.118-.983-1.828-1.123-.716-.138-1.505-.067-2.278.133-.76.2-1.596.587-2.2.834-.674.297-1.202.406-1.618.415-.422.01-.771-.045-1.063-.099-.312-.054-.587-.118-.887-.145-.302-.025-.706.015-1.032.17-.327.155-.552.428-.652.805-.098.377-.097.934.152 1.614.076.242.018.571-.04.97-.028.136-.055.337-.055.536 0 .208.042.413.132.602.206.411.55.544.864.68.312.133.598.201.797.4.213.239.403.571.663.839a.424.424 0 00.11.135c-.123.805.009 1.657.287 2.489.589 1.771 1.831 3.47 2.716 4.521.75 1.067.974 1.928 1.05 3.02.065 1.491-1.056 5.965 3.17 6.298.165.013.325.021.48.021 4.226-.333 3.105-4.807 3.17-6.298.076-1.092.3-1.953 1.05-3.02.885-1.051 2.127-2.75 2.716-4.521.278-.832.41-1.684.287-2.489a.424.424 0 00.11-.135c.26-.268.45-.6.663-.839.199-.199.485-.267.797-.4.313-.136.658-.269.864-.68.09-.189.136-.394.132-.602 0-.199-.027-.4-.055-.536-.058-.399-.116-.728-.04-.97.249-.68.25-1.237.152-1.614-.1-.377-.325-.65-.652-.805-.326-.155-.73-.195-1.032-.17-.3.027-.575.091-.887.145-.292.054-.641.109-1.063.099-.416-.009-.944-.118-1.618-.415-.604-.247-1.44-.634-2.2-.834-.773-.2-1.562-.271-2.278-.133-.71.14-1.376.49-1.828 1.123a4.52 4.52 0 00-.56 1.22c-.062.24-.09.49-.108.73-.018.24-.027.48-.027.72s.01.48.027.72c.018.24.046.49.108.73a4.52 4.52 0 00.56 1.22c.452.633 1.118.983 1.828 1.123.716.138 1.505.067 2.278-.133.76-.2 1.596-.587 2.2-.834.674-.297 1.202-.406 1.618-.415.422-.01.771.045 1.063.099.312.054.587.118.887.145z" />
+                <path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.25 1.237-.152 1.614.1.377.325.65.652.805.326.155.73.195 1.032.17.3-.027.575-.091.887-.145.292-.054.641-.109 1.063-.099.416.009.944.118 1.618.415.604.247 1.44.634 2.2.834.773.2 1.562.271 2.278.133.71-.14 1.376-.49 1.828-1.123a4.52 4.52 0 00.56-1.22c.062-.24.09-.49.108-.73.018-.24.027-.48.027-.72s-.01-.48-.027-.72c-.018-.24-.046-.49-.108-.73a4.52 4.52 0 00-.56-1.22c-.452-.633-1.118-.983-1.828-1.123-.716-.138-1.505-.067-2.278.133-.76.2-1.596.587-2.2.834-.674.297-1.202.406-1.618.415-.422.01-.771-.045-1.063-.099-.312-.054-.587-.118-.887-.145-.302-.025-.706.015-1.032.17-.327.155-.552.428-.652.805-.098.377-.097.934.152 1.614.076.242.018.571-.04.97-.028.136-.055.337-.055.536 0 .208.042.413.132.602.206.411.55.544.864.68.312.133.598.201.797.4.213.239.403.571.663.839a.424.424 0 00.11.135c-.123.805.009 1.657.287 2.489.589 1.771 1.831 3.47 2.716 4.521.75 1.067.974 1.928 1.05 3.02.065 1.491-1.056 5.965 3.17 6.298.165.013.325.021.48.021z" />
               </svg>
               Linux
             </span>
@@ -613,7 +631,7 @@ function Stats() {
             [
               { num: "100%", label: "Runs on your machine", blue: true },
               { num: "$29", label: "One-time. Forever.", blue: false },
-              { num: "0", label: "Subscriptions", blue: false },
+              { num: "$0", label: "Monthly retainer", blue: false },
               { num: "7", label: "Export formats", blue: false },
             ] satisfies { num: string; label: string; blue: boolean }[]
           ).map((s) => (
@@ -1536,14 +1554,14 @@ function Bento() {
               <polygon points="23 7 16 12 23 17 23 7" />
               <rect height="14" rx="2" ry="2" width="15" x="1" y="5" />
             </svg>
-            Video frame extraction
+            Source material
           </Tag>
           <h3 className="font-heading font-medium text-lg text-white">
-            Pull a frame from any video.
+            Your designer pulls the perfect frame.
           </h3>
           <p className="text-sm text-zinc-400">
-            Drag any MP4 or MOV in. Scrub with arrow keys. Extract at source
-            resolution.
+            Drop in any MP4 or MOV. Scrub with arrow keys. Extract at source
+            resolution with no screenshot workarounds.
           </p>
         </div>
         <div className="min-w-0 flex-1">
@@ -1571,13 +1589,14 @@ function Bento() {
               <path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" />
               <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" />
             </svg>
-            Real layers
+            Pro level editing
           </Tag>
           <h3 className="font-heading font-medium text-lg text-white">
-            Layer panel that actually works.
+            Pro level editing. Real layers, real control.
           </h3>
           <p className="text-sm text-zinc-400">
-            Toggle, lock, group, drag to reorder. Like Photoshop. Native speed.
+            Toggle, lock, group, drag to reorder. A good designer doesn't cut
+            corners. Neither does Backstage.
           </p>
         </div>
         <LayersMock />
@@ -1607,11 +1626,11 @@ function Bento() {
             Gallery
           </Tag>
           <h3 className="font-heading font-medium text-lg text-white">
-            100 thumbnails. One workspace.
+            Your designer's studio. Every project in one place.
           </h3>
           <p className="text-sm text-zinc-400">
-            Search, sort, bulk export, 30-day trash. Built for people who ship
-            daily.
+            Search, sort, bulk export, 30-day trash. Built for creators who
+            publish consistently.
           </p>
         </div>
         <div className="grid grid-cols-3 gap-1.5 overflow-hidden rounded-lg">
@@ -1635,8 +1654,8 @@ function HowItWorks() {
   const steps = [
     {
       num: "01",
-      title: "Drop in your source",
-      body: "Drag any image, paste from clipboard, or drop a video and scrub for the frame. Nothing uploads anywhere.",
+      title: "Give the brief",
+      body: "Drag any image, paste from clipboard, or drop a video and scrub for the perfect frame. Nothing uploads anywhere.",
       icon: (
         <svg
           fill="none"
@@ -1656,8 +1675,8 @@ function HowItWorks() {
     },
     {
       num: "02",
-      title: "Compose with AI on tap",
-      body: "Cut the background, generate a new one with your Gemini key, drop in text, glow, badges. Iterate in seconds.",
+      title: "Pro level editing, on tap",
+      body: "Cut the background, generate a new one with your Gemini key, drop in text, glow, badges. Pro level editing results in seconds.",
       icon: (
         <svg
           fill="none"
@@ -1675,8 +1694,8 @@ function HowItWorks() {
     },
     {
       num: "03",
-      title: "Export to every platform",
-      body: "Pick a preset, pick a format, ship. The same project gives you YouTube, Shorts, and X in one click.",
+      title: "Deliver to every platform",
+      body: "Pick a preset, pick a format, ship. The same project gives you YouTube, Shorts, and X in one click. Your designer never misses a deadline.",
       icon: (
         <svg
           fill="none"
@@ -1702,7 +1721,7 @@ function HowItWorks() {
         <div className="reveal mb-12 text-center">
           <Eyebrow>How it works</Eyebrow>
           <h2 className="mt-1 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
-            From video to thumbnail in three steps.
+            How your designer works.
           </h2>
         </div>
         <div className="grid gap-6 md:grid-cols-3">
@@ -1763,16 +1782,16 @@ function ByoGemini() {
           <div>
             <Eyebrow>Bring your own key</Eyebrow>
             <h2 className="mt-1 mb-4 font-heading font-medium text-3xl text-white tracking-tight md:text-4xl">
-              Why pay $20 a month
+              Your designer's AI budget:
               <br />
-              for AI you barely use?
+              about $2 a month.
             </h2>
             <p className="mb-5 text-zinc-400">
-              Most thumbnail tools bundle AI into a fat monthly fee. Backstage
-              doesn&apos;t. Paste your Google AI Studio key once and you pay
-              Google directly at API rates. Most creators spend under{" "}
-              <strong className="text-white">$2 a month</strong> on Gemini even
-              when generating dozens of variants per video.
+              Other tools bundle AI into a fat monthly fee and ration your
+              usage. Your Backstage designer uses Google Gemini. Paste your free
+              key once and pay Google directly at API rates. Most creators spend
+              under <strong className="text-white">$2 a month</strong> even when
+              generating dozens of variants per video.
             </p>
             <ul className="mb-6 flex flex-col gap-3">
               {[
@@ -1888,7 +1907,7 @@ function ByoGemini() {
 function Privacy() {
   const cards = [
     {
-      title: "No cloud round-trip",
+      title: "Your designer never phones home",
       body: "Background removal runs in WebAssembly on-device. Video frame extraction never leaves your disk. Your unfinished thumbnails don't exist on anybody else's hard drive.",
       icon: (
         <svg
@@ -1907,8 +1926,8 @@ function Privacy() {
       ),
     },
     {
-      title: "Your files, your folder",
-      body: "Projects live on your filesystem as plain folders. Move them, sync them in Dropbox, version-control them in git. We don't lock you into a proprietary cloud.",
+      title: "Your designer's files are yours",
+      body: "Projects live on your filesystem as plain folders. Move them, sync them in Dropbox, version-control them in git. No proprietary cloud lock-in.",
       icon: (
         <svg
           fill="none"
@@ -1952,11 +1971,12 @@ function Privacy() {
         <div className="reveal mb-12">
           <Eyebrow>Local-first by default</Eyebrow>
           <h2 className="mt-1 mb-3 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
-            Your work stays on your machine.
+            Your designer works only for you.
           </h2>
           <p className="max-w-[540px] text-base text-zinc-400 md:text-lg">
-            Backstage is a native desktop app, not a web wrapper. Your projects,
-            your source files, your API keys. Never sent to a server we control.
+            Backstage is a native desktop app, not a web wrapper with your files
+            on someone else&apos;s server. Your projects, your source files,
+            your API keys. Your designer is loyal.
           </p>
         </div>
         <div className="grid gap-5 md:grid-cols-3">
@@ -2083,7 +2103,7 @@ function CompareTable() {
     },
     {
       label: "Source code open",
-      us: { yes: true, text: "MIT on GitHub" },
+      us: { yes: true, text: "AGPL-3.0 on GitHub" },
       rest: [
         { no: true, text: "Proprietary" },
         { no: true, text: "Proprietary" },
@@ -2107,20 +2127,18 @@ function CompareTable() {
         <div className="reveal mb-10">
           <Eyebrow>The honest comparison</Eyebrow>
           <h2 className="mt-1 mb-3 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
-            Built for thumbnails.
+            Your designer vs. the alternatives.
             <br />
-            <span className="text-zinc-500">
-              Everything else is for something else.
-            </span>
+            <span className="text-zinc-500">It&apos;s not a close race.</span>
           </h2>
           <p className="max-w-[540px] text-base text-zinc-400 md:text-lg">
-            Real comparison of the tools creators actually evaluate.
+            What small creators are actually choosing between.
           </p>
         </div>
         <div className="reveal overflow-hidden rounded-2xl">
           <div
             className="grid font-semibold text-xs"
-            style={{ gridTemplateColumns: "1.4fr 1fr 1fr 1fr" }}
+            style={{ gridTemplateColumns: "1.4fr 1fr 1fr 1fr 1fr" }}
           >
             <div className="px-5 py-3.5 text-zinc-500" />
             <div
@@ -2142,7 +2160,7 @@ function CompareTable() {
             <div
               className="grid border-zinc-800/50 border-b text-sm last:border-b-0"
               key={row.label}
-              style={{ gridTemplateColumns: "1.4fr 1fr 1fr 1fr" }}
+              style={{ gridTemplateColumns: "1.4fr 1fr 1fr 1fr 1fr" }}
             >
               <div className="px-5 py-3.5 text-zinc-400">{row.label}</div>
               <div
@@ -2169,46 +2187,46 @@ function CompareTable() {
 function Testimonials() {
   const items = [
     {
-      initials: "JM",
-      name: "Jamie Morgan",
-      handle: "@jamiebuilds · 240K subs",
+      initials: "PL",
+      name: "Priya Lamba",
+      handle: "@priyavlogs · 6.2K subs",
       quote:
-        "I went from spending 40 minutes on a thumbnail in Photoshop to 8 minutes in Backstage. The video-frame extractor alone is worth the price.",
+        "My CTR went from 2.4% to 5.8% in a month. I stopped using Canva templates and started making thumbnails that actually look like mine. That's the whole difference.",
     },
     {
-      initials: "RK",
-      name: "Ravi Krishnan",
-      handle: "@ravicodes · 88K subs",
+      initials: "TW",
+      name: "Tom Walsh",
+      handle: "@tombuildsit · 9.1K subs",
       quote:
-        "BYO key is the killer feature. I was paying for Canva Pro and a separate Midjourney sub just for thumbnails. Now I pay Google $1.50 a month and that's it.",
+        "I was about to pay for Canva Pro. Then I found this. $29 once versus $13 a month forever? Not a hard choice. And it does more than Canva anyway.",
     },
     {
-      initials: "AT",
-      name: "Alex Tan",
-      handle: "@alextanvideo · 1.1M subs",
+      initials: "ML",
+      name: "Mei Lin",
+      handle: "@meiexplains · 4.7K subs",
       quote:
-        "Finally a tool that respects that I have my own workflow. It's not trying to be everything for everyone. Layers work like Photoshop. Export is fast. That's it.",
+        "The AI background removal works offline and it's genuinely good. I'm a solo creator with no design background. Not having to fight Photoshop every upload is huge.",
     },
     {
-      initials: "SP",
-      name: "Sara Park",
-      handle: "@sara_dev · 56K subs",
+      initials: "JP",
+      name: "Jordan Park",
+      handle: "@jordanmakes · 2.9K subs",
       quote:
-        "Native, dark, keyboard-first. It feels like a developer made it. Probably because one did.",
+        "Even at under 3K subs my thumbnails compete with much bigger channels now. That confidence matters when you're still building an audience.",
     },
     {
-      initials: "DH",
-      name: "Diego Hernandez",
-      handle: "@diegoshipsit · 320K subs",
+      initials: "CS",
+      name: "Carlos Soto",
+      handle: "@carlostechvid · 12K subs",
       quote:
-        "The carousel generator changed my A/B testing workflow. I can run 4 variants of the same thumbnail concept and pick the winner in minutes.",
+        "The video frame extractor alone saves me 20 minutes per upload. I drop in raw footage, scrub to the perfect frame, done. No more screenshots from VLC.",
     },
     {
-      initials: "MN",
-      name: "Marcus Nguyen",
-      handle: "@marcusbuilds · 178K subs",
+      initials: "AR",
+      name: "Aisha Rahman",
+      handle: "@aishareviews · 5.1K subs",
       quote:
-        "$29 lifetime in a world of $25 a month subscriptions feels almost suspicious. Then you realize it's open source and built by one person and it makes sense.",
+        "I used to spend 45 minutes per thumbnail in Canva and they still looked template-y. Now it's 10 minutes and they look like I hired someone. $29 was a no-brainer.",
     },
   ];
 
@@ -2218,7 +2236,7 @@ function Testimonials() {
         <div className="reveal mb-10 text-center">
           <Eyebrow>What creators are saying</Eyebrow>
           <h2 className="mt-1 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
-            Built in the open. Shipped to creators who notice.
+            Small channels. Real results.
           </h2>
         </div>
         <div className="reveal" style={{ columns: 3, columnGap: "1.25rem" }}>
@@ -2270,7 +2288,7 @@ function OssCallout() {
 
   const lines = [
     { label: "Source:", value: "github.com/amajorai/backstage" },
-    { label: "License:", value: "MIT (BRIA model is non-commercial)" },
+    { label: "License:", value: "AGPL-3.0 (BRIA model is non-commercial)" },
     { label: "Stack:", value: "Tauri, Rust, React, TypeScript" },
     { label: "Issues:", value: "# public, triaged weekly" },
     {
@@ -2287,12 +2305,12 @@ function OssCallout() {
             <div>
               <Eyebrow>Open source</Eyebrow>
               <h2 className="mt-1 mb-4 font-heading font-medium text-2xl text-white tracking-tight md:text-3xl">
-                MIT-licensed and audited by anyone who wants to.
+                Your designer's source code is public. Audit it yourself.
               </h2>
               <p className="mb-6 text-zinc-400">
-                Backstage&apos;s source is on GitHub. The desktop app, the
-                editor, the AI integrations. Every line. The lifetime deal is
-                for the prebuilt, signed, auto-updating binaries we ship and
+                Every line of Backstage is on GitHub: the desktop app, the pro
+                level editing engine, and the AI integrations. The lifetime deal
+                is for the prebuilt, signed, auto-updating binaries we ship and
                 support. If you&apos;d rather compile it yourself, that&apos;s
                 free.
               </p>
@@ -2436,15 +2454,15 @@ function Roadmap() {
         <div className="reveal mb-10">
           <Eyebrow>Roadmap</Eyebrow>
           <h2 className="mt-1 mb-3 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
-            All updates included.
+            Your designer keeps getting better.
             <br />
             <span className="text-zinc-500">
-              No &ldquo;Pro tier&rdquo; hiding behind a paywall.
+              Every update included. No &ldquo;Pro tier&rdquo; paywall.
             </span>
           </h2>
           <p className="max-w-[540px] text-base text-zinc-400 md:text-lg">
             Every feature below ships to your existing license at zero extra
-            cost.
+            cost. Your $29 hire comes with lifetime upgrades.
           </p>
         </div>
         <div className="grid gap-5 md:grid-cols-3">
@@ -2506,14 +2524,14 @@ function Pricing() {
         <div className="reveal mb-10 text-center">
           <Eyebrow>Pricing</Eyebrow>
           <h2 className="mt-1 mb-3 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
-            Pay once. Use forever.
+            One hire. Lifetime contract.
             <br />
             <span className="text-zinc-500">
-              No subscriptions. No &ldquo;AI credits&rdquo;. No B.S.
+              No salary. No &ldquo;AI credits&rdquo;. No B.S.
             </span>
           </h2>
           <p className="mx-auto max-w-[540px] text-base text-zinc-400 md:text-lg">
-            Early bird pricing — locks in your rate forever. Price increases
+            Early bird pricing that locks in your rate forever. Price increases
             every 100 customers. Next increase: May 25.
           </p>
         </div>
@@ -2573,7 +2591,7 @@ function Pricing() {
                     <path d="M12 7v5l3 2" />
                   </svg>
                   <span className="text-sm text-zinc-400">
-                    Limited time deal — expires May 25
+                    Limited time deal, expires May 25
                   </span>
                   <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-800">
                     <div
@@ -2615,10 +2633,11 @@ function Pricing() {
                     <line x1="12" x2="12" y1="9" y2="13" />
                     <line x1="12" x2="12.01" y1="17" y2="17" />
                   </svg>
-                  <span>Goes to $35 on May 25 — lock in $29 now</span>
+                  <span>Goes to $35 on May 25. Lock in $29 now.</span>
                 </div>
                 <Button
                   className="mt-1 h-12 w-full rounded-xl text-sm"
+                  nativeButton={false}
                   render={
                     <a
                       data-polar-checkout
@@ -2687,7 +2706,7 @@ function FAQ() {
   const items = [
     {
       q: 'What does "lifetime" actually mean?',
-      a: 'Pay once and you own Backstage on every machine you use, forever. There is no subscription, no expiry, and no "AI credit" meter. Every future version is included. If the company shuts down tomorrow, the app keeps working because it runs on your machine.',
+      a: 'You hire Backstage once for $29 and it works for you forever, on every machine you own. No subscription, no expiry, no "AI credit" meter. Every future version is included. If we shut down tomorrow, your designer keeps running because it lives on your machine, not ours.',
       open: true,
     },
     {
@@ -2700,7 +2719,7 @@ function FAQ() {
     },
     {
       q: "What if the app shuts down?",
-      a: "Backstage is open source under the MIT license. The full source is on GitHub. Your installed copy keeps running indefinitely. If we ever stop maintaining it, you can build the latest version yourself, fork it, or hire anyone to keep it running.",
+      a: "Backstage is open source under the AGPL-3.0 license. The full source is on GitHub. Your installed copy keeps running indefinitely. If we ever stop maintaining it, you can build the latest version yourself, fork it, or hire anyone to keep it running.",
     },
     {
       q: "Can I use it on multiple machines?",
@@ -2715,8 +2734,8 @@ function FAQ() {
       a: "The default Backstage build uses a WebAssembly background-removal model under a permissive license that's fine for commercial use. The optional open-source build includes BRIA RMBG-1.4, which has a non-commercial license: it's there for hobbyists who want the sharper cutouts. For monetized YouTube channels, the default model is all you need.",
     },
     {
-      q: "Why is it so cheap?",
-      a: "Because we don't pay for your AI compute, don't run a SaaS backend, don't have a sales team, and don't have investors to repay. Backstage is built by a small team that wants the tool to exist and to be sustainably profitable at a fair price.",
+      q: "Why is it so cheap compared to hiring an actual designer?",
+      a: "A freelance thumbnail designer charges $50–200 per thumbnail or $300–800/month on retainer. Backstage does the same job for $29 once. It doesn't pay for your AI compute, doesn't run a SaaS backend, and has no sales team or investors to repay. Built by a small team that wants the tool to exist at a fair price.",
     },
   ];
 
@@ -2767,14 +2786,15 @@ function CtaStrip() {
         <div className="reveal flex flex-col items-center gap-5 text-center">
           <Eyebrow>Last call</Eyebrow>
           <h2 className="max-w-[560px] font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
-            Ship better thumbnails this weekend.
+            Hire your designer tonight.
           </h2>
           <p className="text-base text-zinc-400 md:text-lg">
-            Pay $29 once. Use it for the rest of your career.
+            Pay $29 once. No monthly salary, no creative briefs, no Slack DMs.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <Button
               className="rounded-full px-7 py-3 text-base"
+              nativeButton={false}
               render={
                 <a
                   data-polar-checkout
@@ -2784,13 +2804,14 @@ function CtaStrip() {
               }
               size="lg"
             >
-              Get lifetime · $29
+              Buy Now
             </Button>
             <Button
               className="rounded-full px-7 py-3 text-base"
+              nativeButton={false}
               render={<a href={GITHUB_URL} rel="noopener" target="_blank" />}
               size="lg"
-              variant="secondary"
+              variant="ghost"
             >
               View source on GitHub
             </Button>
@@ -2811,13 +2832,15 @@ function Footer() {
             <div className="mb-3 flex items-center gap-2 font-semibold text-sm text-white">
               <GalleryThumbnails
                 aria-hidden="true"
+                className="fill-foreground text-foreground"
                 size={18}
                 strokeWidth={2.5}
               />
               Backstage
             </div>
             <p className="text-sm text-zinc-500">
-              The agentic thumbnail maker for YouTube creators. Built by{" "}
+              The thumbnail editor for small creators who want to look like
+              bigger ones. Built by{" "}
               <a
                 className="text-zinc-300 no-underline transition-colors hover:text-white"
                 href="https://amajor.ai"

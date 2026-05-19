@@ -1,4 +1,4 @@
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_decorum::WebviewWindowExt;
 
 // Declare modules
@@ -74,6 +74,70 @@ fn is_bria_available() -> bool {
     cfg!(feature = "bria")
 }
 
+#[tauri::command]
+async fn import_backup(app: tauri::AppHandle, zip_path: String) -> Result<(), String> {
+    use std::io::Read;
+
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+
+    let file =
+        std::fs::File::open(&zip_path).map_err(|e| format!("Cannot open ZIP: {e}"))?;
+    let mut archive =
+        zip::ZipArchive::new(file).map_err(|e| format!("Invalid ZIP: {e}"))?;
+
+    let total = archive.len();
+    let mut extracted = 0usize;
+
+    for i in 0..total {
+        let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
+        let name = entry.name().to_string();
+
+        // Skip directories and files whose handles are permanently open on the
+        // Rust side — they will be recreated cleanly on the next launch.
+        if entry.is_dir()
+            || name.ends_with(".db-shm")
+            || name.ends_with(".db-wal")
+            || name == "embeddings.db"
+            || name.ends_with("/embeddings.db")
+        {
+            continue;
+        }
+
+        let out_path = app_data_dir.join(&name);
+        if let Some(parent) = out_path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+
+        let mut buf = Vec::with_capacity(entry.size() as usize);
+        entry
+            .read_to_end(&mut buf)
+            .map_err(|e| format!("Read entry {name}: {e}"))?;
+        std::fs::write(&out_path, &buf)
+            .map_err(|e| format!("Write {name}: {e}"))?;
+
+        extracted += 1;
+        let pct = (extracted * 100 / total.max(1)) as u8;
+        let _ = app.emit(
+            "import-progress",
+            serde_json::json!({ "pct": pct, "name": name }),
+        );
+    }
+
+    // Remove any stale WAL/SHM files that were NOT in the backup so SQLite
+    // doesn't try to apply pages from the old database to the restored one.
+    for fname in &["gallery.db-wal", "gallery.db-shm"] {
+        let stale = app_data_dir.join(fname);
+        if stale.exists() {
+            let _ = std::fs::remove_file(&stale);
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -134,6 +198,7 @@ pub fn run() {
             embeddings::get_embedding_stats,
             fetch_as_base64,
             is_bria_available,
+            import_backup,
             migrate_app_data,
             #[cfg(feature = "bria")]
             background_removal::bria_model_status,

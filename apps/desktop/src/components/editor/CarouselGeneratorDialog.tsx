@@ -241,7 +241,9 @@ export function CarouselGeneratorDialog({
                 value={colorScheme}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue>
+                    {COLOR_SCHEMES.find((s) => s.value === colorScheme)?.label}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {COLOR_SCHEMES.map((scheme) => (
