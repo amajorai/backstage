@@ -26,7 +26,9 @@
   transition: filter 220ms ease;
 }
 .emoji-draggable:hover {
-  filter: drop-shadow(0 12px 32px oklch(0.685 0.169 237.323 / 0.45));
+  filter: drop-shadow(
+    0 12px 32px color-mix(in oklch, var(--foreground) 45%, transparent)
+  );
 }
 .emoji-draggable.is-dragging {
   cursor: grabbing;
@@ -96,7 +98,7 @@
   border-radius: 50%;
   background: white;
   box-shadow:
-    0 0 0 2px oklch(0.685 0.169 237.323),
+    0 0 0 2px var(--foreground),
     0 4px 12px oklch(0 0 0 / 0.4);
   cursor: grab;
   touch-action: none;
@@ -116,12 +118,12 @@
   width: 3px;
   height: 30px;
   border-radius: 2px;
-  background: oklch(0.685 0.169 237.323);
+  background: var(--foreground);
   transform: translate(-50%, -50%);
   border: none;
   cursor: grab;
   touch-action: none;
-  box-shadow: 0 0 8px oklch(0.685 0.169 237.323);
+  box-shadow: 0 0 8px var(--foreground);
   left: 25%;
 }
 .scrub-handle.is-dragging {
@@ -135,7 +137,7 @@
   height: 14px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 0 0 2px oklch(0.685 0.169 237.323);
+  box-shadow: 0 0 0 2px var(--foreground);
   transform: translate(-50%, -50%);
   border: none;
   cursor: grab;
@@ -170,7 +172,7 @@
 /* ── FAQ open icon state ──────────────────────────────────────────────── */
 details[open] .faq-icon {
   transform: rotate(45deg);
-  color: oklch(0.685 0.169 237.323);
+  color: var(--foreground);
 }
 
 /* ── Success check (Transitions.dev) ─────────────────────────────────── */

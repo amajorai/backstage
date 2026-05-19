@@ -10,14 +10,14 @@ import {
   DialogTitle,
 } from "@repo/ui/dialog";
 import { Input } from "@repo/ui/input";
-import { GalleryThumbnails, Loader2 } from "lucide-react";
+import { ArrowRight, GalleryThumbnails, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import "@/styles/landing.css";
 
-const BLUE = "oklch(0.685 0.169 237.323)";
+const BLUE = "var(--foreground)";
 const CHECKOUT_URL =
   process.env.NEXT_PUBLIC_POLAR_CHECKOUT_URL ??
   "https://sandbox-api.polar.sh/v1/checkout-links/polar_cl_aGUui9yb3Gb4ebQMX2FFj13h4kBHGKrVW29fM0Nqp2m/redirect";
@@ -113,7 +113,7 @@ function useScrollReveal() {
 // ─── Shared UI ────────────────────────────────────────────────────────
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-4 inline-flex items-center gap-2 font-medium text-[11px] text-zinc-400 uppercase tracking-[0.12em]">
+    <div className="mb-4 inline-flex items-center gap-2 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.12em]">
       {children}
     </div>
   );
@@ -121,7 +121,7 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 
 function Tag({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-zinc-800/60 px-2.5 py-1 font-medium text-[11px] text-zinc-400">
+    <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2.5 py-1 font-medium text-[11px] text-muted-foreground">
       {children}
     </div>
   );
@@ -130,6 +130,7 @@ function Tag({ children }: { children: React.ReactNode }) {
 // ─── Nav ─────────────────────────────────────────────────────────────
 function Nav({ stars }: { stars: string }) {
   const [scrolled, setScrolled] = useState(false);
+  const [showDownload, setShowDownload] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -139,71 +140,140 @@ function Nav({ stars }: { stars: string }) {
   }, []);
 
   const navLinks = [
-    ["#features", "Features"],
-    ["#how", "How it works"],
     ["#compare", "Compare"],
     ["#pricing", "Pricing"],
     ["#faq", "FAQ"],
   ] as const;
 
+  const githubIcon = (
+    <svg
+      aria-hidden="true"
+      fill="currentColor"
+      height="14"
+      viewBox="0 0 24 24"
+      width="14"
+    >
+      <path d="M12 .5A12 12 0 0 0 0 12.5a12 12 0 0 0 8.2 11.4c.6.1.8-.3.8-.6v-2.1c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.8.1-.8.1-.8 1.3.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.4 3.7 1 .1-.8.4-1.4.7-1.7-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 24 12.5 12 12 0 0 0 12 .5Z" />
+    </svg>
+  );
+
   return (
-    <nav className="fixed top-0 right-0 left-0 z-50 flex justify-center py-3.5">
-      <div
-        className={cn(
-          "flex items-center gap-3",
-          scrolled
-            ? "h-11 w-full max-w-[780px] rounded-full bg-zinc-950/80 px-4 [backdrop-filter:blur(20px)_saturate(140%)]"
-            : "h-12 w-full max-w-[1200px] bg-transparent px-6"
-        )}
+    <>
+      {/* Desktop top nav */}
+      <nav className="fixed top-0 right-0 left-0 z-50 hidden justify-center py-3.5 md:flex">
+        <div
+          className={cn(
+            "flex items-center gap-3",
+            scrolled
+              ? "h-11 w-full max-w-[780px] rounded-full bg-background/80 px-4 [backdrop-filter:blur(20px)_saturate(140%)]"
+              : "h-12 w-full max-w-[1200px] bg-transparent px-6"
+          )}
+          style={{
+            transition:
+              "max-width 300ms cubic-bezier(0.22, 1, 0.36, 1), height 300ms cubic-bezier(0.22, 1, 0.36, 1), padding 300ms cubic-bezier(0.22, 1, 0.36, 1), background-color 300ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 300ms cubic-bezier(0.22, 1, 0.36, 1), border-radius 300ms cubic-bezier(0.22, 1, 0.36, 1)",
+            willChange: "max-width, height",
+          }}
+        >
+          <a
+            className="flex items-center gap-2 font-medium text-foreground text-sm no-underline"
+            href="/"
+          >
+            <GalleryThumbnails
+              aria-hidden="true"
+              className="fill-foreground text-foreground"
+              size={18}
+              strokeWidth={3}
+            />
+            Backstage
+          </a>
+          <div className="ml-1 flex items-center gap-0.5">
+            {navLinks.map(([href, label]) => (
+              <a
+                className="rounded-full px-3 py-1.5 text-muted-foreground text-sm no-underline transition-colors hover:text-foreground"
+                href={href}
+                key={href}
+              >
+                {label}
+              </a>
+            ))}
+          </div>
+          <div className="flex-1" />
+          <a
+            className="flex items-center gap-1.5 text-muted-foreground text-sm no-underline transition-colors hover:text-foreground"
+            href={GITHUB_URL}
+            rel="noopener"
+            target="_blank"
+          >
+            {githubIcon}
+            <span>{stars}</span>
+          </a>
+          <Button onClick={() => setShowDownload(true)} variant="contrast">
+            Download
+          </Button>
+        </div>
+      </nav>
+
+      <DownloadEmailDialog onOpenChange={setShowDownload} open={showDownload} />
+
+      {/* Mobile bottom bar */}
+      <nav
+        className="fixed right-0 bottom-0 left-0 z-50 md:hidden"
         style={{
-          transition:
-            "max-width 300ms cubic-bezier(0.22, 1, 0.36, 1), height 300ms cubic-bezier(0.22, 1, 0.36, 1), padding 300ms cubic-bezier(0.22, 1, 0.36, 1), background-color 300ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 300ms cubic-bezier(0.22, 1, 0.36, 1), border-radius 300ms cubic-bezier(0.22, 1, 0.36, 1)",
-          willChange: "max-width, height",
+          background:
+            "linear-gradient(to top, color-mix(in oklch, var(--background) 92%, transparent) 0%, color-mix(in oklch, var(--background) 60%, transparent) 70%, transparent 100%)",
+          backdropFilter: "blur(16px) saturate(140%)",
+          WebkitBackdropFilter: "blur(16px) saturate(140%)",
         }}
       >
-        <a
-          className="flex items-center gap-2 font-medium text-sm text-white no-underline"
-          href="/"
-        >
-          <GalleryThumbnails
-            aria-hidden="true"
-            className="fill-foreground text-foreground"
-            size={18}
-            strokeWidth={3}
-          />
-          Backstage
-        </a>
-        <div className="ml-1 hidden items-center gap-0.5 md:flex">
-          {navLinks.map(([href, label]) => (
-            <a
-              className="rounded-full px-3 py-1.5 text-sm text-zinc-400 no-underline transition-colors hover:text-white"
-              href={href}
-              key={href}
-            >
-              {label}
-            </a>
-          ))}
-        </div>
-        <div className="flex-1" />
-        <a
-          className="hidden items-center gap-1.5 text-sm text-zinc-400 no-underline transition-colors hover:text-white md:flex"
-          href={GITHUB_URL}
-          rel="noopener"
-          target="_blank"
-        >
-          <svg
-            aria-hidden="true"
-            fill="currentColor"
-            height="14"
-            viewBox="0 0 24 24"
-            width="14"
+        <div className="flex items-center justify-around px-2 pt-3 pb-5 pb-safe">
+          <a
+            className="flex flex-col items-center gap-1 text-muted-foreground no-underline transition-colors hover:text-foreground"
+            href="#compare"
           >
-            <path d="M12 .5A12 12 0 0 0 0 12.5a12 12 0 0 0 8.2 11.4c.6.1.8-.3.8-.6v-2.1c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.8.1-.8.1-.8 1.3.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.4 3.7 1 .1-.8.4-1.4.7-1.7-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 24 12.5 12 12 0 0 0 12 .5Z" />
-          </svg>
-          <span>{stars}</span>
-        </a>
-      </div>
-    </nav>
+            <span className="font-medium text-[10px] tracking-wide">
+              Compare
+            </span>
+          </a>
+          <a
+            className="flex flex-col items-center gap-1 text-muted-foreground no-underline transition-colors hover:text-foreground"
+            href="#faq"
+          >
+            <span className="font-medium text-[10px] tracking-wide">FAQ</span>
+          </a>
+          <a
+            className="flex items-center gap-1.5 font-semibold text-foreground text-sm no-underline"
+            href="/"
+          >
+            <GalleryThumbnails
+              aria-hidden="true"
+              className="fill-foreground text-foreground"
+              size={20}
+              strokeWidth={3}
+            />
+            <span>Backstage</span>
+          </a>
+          <a
+            className="flex flex-col items-center gap-1 text-muted-foreground no-underline transition-colors hover:text-foreground"
+            href="#pricing"
+          >
+            <span className="font-medium text-[10px] tracking-wide">
+              Pricing
+            </span>
+          </a>
+          <a
+            className="flex flex-col items-center gap-1 text-muted-foreground no-underline transition-colors hover:text-foreground"
+            href={GITHUB_URL}
+            rel="noopener"
+            target="_blank"
+          >
+            {githubIcon}
+            <span className="font-medium text-[10px] tracking-wide">
+              {stars}
+            </span>
+          </a>
+        </div>
+      </nav>
+    </>
   );
 }
 
@@ -375,8 +445,8 @@ function DownloadEmailDialog({
           <div className="flex flex-col items-center gap-4 py-4 text-center">
             <SuccessCheck />
             <div>
-              <p className="font-medium text-white">Check your inbox</p>
-              <p className="mt-1 text-sm text-zinc-400">
+              <p className="font-medium text-foreground">Check your inbox</p>
+              <p className="mt-1 text-muted-foreground text-sm">
                 We sent your download link to {email}
               </p>
             </div>
@@ -384,11 +454,11 @@ function DownloadEmailDialog({
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle className="text-white">
+              <DialogTitle className="text-foreground">
                 Get the download link
               </DialogTitle>
-              <DialogDescription className="text-zinc-400">
-                Enter your details and we&apos;ll send it instantly.
+              <DialogDescription className="text-muted-foreground">
+                Let us know where to send you the link.
               </DialogDescription>
             </DialogHeader>
             <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
@@ -413,12 +483,13 @@ function DownloadEmailDialog({
                 <p className="text-destructive text-sm">{errorMsg}</p>
               )}
               <Button
-                className="h-12 w-full"
+                className="h-14 w-full text-lg"
                 disabled={
                   !(name.trim() && email.trim()) || submitState === "loading"
                 }
                 size="lg"
                 type="submit"
+                variant="contrast"
               >
                 {submitState === "loading" ? (
                   <>
@@ -426,7 +497,10 @@ function DownloadEmailDialog({
                     Sending...
                   </>
                 ) : (
-                  "Send download link"
+                  <>
+                    Send
+                    <ArrowRight className="ml-2 size-4" />
+                  </>
                 )}
               </Button>
             </form>
@@ -468,32 +542,6 @@ function GradientBars({
           }}
         />
       ))}
-    </div>
-  );
-}
-
-// ─── Money Back Badge ─────────────────────────────────────────────────
-function MoneyBackBadge() {
-  return (
-    <div className="flex items-center justify-center gap-2 rounded-lg bg-zinc-800/50 px-3 py-2.5">
-      <svg
-        aria-hidden="true"
-        className="flex-shrink-0 text-emerald-400"
-        fill="none"
-        height="16"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        viewBox="0 0 24 24"
-        width="16"
-      >
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        <polyline points="9 12 11 14 15 10" />
-      </svg>
-      <span className="font-medium text-xs text-zinc-300">
-        30-day money back guarantee
-      </span>
     </div>
   );
 }
@@ -546,72 +594,56 @@ function Hero() {
       </div>
       <div className="relative z-10 mx-auto flex max-w-[1200px] flex-col items-center px-6 text-center">
         <h1
-          className="reveal mb-5 max-w-[860px] text-balance font-heading font-medium text-4xl text-white leading-tight tracking-tight md:text-6xl"
+          className="reveal mb-5 max-w-[860px] text-balance font-heading font-medium text-4xl text-foreground leading-none tracking-tight md:text-6xl"
           data-delay="1"
         >
-          Anyone can make great thumbnails that click
+          Anyone can make great thumbnails that click in seconds
         </h1>
         <p
-          className="reveal mb-8 max-w-[480px] text-lg text-zinc-400 md:text-xl"
+          className="reveal mb-8 max-w-[480px] text-lg text-muted-foreground md:text-xl"
           data-delay="2"
         >
           The 🥇 pro level thumbnail studio built for small creators. No Canva
-          or Photoshop subscriptions. Pay once, own it forever.
+          or Photoshop subscriptions.
         </p>
         <div
-          className="reveal mb-6 flex flex-wrap justify-center gap-3"
+          className="reveal mb-6 flex flex-col items-center gap-3"
           data-delay="3"
         >
-          <Button
-            className="rounded-full px-7 py-3 text-base"
-            nativeButton={false}
-            render={
-              <a
-                data-polar-checkout
-                data-polar-checkout-theme="dark"
-                href={CHECKOUT_URL}
-              />
-            }
-            size="lg"
-          >
-            Buy Now
-          </Button>
-          <Button
-            className="rounded-full px-7 py-3 text-base"
-            onClick={() => setShowDownload(true)}
-            size="lg"
-            variant="ghost"
-          >
-            Download free
-          </Button>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Button onClick={() => setShowDownload(true)} variant="outline">
+              Download for free
+            </Button>
+            <div className="flex flex-col items-start gap-1">
+              <Button
+                nativeButton={false}
+                render={
+                  <a
+                    data-polar-checkout
+                    data-polar-checkout-theme="dark"
+                    href={CHECKOUT_URL}
+                  />
+                }
+                variant="contrast"
+              >
+                Lifetime Access $29
+              </Button>
+              <p className="text-muted-foreground text-xs">
+                🔥 Limited deal until May 25
+              </p>
+            </div>
+          </div>
         </div>
         <DownloadEmailDialog
           onOpenChange={setShowDownload}
           open={showDownload}
         />
-        <div className="reveal mt-1 mb-4" data-delay="4">
-          <MoneyBackBadge />
-        </div>
-        <div
-          className="reveal mb-10 flex flex-wrap items-center justify-center gap-2 text-sm text-zinc-500"
-          data-delay="5"
-        >
-          <span className="flex items-center gap-1.5 text-amber-400/80">
-            Early bird
-            <span className="text-zinc-600 line-through">$59</span>
-            $29
-          </span>
-          <span>·</span>
-          <span>Price increases every 100 users, lock in now</span>
-          <span>·</span>
-          <span>30-day refund</span>
-        </div>
-        <div className="reveal w-full max-w-[900px]" data-delay="6">
+        <div className="reveal w-full max-w-[900px]" data-delay="5">
           <div
             className="overflow-hidden rounded-2xl"
             style={{
               boxShadow:
-                "0 0 0 1px oklch(1 0 0 / 0.05), 0 32px 80px oklch(0 0 0 / 0.6), 0 0 100px oklch(0.685 0.169 237.323 / 0.10)",
+                "0 0 0 1px oklch(1 0 0 / 0.05), 0 32px 80px oklch(0 0 0 / 0.6)",
             }}
           >
             <Image
@@ -622,7 +654,7 @@ function Hero() {
               width={1100}
             />
           </div>
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-4 text-sm text-zinc-500">
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-4 text-muted-foreground text-sm">
             <span>Available on</span>
             <span className="flex items-center gap-1.5">
               <svg
@@ -656,7 +688,7 @@ function Hero() {
                 viewBox="0 0 24 24"
                 width="13"
               >
-                <path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.25 1.237-.152 1.614.1.377.325.65.652.805.326.155.73.195 1.032.17.3-.027.575-.091.887-.145.292-.054.641-.109 1.063-.099.416.009.944.118 1.618.415.604.247 1.44.634 2.2.834.773.2 1.562.271 2.278.133.71-.14 1.376-.49 1.828-1.123a4.52 4.52 0 00.56-1.22c.062-.24.09-.49.108-.73.018-.24.027-.48.027-.72s-.01-.48-.027-.72c-.018-.24-.046-.49-.108-.73a4.52 4.52 0 00-.56-1.22c-.452-.633-1.118-.983-1.828-1.123-.716-.138-1.505-.067-2.278.133-.76.2-1.596.587-2.2.834-.674.297-1.202.406-1.618.415-.422.01-.771-.045-1.063-.099-.312-.054-.587-.118-.887-.145-.302-.025-.706.015-1.032.17-.327.155-.552.428-.652.805-.098.377-.097.934.152 1.614.076.242.018.571-.04.97-.028.136-.055.337-.055.536 0 .208.042.413.132.602.206.411.55.544.864.68.312.133.598.201.797.4.213.239.403.571.663.839a.424.424 0 00.11.135c-.123.805.009 1.657.287 2.489.589 1.771 1.831 3.47 2.716 4.521.75 1.067.974 1.928 1.05 3.02.065 1.491-1.056 5.965 3.17 6.298.165.013.325.021.48.021z" />
+                <path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2.025.134.063.198.114.333l.003.003c.391.778 1.113 1.132 1.884 1.071.771-.06 1.592-.536 2.257-1.306.631-.765 1.683-1.084 2.378-1.503.348-.199.629-.469.649-.853.023-.4-.2-.811-.714-1.376v-.097l-.003-.003c-.17-.2-.25-.535-.338-.926-.085-.401-.182-.786-.492-1.046h-.003c-.059-.054-.123-.067-.188-.135a.357.357 0 00-.19-.064c.431-1.278.264-2.55-.173-3.694-.533-1.41-1.465-2.638-2.175-3.483-.796-1.005-1.576-1.957-1.56-3.368.026-2.152.236-6.133-3.544-6.139zm.529 3.405h.013c.213 0 .396.062.584.198.19.135.33.332.438.533.105.259.158.459.166.724 0-.02.006-.04.006-.06v.105a.086.086 0 01-.004-.021l-.004-.024a1.807 1.807 0 01-.15.706.953.953 0 01-.213.335.71.71 0 00-.088-.042c-.104-.045-.198-.064-.284-.133a1.312 1.312 0 00-.22-.066c.05-.06.146-.133.183-.198.053-.128.082-.264.088-.402v-.02a1.21 1.21 0 00-.061-.4c-.045-.134-.101-.2-.183-.333-.084-.066-.167-.132-.267-.132h-.016c-.093 0-.176.03-.262.132a.8.8 0 00-.205.334 1.18 1.18 0 00-.09.4v.019c.002.089.008.179.02.267-.193-.067-.438-.135-.607-.202a1.635 1.635 0 01-.018-.2v-.02a1.772 1.772 0 01.15-.768c.082-.22.232-.406.43-.533a.985.985 0 01.594-.2zm-2.962.059h.036c.142 0 .27.048.399.135.146.129.264.288.344.465.09.199.14.4.153.667v.004c.007.134.006.2-.002.266v.08c-.03.007-.056.018-.083.024-.152.055-.274.135-.393.2.012-.09.013-.18.003-.267v-.015c-.012-.133-.04-.2-.082-.333a.613.613 0 00-.166-.267.248.248 0 00-.183-.064h-.021c-.071.006-.13.04-.186.132a.552.552 0 00-.12.27.944.944 0 00-.023.33v.015c.012.135.037.2.08.334.046.134.098.2.166.268.01.009.02.018.034.024-.07.057-.117.07-.176.136a.304.304 0 01-.131.068 2.62 2.62 0 01-.275-.402 1.772 1.772 0 01-.155-.667 1.759 1.759 0 01.08-.668 1.43 1.43 0 01.283-.535c.128-.133.26-.2.418-.2zm1.37 1.706c.332 0 .733.065 1.216.399.293.2.523.269 1.052.468h.003c.255.136.405.266.478.399v-.131a.571.571 0 01.016.47c-.123.31-.516.643-1.063.842v.002c-.268.135-.501.333-.775.465-.276.135-.588.292-1.012.267a1.139 1.139 0 01-.448-.067 3.566 3.566 0 01-.322-.198c-.195-.135-.363-.332-.612-.465v-.005h-.005c-.4-.246-.616-.512-.686-.71-.07-.268-.005-.47.193-.6.224-.135.38-.271.483-.336.104-.074.143-.102.176-.131h.002v-.003c.169-.202.436-.47.839-.601.139-.036.294-.065.466-.065zm2.8 2.142c.358 1.417 1.196 3.475 1.735 4.473.286.534.855 1.659 1.102 3.024.156-.005.33.018.513.064.646-1.671-.546-3.467-1.089-3.966-.22-.2-.232-.335-.123-.335.59.534 1.365 1.572 1.646 2.757.13.535.16 1.104.021 1.67.067.028.135.06.205.067 1.032.534 1.413.938 1.23 1.537v-.043c-.06-.003-.12 0-.18 0h-.016c.151-.467-.182-.825-1.065-1.224-.915-.4-1.646-.336-1.77.465-.008.043-.013.066-.018.135-.068.023-.139.053-.209.064-.43.268-.662.669-.793 1.187-.13.533-.17 1.156-.205 1.869v.003c-.02.334-.17.838-.319 1.35-1.5 1.072-3.58 1.538-5.348.334a2.645 2.645 0 00-.402-.533 1.45 1.45 0 00-.275-.333c.182 0 .338-.03.465-.067a.615.615 0 00.314-.334c.108-.267 0-.697-.345-1.163-.345-.467-.931-.995-1.788-1.521-.63-.4-.986-.87-1.15-1.396-.165-.534-.143-1.085-.015-1.645.245-1.07.873-2.11 1.274-2.763.107-.065.037.135-.408.974-.396.751-1.14 2.497-.122 3.854a8.123 8.123 0 01.647-2.876c.564-1.278 1.743-3.504 1.836-5.268.048.036.217.135.289.202.218.133.38.333.59.465.21.201.477.335.876.335.039.003.075.006.11.006.412 0 .73-.134.997-.268.29-.134.52-.334.74-.4h.005c.467-.135.835-.402 1.044-.7zm2.185 8.958c.037.6.343 1.245.882 1.377.588.134 1.434-.333 1.791-.765l.211-.01c.315-.007.577.01.847.268l.003.003c.208.199.305.53.391.876.085.4.154.78.409 1.066.486.527.645.906.636 1.14l.003-.007v.018l-.003-.012c-.015.262-.185.396-.498.595-.63.401-1.746.712-2.457 1.57-.618.737-1.37 1.14-2.036 1.191-.664.053-1.237-.2-1.574-.898l-.005-.003c-.21-.4-.12-1.025.056-1.69.176-.668.428-1.344.463-1.897.037-.714.076-1.335.195-1.814.12-.465.308-.797.641-.984l.045-.022zm-10.814.049h.01c.053 0 .105.005.157.014.376.055.706.333 1.023.752l.91 1.664.003.003c.243.533.754 1.064 1.189 1.637.434.598.77 1.131.729 1.57v.006c-.057.744-.48 1.148-1.125 1.294-.645.135-1.52.002-2.395-.464-.968-.536-2.118-.469-2.857-.602-.369-.066-.61-.2-.723-.4-.11-.2-.113-.602.123-1.23v-.004l.002-.003c.117-.334.03-.752-.027-1.118-.055-.401-.083-.71.043-.94.16-.334.396-.4.69-.533.294-.135.64-.202.915-.47h.002v-.002c.256-.268.445-.601.668-.838.19-.201.38-.336.663-.336zm7.159-9.074c-.435.201-.945.535-1.488.535-.542 0-.97-.267-1.28-.466-.154-.134-.28-.268-.373-.335-.164-.134-.144-.333-.074-.333.109.016.129.134.199.2.096.066.215.2.36.333.292.2.68.467 1.167.467.485 0 1.053-.267 1.398-.466.195-.135.445-.334.648-.467.156-.136.149-.267.279-.267.128.016.034.134-.147.332a8.097 8.097 0 01-.69.468zm-1.082-1.583V5.64c-.006-.02.013-.042.029-.05.074-.043.18-.027.26.004.063 0 .16.067.15.135-.006.049-.085.066-.135.066-.055 0-.092-.043-.141-.068-.052-.018-.146-.008-.163-.065zm-.551 0c-.02.058-.113.049-.166.066-.047.025-.086.068-.14.068-.05 0-.13-.02-.136-.068-.01-.066.088-.133.15-.133.08-.031.184-.047.259-.005.019.009.036.03.03.05v.02h.003z" />
               </svg>
               Linux
             </span>
@@ -682,16 +714,21 @@ function Stats() {
             ] satisfies { num: string; label: string; blue: boolean }[]
           ).map((s) => (
             <div
-              className="flex flex-col items-center bg-zinc-900/40 px-4 py-6"
+              className="flex flex-col items-center bg-card/40 px-4 py-6"
               key={s.label}
             >
               <div
-                className="mb-1 font-bold text-3xl"
-                style={s.blue ? { color: BLUE } : { color: "white" }}
+                className={cn(
+                  "mb-1 font-bold text-3xl",
+                  !s.blue && "text-foreground"
+                )}
+                style={s.blue ? { color: BLUE } : undefined}
               >
                 {s.num}
               </div>
-              <div className="text-center text-xs text-zinc-500">{s.label}</div>
+              <div className="text-center text-muted-foreground text-xs">
+                {s.label}
+              </div>
             </div>
           ))}
         </div>
@@ -835,10 +872,10 @@ function CompareSlider() {
             src={IMG}
           />
         </div>
-        <div className="pointer-events-none absolute top-3 left-4 rounded bg-zinc-900/70 px-2 py-1 font-semibold text-white text-xs">
+        <div className="pointer-events-none absolute top-3 left-4 rounded bg-card/70 px-2 py-1 font-semibold text-foreground text-xs">
           Before
         </div>
-        <div className="pointer-events-none absolute top-3 right-4 rounded bg-zinc-900/70 px-2 py-1 font-semibold text-white text-xs">
+        <div className="pointer-events-none absolute top-3 right-4 rounded bg-card/70 px-2 py-1 font-semibold text-foreground text-xs">
           After
         </div>
         <div
@@ -932,13 +969,13 @@ function GeminiPanel() {
   const photos = PHOTO_SETS[setIdx];
 
   return (
-    <div className="grid gap-0 overflow-hidden rounded-2xl bg-zinc-900 md:grid-cols-2">
+    <div className="grid gap-0 overflow-hidden rounded-2xl bg-card md:grid-cols-2">
       <div className="flex flex-col gap-3 p-5">
-        <div className="font-medium text-[11px] text-zinc-500 uppercase tracking-widest">
+        <div className="font-medium text-[11px] text-muted-foreground uppercase tracking-widest">
           Prompt
         </div>
         <textarea
-          className="h-24 w-full resize-none rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-zinc-600 focus:border-zinc-500"
+          className="h-24 w-full resize-none rounded-lg border border bg-muted px-3 py-2.5 text-foreground text-sm outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-border"
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -952,23 +989,23 @@ function GeminiPanel() {
         />
         <div className="flex gap-2">
           <select
-            className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs text-zinc-400 outline-none"
+            className="flex-1 rounded-lg border bg-muted px-3 py-2 text-muted-foreground text-xs outline-none"
             disabled
           >
             <option>gemini-2.5-flash-image</option>
           </select>
           <select
-            className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs text-zinc-400 outline-none"
+            className="rounded-lg border bg-muted px-3 py-2 text-muted-foreground text-xs outline-none"
             disabled
           >
             <option>4 images</option>
           </select>
         </div>
         <div className="mt-auto flex items-center gap-2">
-          <span className="flex-1 text-xs text-zinc-500">{meta}</span>
+          <span className="flex-1 text-muted-foreground text-xs">{meta}</span>
           <button
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold text-xs text-zinc-950 transition-all hover:opacity-90",
+              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold text-background text-xs transition-all hover:opacity-90",
               generating && "cursor-not-allowed opacity-70"
             )}
             onClick={generate}
@@ -993,10 +1030,10 @@ function GeminiPanel() {
         {photos.map((id, i) => (
           <button
             className={cn(
-              "relative aspect-square cursor-pointer overflow-hidden rounded-lg border bg-zinc-800 transition-all",
+              "relative aspect-square cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all",
               activeTile === i
                 ? "border-2"
-                : "border-zinc-700 hover:border-zinc-500",
+                : "border hover:border-foreground/40",
               shimmer && "tile-shimmer"
             )}
             key={id}
@@ -1014,9 +1051,7 @@ function GeminiPanel() {
             <span
               className={cn(
                 "absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full border",
-                activeTile === i
-                  ? "border-transparent"
-                  : "border-zinc-600 bg-zinc-900/80"
+                activeTile === i ? "border-transparent" : "border bg-card/80"
               )}
               style={activeTile === i ? { background: BLUE } : undefined}
             >
@@ -1033,7 +1068,7 @@ function GeminiPanel() {
                 </svg>
               )}
             </span>
-            <span className="absolute bottom-1 left-1.5 font-medium text-[10px] text-zinc-400">
+            <span className="absolute bottom-1 left-1.5 font-medium text-[10px] text-muted-foreground">
               v{i + 1}
             </span>
           </button>
@@ -1075,14 +1110,14 @@ function ExportDialog() {
 
   return (
     <div className="flex items-center justify-center py-6">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-zinc-900 shadow-2xl">
+      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-card shadow-2xl">
         <div className="flex items-center justify-between px-5 py-3.5">
-          <h4 className="font-heading font-medium text-sm text-white">
+          <h4 className="font-heading font-medium text-foreground text-sm">
             Export Image
           </h4>
           <button
             aria-label="Close"
-            className="text-zinc-500 transition-colors hover:text-white"
+            className="text-muted-foreground transition-colors hover:text-foreground"
             type="button"
           >
             <svg
@@ -1099,7 +1134,7 @@ function ExportDialog() {
           </button>
         </div>
         <div className="flex flex-col gap-4 p-5">
-          <div className="overflow-hidden rounded-lg bg-zinc-800">
+          <div className="overflow-hidden rounded-lg bg-muted">
             <Image
               alt=""
               height={170}
@@ -1109,19 +1144,21 @@ function ExportDialog() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <div className="font-medium text-xs text-zinc-400">Format</div>
+            <div className="font-medium text-muted-foreground text-xs">
+              Format
+            </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {formats.map((f, i) =>
                 f === null ? (
                   // biome-ignore lint/suspicious/noArrayIndexKey: static list
-                  <div className="h-5 w-px bg-zinc-700" key={`div-${i}`} />
+                  <div className="h-5 w-px bg-border" key={`div-${i}`} />
                 ) : (
                   <button
                     className={cn(
                       "rounded-lg border px-3 py-1.5 font-medium text-xs transition-all",
                       activeFormat === f.key
-                        ? "border-transparent text-zinc-950"
-                        : "border-zinc-700 bg-transparent text-zinc-400 hover:border-zinc-500"
+                        ? "border-transparent text-background"
+                        : "border bg-transparent text-muted-foreground hover:border-foreground/40"
                     )}
                     key={f.key}
                     onClick={() => setActiveFormat(f.key)}
@@ -1137,8 +1174,10 @@ function ExportDialog() {
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <div className="font-medium text-xs text-zinc-400">Resolution</div>
-            <div className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-300">
+            <div className="font-medium text-muted-foreground text-xs">
+              Resolution
+            </div>
+            <div className="flex items-center justify-between rounded-lg border bg-muted px-3 py-2 text-foreground/80 text-sm">
               <span>1920 × 1080 (1080p)</span>
               <svg
                 fill="none"
@@ -1154,7 +1193,7 @@ function ExportDialog() {
           </div>
           {!isAnimated && (
             <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between font-medium text-xs text-zinc-400">
+              <div className="flex items-center justify-between font-medium text-muted-foreground text-xs">
                 <span>Quality</span>
                 <span style={{ color: BLUE }}>{quality}%</span>
               </div>
@@ -1184,7 +1223,7 @@ function ExportDialog() {
                 }}
                 ref={sliderRef}
               >
-                <div className="relative h-1 w-full overflow-hidden rounded-full bg-zinc-700">
+                <div className="relative h-1 w-full overflow-hidden rounded-full bg-border">
                   <div
                     className="absolute inset-y-0 left-0 rounded-full"
                     style={{ width: `${quality}%`, background: BLUE }}
@@ -1202,13 +1241,13 @@ function ExportDialog() {
         </div>
         <div className="flex items-center justify-end gap-2 px-5 py-3.5">
           <button
-            className="rounded-lg px-4 py-2 text-sm text-zinc-400 transition-colors hover:text-white"
+            className="rounded-lg px-4 py-2 text-muted-foreground text-sm transition-colors hover:text-foreground"
             type="button"
           >
             Cancel
           </button>
           <button
-            className="rounded-lg px-4 py-2 font-semibold text-sm text-zinc-950 transition-all hover:opacity-90"
+            className="rounded-lg px-4 py-2 font-semibold text-background text-sm transition-all hover:opacity-90"
             style={{ background: BLUE }}
             type="button"
           >
@@ -1257,7 +1296,7 @@ function VideoScrubber() {
   }, [update]);
 
   return (
-    <div className="w-full overflow-hidden rounded-xl bg-zinc-900">
+    <div className="w-full overflow-hidden rounded-xl bg-card">
       <div className="relative aspect-video">
         {/* biome-ignore lint/performance/noImgElement lint/correctness/useImageSize: external Unsplash URL */}
         <img
@@ -1265,23 +1304,23 @@ function VideoScrubber() {
           className="h-full w-full object-cover"
           src="https://images.unsplash.com/photo-1485846234645-a62644f84728?w=900&q=80&auto=format&fit=crop"
         />
-        <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-zinc-950/60 to-transparent p-3">
+        <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-background/60 to-transparent p-3">
           <div className="flex items-center justify-between">
-            <div className="inline-flex items-center gap-1.5 rounded bg-zinc-950/70 px-2 py-1 font-semibold text-[11px] text-white">
+            <div className="inline-flex items-center gap-1.5 rounded bg-background/70 px-2 py-1 font-semibold text-[11px] text-foreground">
               <span
                 className="h-1.5 w-1.5 rounded-full bg-red-500"
                 style={{ boxShadow: "0 0 6px oklch(0.628 0.258 29.234)" }}
               />
               CAPTURED
             </div>
-            <div className="rounded bg-zinc-950/70 px-2 py-1 text-[11px] text-zinc-300">
+            <div className="rounded bg-background/70 px-2 py-1 text-[11px] text-foreground/80">
               00:02:14:08 · 3840×2160
             </div>
           </div>
         </div>
       </div>
       <div
-        className="relative h-10 cursor-pointer bg-zinc-800"
+        className="relative h-10 cursor-pointer bg-muted"
         onPointerDown={(e) => {
           if (e.target === handleRef.current) {
             return;
@@ -1295,10 +1334,7 @@ function VideoScrubber() {
         <div className="absolute inset-0 grid grid-cols-10">
           {Array.from({ length: 10 }).map((_, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: static frames
-            <div
-              className="border-zinc-700 border-r bg-zinc-800 last:border-r-0"
-              key={i}
-            />
+            <div className="border border-r bg-muted last:border-r-0" key={i} />
           ))}
         </div>
         <button
@@ -1411,7 +1447,7 @@ function LayersMock() {
   );
 
   const LayerToolbar = () => (
-    <div className="flex items-center gap-1 border-zinc-700 border-t px-3 py-2">
+    <div className="flex items-center gap-1 border-t px-3 py-2">
       {[
         {
           label: "Add layer",
@@ -1481,7 +1517,7 @@ function LayersMock() {
       ].map(({ label, icon }) => (
         <button
           aria-label={label}
-          className="flex h-7 w-7 items-center justify-center rounded text-zinc-500 transition-colors hover:text-white"
+          className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
           key={label}
           type="button"
         >
@@ -1509,14 +1545,12 @@ function LayersMock() {
   );
 
   return (
-    <div className="w-full overflow-hidden rounded-xl bg-zinc-900">
+    <div className="w-full overflow-hidden rounded-xl bg-card">
       {layers.map((layer) => (
         <div
           className={cn(
             "flex cursor-pointer items-center gap-2 px-3 py-2 transition-colors",
-            selectedRow === layer.id
-              ? "bg-zinc-700/60"
-              : "hover:bg-zinc-800/60",
+            selectedRow === layer.id ? "bg-muted" : "hover:bg-muted/50",
             hiddenRows.has(layer.id) && "opacity-40"
           )}
           key={layer.id}
@@ -1527,7 +1561,7 @@ function LayersMock() {
         >
           <button
             aria-label="Toggle visibility"
-            className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-zinc-500 transition-colors hover:text-white"
+            className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
             onClick={(e) => {
               e.stopPropagation();
               toggleHidden(layer.id);
@@ -1538,7 +1572,7 @@ function LayersMock() {
           </button>
           <button
             aria-label="Lock"
-            className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-zinc-600 transition-colors hover:text-zinc-400"
+            className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-muted-foreground/60 transition-colors hover:text-muted-foreground"
             onClick={(e) => e.stopPropagation()}
             type="button"
           >
@@ -1560,7 +1594,9 @@ function LayersMock() {
           >
             {layer.thumb.text}
           </div>
-          <span className="truncate text-sm text-zinc-300">{layer.name}</span>
+          <span className="truncate text-foreground/80 text-sm">
+            {layer.name}
+          </span>
         </div>
       ))}
       <LayerToolbar />
@@ -1584,7 +1620,7 @@ function Bento() {
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <div className="reveal flex flex-col gap-6 rounded-2xl bg-zinc-900 p-6 md:col-span-2 md:flex-row">
+      <div className="reveal flex flex-col gap-6 rounded-2xl bg-card p-6 md:col-span-2 md:flex-row">
         <div className="flex flex-shrink-0 flex-col gap-3 md:w-64">
           <Tag>
             <svg
@@ -1602,10 +1638,10 @@ function Bento() {
             </svg>
             Source material
           </Tag>
-          <h3 className="font-heading font-medium text-lg text-white">
+          <h3 className="font-heading font-medium text-foreground text-lg">
             Your designer pulls the perfect frame.
           </h3>
-          <p className="text-sm text-zinc-400">
+          <p className="text-muted-foreground text-sm">
             Drop in any MP4 or MOV. Scrub with arrow keys. Extract at source
             resolution with no screenshot workarounds.
           </p>
@@ -1616,7 +1652,7 @@ function Bento() {
       </div>
 
       <div
-        className="reveal flex flex-col gap-4 rounded-2xl bg-zinc-900 p-6"
+        className="reveal flex flex-col gap-4 rounded-2xl bg-card p-6"
         data-delay="1"
       >
         <div className="flex flex-col gap-3">
@@ -1637,10 +1673,10 @@ function Bento() {
             </svg>
             Pro level editing
           </Tag>
-          <h3 className="font-heading font-medium text-lg text-white">
+          <h3 className="font-heading font-medium text-foreground text-lg">
             Pro level editing. Real layers, real control.
           </h3>
-          <p className="text-sm text-zinc-400">
+          <p className="text-muted-foreground text-sm">
             Toggle, lock, group, drag to reorder. A good designer doesn't cut
             corners. Neither does Backstage.
           </p>
@@ -1649,7 +1685,7 @@ function Bento() {
       </div>
 
       <div
-        className="reveal flex flex-col gap-4 rounded-2xl bg-zinc-900 p-6"
+        className="reveal flex flex-col gap-4 rounded-2xl bg-card p-6"
         data-delay="2"
       >
         <div className="flex flex-col gap-3">
@@ -1671,10 +1707,10 @@ function Bento() {
             </svg>
             Gallery
           </Tag>
-          <h3 className="font-heading font-medium text-lg text-white">
+          <h3 className="font-heading font-medium text-foreground text-lg">
             Your designer's studio. Every project in one place.
           </h3>
-          <p className="text-sm text-zinc-400">
+          <p className="text-muted-foreground text-sm">
             Search, sort, bulk export, 30-day trash. Built for creators who
             publish consistently.
           </p>
@@ -1692,115 +1728,6 @@ function Bento() {
         </div>
       </div>
     </div>
-  );
-}
-
-// ─── How It Works ─────────────────────────────────────────────────────
-function HowItWorks() {
-  const steps = [
-    {
-      num: "01",
-      title: "Give the brief",
-      body: "Drag any image, paste from clipboard, or drop a video and scrub for the perfect frame. Nothing uploads anywhere.",
-      icon: (
-        <svg
-          fill="none"
-          height="20"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-          width="20"
-        >
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="17 8 12 3 7 8" />
-          <line x1="12" x2="12" y1="3" y2="15" />
-        </svg>
-      ),
-    },
-    {
-      num: "02",
-      title: "Pro level editing, on tap",
-      body: "Cut the background, generate a new one with your Gemini key, drop in text, glow, badges. Pro level editing results in seconds.",
-      icon: (
-        <svg
-          fill="none"
-          height="20"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-          width="20"
-        >
-          <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z" />
-        </svg>
-      ),
-    },
-    {
-      num: "03",
-      title: "Deliver to every platform",
-      body: "Pick a preset, pick a format, ship. The same project gives you YouTube, Shorts, and X in one click. Your designer never misses a deadline.",
-      icon: (
-        <svg
-          fill="none"
-          height="20"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-          width="20"
-        >
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="7 10 12 15 17 10" />
-          <line x1="12" x2="12" y1="15" y2="3" />
-        </svg>
-      ),
-    },
-  ];
-
-  return (
-    <section className="py-20 md:py-28" id="how">
-      <div className="mx-auto max-w-[1200px] px-6">
-        <div className="reveal mb-12 text-center">
-          <Eyebrow>How it works</Eyebrow>
-          <h2 className="mt-1 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
-            How your designer works.
-          </h2>
-        </div>
-        <div className="grid gap-6 md:grid-cols-3">
-          {steps.map((s, i) => (
-            <div
-              className="reveal flex flex-col gap-4 rounded-2xl bg-zinc-900 p-6"
-              data-delay={i.toString()}
-              key={s.num}
-            >
-              <div
-                className="font-bold text-xs tracking-[0.15em]"
-                style={{ color: BLUE }}
-              >
-                {s.num}
-              </div>
-              <div
-                className="flex h-10 w-10 items-center justify-center rounded-xl"
-                style={{
-                  background: "oklch(0.685 0.169 237.323 / 0.12)",
-                  color: BLUE,
-                }}
-              >
-                {s.icon}
-              </div>
-              <h3 className="font-heading font-medium text-base text-white">
-                {s.title}
-              </h3>
-              <p className="text-sm text-zinc-400">{s.body}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -1827,17 +1754,17 @@ function ByoGemini() {
         <div className="reveal grid items-center gap-12 md:grid-cols-2">
           <div>
             <Eyebrow>Bring your own key</Eyebrow>
-            <h2 className="mt-1 mb-4 font-heading font-medium text-3xl text-white tracking-tight md:text-4xl">
+            <h2 className="mt-1 mb-4 font-heading font-medium text-3xl text-foreground tracking-tight md:text-4xl">
               Your designer's AI budget:
               <br />
               about $2 a month.
             </h2>
-            <p className="mb-5 text-zinc-400">
+            <p className="mb-5 text-muted-foreground">
               Other tools bundle AI into a fat monthly fee and ration your
               usage. Your Backstage designer uses Google Gemini. Paste your free
               key once and pay Google directly at API rates. Most creators spend
-              under <strong className="text-white">$2 a month</strong> even when
-              generating dozens of variants per video.
+              under <strong className="text-foreground">$2 a month</strong> even
+              when generating dozens of variants per video.
             </p>
             <ul className="mb-6 flex flex-col gap-3">
               {[
@@ -1847,7 +1774,7 @@ function ByoGemini() {
                 "No rate limits from us. No quota from us. We're not in the loop.",
               ].map((item) => (
                 <li
-                  className="flex items-start gap-2.5 text-sm text-zinc-300"
+                  className="flex items-start gap-2.5 text-foreground/80 text-sm"
                   key={item}
                 >
                   <span
@@ -1860,26 +1787,26 @@ function ByoGemini() {
                 </li>
               ))}
             </ul>
-            <div className="rounded-xl bg-zinc-900 p-4 text-sm text-zinc-400">
-              <strong className="text-white">Real math:</strong> Generating 30
-              thumbnail variations a month on Gemini 2.5 Flash Image costs about{" "}
-              <strong className="text-white">$1.20</strong>. After 2 months,
-              Backstage&apos;s lifetime price plus your Gemini spend is still
-              less than one month of Canva Pro.
+            <div className="rounded-xl bg-card p-4 text-muted-foreground text-sm">
+              <strong className="text-foreground">Real math:</strong> Generating
+              30 thumbnail variations a month on Gemini 2.5 Flash Image costs
+              about <strong className="text-foreground">$1.20</strong>. After 2
+              months, Backstage&apos;s lifetime price plus your Gemini spend is
+              still less than one month of Canva Pro.
             </div>
           </div>
-          <div className="overflow-hidden rounded-2xl bg-zinc-900">
-            <div className="px-4 py-3 font-semibold text-xs text-zinc-400">
+          <div className="overflow-hidden rounded-2xl bg-card">
+            <div className="px-4 py-3 font-semibold text-muted-foreground text-xs">
               Settings · AI
             </div>
             <div className="flex flex-col gap-3 p-4">
               <div className="flex flex-col gap-1.5">
-                <div className="text-xs text-zinc-500">
+                <div className="text-muted-foreground text-xs">
                   Google AI Studio API key
                 </div>
-                <div className="flex items-center gap-2 rounded-lg bg-zinc-800 px-3 py-2">
+                <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
                   <svg
-                    className="text-zinc-500"
+                    className="text-muted-foreground"
                     fill="none"
                     height="12"
                     stroke="currentColor"
@@ -1891,14 +1818,15 @@ function ByoGemini() {
                     <rect height="11" rx="2" ry="2" width="18" x="3" y="11" />
                     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
-                  <span className="font-mono text-xs text-zinc-400">
+                  <span className="font-mono text-muted-foreground text-xs">
                     AIza••••••••••••••••••••••••••8gQ
                   </span>
                   <span
                     className="ml-auto rounded px-1.5 py-0.5 font-semibold text-[11px]"
                     style={{
                       color: BLUE,
-                      background: "oklch(0.685 0.169 237.323 / 0.12)",
+                      background:
+                        "color-mix(in oklch, var(--foreground) 12%, transparent)",
                     }}
                   >
                     saved
@@ -1906,16 +1834,16 @@ function ByoGemini() {
                 </div>
               </div>
               <div className="flex flex-col gap-1.5">
-                <div className="text-xs text-zinc-500">Model</div>
-                <div className="flex items-center rounded-lg bg-zinc-800 px-3 py-2">
-                  <span className="text-[13px] text-white">
+                <div className="text-muted-foreground text-xs">Model</div>
+                <div className="flex items-center rounded-lg bg-muted px-3 py-2">
+                  <span className="text-[13px] text-foreground">
                     gemini-2.5-flash-image
                   </span>
-                  <span className="ml-auto text-zinc-500">▾</span>
+                  <span className="ml-auto text-muted-foreground">▾</span>
                 </div>
               </div>
-              <div className="flex flex-col gap-2 rounded-xl bg-zinc-800 p-3">
-                <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 uppercase tracking-[0.08em]">
+              <div className="flex flex-col gap-2 rounded-xl bg-muted p-3">
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground uppercase tracking-[0.08em]">
                   <svg
                     fill="none"
                     height="11"
@@ -1929,12 +1857,12 @@ function ByoGemini() {
                   </svg>
                   Generate
                 </div>
-                <p className="text-xs text-zinc-400">
+                <p className="text-muted-foreground text-xs">
                   Cinematic shot of a retro CRT TV on a dark workshop bench,
                   glowing magenta from inside, 16:9.
                 </p>
                 <button
-                  className="self-end rounded-full px-3 py-1.5 font-semibold text-xs text-zinc-950"
+                  className="self-end rounded-full px-3 py-1.5 font-semibold text-background text-xs"
                   style={{ background: BLUE }}
                   type="button"
                 >
@@ -2016,10 +1944,10 @@ function Privacy() {
       <div className="mx-auto max-w-[1200px] px-6">
         <div className="reveal mb-12">
           <Eyebrow>Local-first by default</Eyebrow>
-          <h2 className="mt-1 mb-3 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
+          <h2 className="mt-1 mb-3 font-heading font-medium text-3xl text-foreground tracking-tight md:text-5xl">
             Your designer works only for you.
           </h2>
-          <p className="max-w-[540px] text-base text-zinc-400 md:text-lg">
+          <p className="max-w-[540px] text-base text-muted-foreground md:text-lg">
             Backstage is a native desktop app, not a web wrapper with your files
             on someone else&apos;s server. Your projects, your source files,
             your API keys. Your designer is loyal.
@@ -2028,23 +1956,24 @@ function Privacy() {
         <div className="grid gap-5 md:grid-cols-3">
           {cards.map((c, i) => (
             <div
-              className="reveal flex flex-col gap-4 rounded-2xl bg-zinc-900 p-6"
+              className="reveal flex flex-col gap-4 rounded-2xl bg-card p-6"
               data-delay={i.toString()}
               key={c.title}
             >
               <div
                 className="flex h-10 w-10 items-center justify-center rounded-xl"
                 style={{
-                  background: "oklch(0.685 0.169 237.323 / 0.12)",
+                  background:
+                    "color-mix(in oklch, var(--foreground) 12%, transparent)",
                   color: BLUE,
                 }}
               >
                 {c.icon}
               </div>
-              <h3 className="font-heading font-medium text-base text-white">
+              <h3 className="font-heading font-medium text-base text-foreground">
                 {c.title}
               </h3>
-              <p className="text-sm text-zinc-400">{c.body}</p>
+              <p className="text-muted-foreground text-sm">{c.body}</p>
             </div>
           ))}
         </div>
@@ -2081,14 +2010,14 @@ function CellContent({ cell }: { cell: CellData }) {
   if (cell.no) {
     return (
       <>
-        <span className="text-zinc-600">○</span> {cell.text}
+        <span className="text-muted-foreground/60">○</span> {cell.text}
       </>
     );
   }
   if (cell.maybe) {
     return (
       <>
-        <span className="text-zinc-500">◐</span> {cell.text}
+        <span className="text-muted-foreground">◐</span> {cell.text}
       </>
     );
   }
@@ -2172,12 +2101,14 @@ function CompareTable() {
       <div className="mx-auto max-w-[1200px] px-6">
         <div className="reveal mb-10">
           <Eyebrow>The honest comparison</Eyebrow>
-          <h2 className="mt-1 mb-3 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
+          <h2 className="mt-1 mb-3 font-heading font-medium text-3xl text-foreground tracking-tight md:text-5xl">
             Your designer vs. the alternatives.
             <br />
-            <span className="text-zinc-500">It&apos;s not a close race.</span>
+            <span className="text-muted-foreground">
+              It&apos;s not a close race.
+            </span>
           </h2>
-          <p className="max-w-[540px] text-base text-zinc-400 md:text-lg">
+          <p className="max-w-[540px] text-base text-muted-foreground md:text-lg">
             What small creators are actually choosing between.
           </p>
         </div>
@@ -2186,128 +2117,47 @@ function CompareTable() {
             className="grid font-semibold text-xs"
             style={{ gridTemplateColumns: "1.4fr 1fr 1fr 1fr 1fr" }}
           >
-            <div className="px-5 py-3.5 text-zinc-500" />
+            <div className="px-5 py-3.5 text-muted-foreground" />
             <div
               className="px-5 py-3.5"
               style={{
-                background: "oklch(0.685 0.169 237.323 / 0.08)",
+                background:
+                  "color-mix(in oklch, var(--foreground) 8%, transparent)",
                 color: BLUE,
               }}
             >
               Backstage
             </div>
             {["Photoshop", "Canva Pro", "Figma"].map((b) => (
-              <div className="px-5 py-3.5 text-zinc-400" key={b}>
+              <div className="px-5 py-3.5 text-muted-foreground" key={b}>
                 {b}
               </div>
             ))}
           </div>
           {rows.map((row) => (
             <div
-              className="grid border-zinc-800/50 border-b text-sm last:border-b-0"
+              className="grid border-border/50 border-b text-sm last:border-b-0"
               key={row.label}
               style={{ gridTemplateColumns: "1.4fr 1fr 1fr 1fr 1fr" }}
             >
-              <div className="px-5 py-3.5 text-zinc-400">{row.label}</div>
+              <div className="px-5 py-3.5 text-muted-foreground">
+                {row.label}
+              </div>
               <div
-                className="px-5 py-3.5 font-medium text-white"
-                style={{ background: "oklch(0.685 0.169 237.323 / 0.05)" }}
+                className="px-5 py-3.5 font-medium text-foreground"
+                style={{
+                  background:
+                    "color-mix(in oklch, var(--foreground) 5%, transparent)",
+                }}
               >
                 <CellContent cell={row.us} />
               </div>
               {row.rest.map((cell, i) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: stable order
-                <div className="px-5 py-3.5 text-zinc-400" key={i}>
+                <div className="px-5 py-3.5 text-muted-foreground" key={i}>
                   <CellContent cell={cell} />
                 </div>
               ))}
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── Testimonials ─────────────────────────────────────────────────────
-function Testimonials() {
-  const items = [
-    {
-      initials: "PL",
-      name: "Priya Lamba",
-      handle: "@priyavlogs · 6.2K subs",
-      quote:
-        "My CTR went from 2.4% to 5.8% in a month. I stopped using Canva templates and started making thumbnails that actually look like mine. That's the whole difference.",
-    },
-    {
-      initials: "TW",
-      name: "Tom Walsh",
-      handle: "@tombuildsit · 9.1K subs",
-      quote:
-        "I was about to pay for Canva Pro. Then I found this. $29 once versus $13 a month forever? Not a hard choice. And it does more than Canva anyway.",
-    },
-    {
-      initials: "ML",
-      name: "Mei Lin",
-      handle: "@meiexplains · 4.7K subs",
-      quote:
-        "The AI background removal works offline and it's genuinely good. I'm a solo creator with no design background. Not having to fight Photoshop every upload is huge.",
-    },
-    {
-      initials: "JP",
-      name: "Jordan Park",
-      handle: "@jordanmakes · 2.9K subs",
-      quote:
-        "Even at under 3K subs my thumbnails compete with much bigger channels now. That confidence matters when you're still building an audience.",
-    },
-    {
-      initials: "CS",
-      name: "Carlos Soto",
-      handle: "@carlostechvid · 12K subs",
-      quote:
-        "The video frame extractor alone saves me 20 minutes per upload. I drop in raw footage, scrub to the perfect frame, done. No more screenshots from VLC.",
-    },
-    {
-      initials: "AR",
-      name: "Aisha Rahman",
-      handle: "@aishareviews · 5.1K subs",
-      quote:
-        "I used to spend 45 minutes per thumbnail in Canva and they still looked template-y. Now it's 10 minutes and they look like I hired someone. $29 was a no-brainer.",
-    },
-  ];
-
-  return (
-    <section className="py-20 md:py-28" id="testimonials">
-      <div className="mx-auto max-w-[1200px] px-6">
-        <div className="reveal mb-10 text-center">
-          <Eyebrow>What creators are saying</Eyebrow>
-          <h2 className="mt-1 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
-            Small channels. Real results.
-          </h2>
-        </div>
-        <div className="reveal" style={{ columns: 3, columnGap: "1.25rem" }}>
-          {items.map((t) => (
-            <div
-              className="mb-5 flex break-inside-avoid flex-col gap-4 rounded-2xl bg-zinc-900 p-5"
-              key={t.name}
-            >
-              <p className="text-sm text-zinc-300 leading-relaxed">
-                &ldquo;{t.quote}&rdquo;
-              </p>
-              <div className="flex items-center gap-3">
-                <div
-                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full font-bold text-xs text-zinc-950"
-                  style={{ background: BLUE }}
-                >
-                  {t.initials}
-                </div>
-                <div>
-                  <div className="font-semibold text-sm text-white">
-                    {t.name}
-                  </div>
-                  <div className="text-xs text-zinc-500">{t.handle}</div>
-                </div>
-              </div>
             </div>
           ))}
         </div>
@@ -2346,14 +2196,14 @@ function OssCallout() {
   return (
     <section className="py-20 md:py-28">
       <div className="mx-auto max-w-[1200px] px-6">
-        <div className="reveal rounded-2xl bg-zinc-900 p-8 md:p-12">
+        <div className="reveal rounded-2xl bg-card p-8 md:p-12">
           <div className="grid items-center gap-10 md:grid-cols-2">
             <div>
               <Eyebrow>Open source</Eyebrow>
-              <h2 className="mt-1 mb-4 font-heading font-medium text-2xl text-white tracking-tight md:text-3xl">
+              <h2 className="mt-1 mb-4 font-heading font-medium text-2xl text-foreground tracking-tight md:text-3xl">
                 Your designer's source code is public. Audit it yourself.
               </h2>
-              <p className="mb-6 text-zinc-400">
+              <p className="mb-6 text-muted-foreground">
                 Every line of Backstage is on GitHub: the desktop app, the pro
                 level editing engine, and the AI integrations. The lifetime deal
                 is for the prebuilt, signed, auto-updating binaries we ship and
@@ -2362,7 +2212,7 @@ function OssCallout() {
               </p>
               <div className="flex flex-wrap gap-3">
                 <a
-                  className="inline-flex items-center gap-2 rounded-full bg-zinc-800 px-5 py-2.5 font-semibold text-sm text-white no-underline transition-colors hover:bg-zinc-700"
+                  className="inline-flex items-center gap-2 rounded-full bg-muted px-5 py-2.5 font-semibold text-foreground text-sm no-underline transition-colors hover:bg-muted/80"
                   href={GITHUB_URL}
                   rel="noopener"
                   target="_blank"
@@ -2378,7 +2228,7 @@ function OssCallout() {
                   Star on GitHub
                 </a>
                 <a
-                  className="inline-flex items-center gap-2 rounded-full bg-zinc-800/60 px-5 py-2.5 font-semibold text-sm text-white no-underline transition-colors hover:bg-zinc-800"
+                  className="inline-flex items-center gap-2 rounded-full bg-muted/60 px-5 py-2.5 font-semibold text-foreground text-sm no-underline transition-colors hover:bg-muted"
                   href={`${GITHUB_URL}#getting-started`}
                   rel="noopener"
                   target="_blank"
@@ -2387,159 +2237,18 @@ function OssCallout() {
                 </a>
               </div>
             </div>
-            <div className="flex flex-col gap-3 rounded-xl bg-zinc-950 p-5 font-mono">
+            <div className="flex flex-col gap-3 rounded-xl bg-background p-5 font-mono">
               {lines.map((l) => (
                 <div className="flex items-start gap-2.5 text-sm" key={l.label}>
                   <SmallCheck />
-                  <span className="text-zinc-400">
-                    <strong className="text-zinc-200">{l.label}</strong>{" "}
+                  <span className="text-muted-foreground">
+                    <strong className="text-foreground/80">{l.label}</strong>{" "}
                     {l.value}
                   </span>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── Roadmap item (module-level to avoid nested component lint) ───────
-interface RoadmapItemData {
-  name: string;
-  done?: boolean;
-  soon?: boolean;
-  meta?: string;
-}
-
-function RoadmapItemRow({ item }: { item: RoadmapItemData }) {
-  let itemColor = "text-zinc-500";
-  if (item.done) {
-    itemColor = "text-white";
-  } else if (item.soon) {
-    itemColor = "text-zinc-300";
-  }
-
-  let svgContent: React.ReactNode = <circle cx="12" cy="12" r="9" />;
-  if (item.done) {
-    svgContent = <polyline points="20 6 9 17 4 12" />;
-  } else if (item.soon) {
-    svgContent = (
-      <>
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3 2" />
-      </>
-    );
-  }
-
-  return (
-    <div className={cn("flex items-center gap-2.5 py-1.5 text-sm", itemColor)}>
-      <svg
-        aria-hidden="true"
-        fill="none"
-        height="14"
-        stroke="currentColor"
-        strokeWidth={item.done ? 2.5 : 2}
-        style={item.done ? { color: BLUE } : undefined}
-        viewBox="0 0 24 24"
-        width="14"
-      >
-        {svgContent}
-      </svg>
-      <span className="flex-1">{item.name}</span>
-      {item.meta && (
-        <span className="text-[11px] text-zinc-500">{item.meta}</span>
-      )}
-    </div>
-  );
-}
-
-// ─── Roadmap ──────────────────────────────────────────────────────────
-function Roadmap() {
-  const cols = [
-    {
-      heading: "Shipped",
-      pill: "v1.0 live",
-      pillLive: true,
-      items: [
-        { name: "Layer editor and auto-save", done: true },
-        { name: "Background removal (WASM + BRIA)", done: true },
-        { name: "Gemini image generation", done: true },
-        { name: "Video frame extraction", done: true },
-        { name: "Carousel generator", done: true },
-      ],
-    },
-    {
-      heading: "Up next",
-      pill: "In dev",
-      pillLive: false,
-      items: [
-        { name: "Template library", soon: true, meta: "Q2" },
-        { name: "A/B CTR analyzer", soon: true, meta: "Q2" },
-        { name: "Anthropic Claude provider", soon: true, meta: "Q2" },
-        { name: "Smart auto-crop for Shorts", soon: true, meta: "Q3" },
-      ],
-    },
-    {
-      heading: "Exploring",
-      pill: "Backlog",
-      pillLive: false,
-      items: [
-        { name: "YouTube channel sync" },
-        { name: "Animated thumbnails (APNG)" },
-        { name: "Plugin SDK" },
-        { name: "Team workspaces" },
-      ],
-    },
-  ];
-
-  return (
-    <section className="py-20 md:py-28" id="roadmap">
-      <div className="mx-auto max-w-[1200px] px-6">
-        <div className="reveal mb-10">
-          <Eyebrow>Roadmap</Eyebrow>
-          <h2 className="mt-1 mb-3 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
-            Your designer keeps getting better.
-            <br />
-            <span className="text-zinc-500">
-              Every update included. No &ldquo;Pro tier&rdquo; paywall.
-            </span>
-          </h2>
-          <p className="max-w-[540px] text-base text-zinc-400 md:text-lg">
-            Every feature below ships to your existing license at zero extra
-            cost. Your $29 hire comes with lifetime upgrades.
-          </p>
-        </div>
-        <div className="grid gap-5 md:grid-cols-3">
-          {cols.map((col, ci) => (
-            <div
-              className="reveal flex flex-col gap-5 rounded-2xl bg-zinc-900 p-6"
-              data-delay={ci.toString()}
-              key={col.heading}
-            >
-              <div className="flex items-center justify-between">
-                <div className="font-semibold text-base text-white">
-                  {col.heading}
-                </div>
-                <div
-                  className={cn(
-                    "rounded-full px-2.5 py-1 font-semibold text-[11px]",
-                    col.pillLive
-                      ? "bg-emerald-400/10 text-emerald-400"
-                      : "bg-zinc-800 text-zinc-500"
-                  )}
-                >
-                  {col.pill}
-                </div>
-              </div>
-              <div className="flex flex-col gap-2">
-                {col.items.map((item) => (
-                  <RoadmapItemRow item={item} key={item.name} />
-                ))}
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     </section>
@@ -2565,42 +2274,42 @@ function Pricing() {
   );
 
   return (
-    <section className="bg-[oklch(0.08_0_0)] py-20 md:py-28" id="pricing">
+    <section className="bg-background py-20 md:py-28" id="pricing">
       <div className="mx-auto max-w-[1200px] px-6">
         <div className="reveal mb-10 text-center">
           <Eyebrow>Pricing</Eyebrow>
-          <h2 className="mt-1 mb-3 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
+          <h2 className="mt-1 mb-3 font-heading font-medium text-3xl text-foreground tracking-tight md:text-5xl">
             One hire. Lifetime contract.
             <br />
-            <span className="text-zinc-500">
+            <span className="text-muted-foreground">
               No salary. No &ldquo;AI credits&rdquo;. No B.S.
             </span>
           </h2>
-          <p className="mx-auto max-w-[540px] text-base text-zinc-400 md:text-lg">
+          <p className="mx-auto max-w-[540px] text-base text-muted-foreground md:text-lg">
             Early bird pricing that locks in your rate forever. Price increases
             every 100 customers. Next increase: May 25.
           </p>
         </div>
         <div className="reveal mx-auto max-w-3xl">
-          <div className="overflow-hidden rounded-2xl bg-zinc-900">
+          <div className="overflow-hidden rounded-2xl bg-card">
             <div className="grid md:grid-cols-[1fr_280px]">
               <div className="flex flex-col gap-5 p-8">
                 <div className="flex items-center gap-2">
                   <span
-                    className="rounded-full px-2.5 py-1 font-bold text-[11px] text-zinc-950"
+                    className="rounded-full px-2.5 py-1 font-bold text-[11px] text-background"
                     style={{ background: BLUE }}
                   >
                     EARLY BIRD
                   </span>
-                  <span className="text-sm text-zinc-400">
+                  <span className="text-muted-foreground text-sm">
                     Price goes up every 100 users
                   </span>
                 </div>
                 <div>
-                  <h3 className="mb-1 font-heading font-medium text-white text-xl">
+                  <h3 className="mb-1 font-heading font-medium text-foreground text-xl">
                     Backstage Lifetime
                   </h3>
-                  <p className="text-sm text-zinc-400">
+                  <p className="text-muted-foreground text-sm">
                     One payment. Every feature. Every update. Every platform.
                     Forever.
                   </p>
@@ -2611,11 +2320,10 @@ function Pricing() {
                     "Mac, Windows, and Linux signed binaries",
                     "All future updates (template library, A/B analyzer, more)",
                     "Priority email support, direct from the dev",
-                    "30-day refund. No questions asked.",
                     "Use on every device you own",
                   ].map((item) => (
                     <li
-                      className="flex items-start gap-2.5 text-sm text-zinc-300"
+                      className="flex items-start gap-2.5 text-foreground/80 text-sm"
                       key={item}
                     >
                       <CheckIcon />
@@ -2636,32 +2344,36 @@ function Pricing() {
                     <circle cx="12" cy="12" r="9" />
                     <path d="M12 7v5l3 2" />
                   </svg>
-                  <span className="text-sm text-zinc-400">
+                  <span className="text-muted-foreground text-sm">
                     Limited time deal, expires May 25
                   </span>
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-800">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
                     <div
                       className="h-full rounded-full"
                       style={{ width: "38.4%", background: BLUE }}
                     />
                   </div>
-                  <span className="whitespace-nowrap text-sm text-zinc-400">
+                  <span className="whitespace-nowrap text-muted-foreground text-sm">
                     384/1000 sold
                   </span>
                 </div>
               </div>
               <div className="flex flex-col gap-4 p-8">
-                <div className="font-semibold text-xs text-zinc-500 uppercase tracking-widest">
+                <div className="font-semibold text-muted-foreground text-xs uppercase tracking-widest">
                   One-time payment
                 </div>
                 <div className="flex items-end gap-2">
-                  <span className="font-bold text-5xl text-white">$29</span>
-                  <span className="mb-1 text-xl text-zinc-600 line-through">
+                  <span className="font-bold text-5xl text-foreground">
+                    $29
+                  </span>
+                  <span className="mb-1 text-muted-foreground/60 text-xl line-through">
                     $59
                   </span>
                 </div>
-                <div className="text-xs text-zinc-500">USD · Tax included</div>
-                <p className="text-xs text-zinc-500">
+                <div className="text-muted-foreground text-xs">
+                  USD · Tax included
+                </div>
+                <p className="text-muted-foreground text-xs">
                   Billed once via Polar. No auto-renewal. No card on file.
                 </p>
                 <div className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2.5 py-2 text-amber-400 text-xs">
@@ -2682,7 +2394,7 @@ function Pricing() {
                   <span>Goes to $35 on May 25. Lock in $29 now.</span>
                 </div>
                 <Button
-                  className="mt-1 h-12 w-full rounded-xl text-sm"
+                  className="mt-1 w-full"
                   nativeButton={false}
                   render={
                     <a
@@ -2691,7 +2403,7 @@ function Pricing() {
                       href={CHECKOUT_URL}
                     />
                   }
-                  size="lg"
+                  variant="contrast"
                 >
                   Buy Backstage Lifetime
                   <svg
@@ -2708,13 +2420,10 @@ function Pricing() {
                     <polyline points="12 5 19 12 12 19" />
                   </svg>
                 </Button>
-                <p className="text-center text-[11px] text-zinc-500">
+                <p className="text-center text-[11px] text-muted-foreground">
                   Secure checkout via Polar. Instant license delivery.
                 </p>
-                <div className="mt-1">
-                  <MoneyBackBadge />
-                </div>
-                <div className="mt-1 flex items-center justify-center gap-2 text-xs text-zinc-600">
+                <div className="mt-1 flex items-center justify-center gap-2 text-muted-foreground/60 text-xs">
                   <span>macOS</span>
                   <span>·</span>
                   <span>Windows</span>
@@ -2773,16 +2482,16 @@ function FAQ() {
       <div className="mx-auto max-w-[1200px] px-6">
         <div className="reveal mb-10 text-center">
           <Eyebrow>FAQ</Eyebrow>
-          <h2 className="mt-1 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
+          <h2 className="mt-1 font-heading font-medium text-3xl text-foreground tracking-tight md:text-5xl">
             The honest answers.
           </h2>
         </div>
         <div className="reveal mx-auto flex max-w-2xl flex-col gap-0">
           {items.map((item) => (
             <details className="last:pb-0" key={item.q} open={item.open}>
-              <summary className="flex cursor-pointer select-none list-none items-center justify-between gap-4 py-5 font-semibold text-base text-white transition-colors hover:text-zinc-200">
+              <summary className="flex cursor-pointer select-none list-none items-center justify-between gap-4 py-5 font-semibold text-base text-foreground transition-colors hover:text-foreground/80">
                 {item.q}
-                <span className="faq-icon flex-shrink-0 text-zinc-500 transition-transform duration-200">
+                <span className="faq-icon flex-shrink-0 text-muted-foreground transition-transform duration-200">
                   <svg
                     fill="none"
                     height="14"
@@ -2796,7 +2505,7 @@ function FAQ() {
                   </svg>
                 </span>
               </summary>
-              <div className="pb-5 text-sm text-zinc-400 leading-relaxed">
+              <div className="pb-5 text-muted-foreground text-sm leading-relaxed">
                 {item.a}
               </div>
             </details>
@@ -2814,38 +2523,39 @@ function CtaStrip() {
       <div className="mx-auto max-w-[1200px] px-6">
         <div className="reveal flex flex-col items-center gap-5 text-center">
           <Eyebrow>Last call</Eyebrow>
-          <h2 className="max-w-[560px] font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
+          <h2 className="max-w-[560px] font-heading font-medium text-3xl text-foreground tracking-tight md:text-5xl">
             Hire your designer tonight.
           </h2>
-          <p className="text-base text-zinc-400 md:text-lg">
+          <p className="text-base text-muted-foreground md:text-lg">
             Pay $29 once. No monthly salary, no creative briefs, no Slack DMs.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
+            <div className="flex flex-col items-start gap-1">
+              <Button
+                nativeButton={false}
+                render={
+                  <a
+                    data-polar-checkout
+                    data-polar-checkout-theme="dark"
+                    href={CHECKOUT_URL}
+                  />
+                }
+                variant="contrast"
+              >
+                Lifetime Access $29
+              </Button>
+              <p className="text-muted-foreground text-xs">
+                🔥 Limited deal until May 25
+              </p>
+            </div>
             <Button
-              className="rounded-full px-7 py-3 text-base"
-              nativeButton={false}
-              render={
-                <a
-                  data-polar-checkout
-                  data-polar-checkout-theme="dark"
-                  href={CHECKOUT_URL}
-                />
-              }
-              size="lg"
-            >
-              Buy Now
-            </Button>
-            <Button
-              className="rounded-full px-7 py-3 text-base"
               nativeButton={false}
               render={<a href={GITHUB_URL} rel="noopener" target="_blank" />}
-              size="lg"
-              variant="ghost"
+              variant="outline"
             >
               View source on GitHub
             </Button>
           </div>
-          <MoneyBackBadge />
         </div>
       </div>
     </section>
@@ -2859,7 +2569,7 @@ function Footer() {
       <div className="mx-auto max-w-[1200px] px-6">
         <div className="mb-12 grid gap-10 md:grid-cols-4">
           <div>
-            <div className="mb-3 flex items-center gap-2 font-medium text-sm text-white">
+            <div className="mb-3 flex items-center gap-2 font-medium text-foreground text-sm">
               <GalleryThumbnails
                 aria-hidden="true"
                 className="fill-foreground text-foreground"
@@ -2868,11 +2578,11 @@ function Footer() {
               />
               Backstage
             </div>
-            <p className="text-sm text-zinc-500">
+            <p className="text-muted-foreground text-sm">
               The thumbnail editor for small creators who want to look like
               bigger ones. Built by{" "}
               <a
-                className="text-zinc-300 no-underline transition-colors hover:text-white"
+                className="text-foreground/80 no-underline transition-colors hover:text-foreground"
                 href="https://amajor.ai"
               >
                 A Major
@@ -2881,7 +2591,7 @@ function Footer() {
             </p>
           </div>
           <div>
-            <div className="mb-4 font-semibold text-xs text-zinc-500 uppercase tracking-widest">
+            <div className="mb-4 font-semibold text-muted-foreground text-xs uppercase tracking-widest">
               Product
             </div>
             {(
@@ -2893,7 +2603,7 @@ function Footer() {
               ] as const
             ).map(([href, label]) => (
               <a
-                className="mb-2 block text-sm text-zinc-400 no-underline transition-colors hover:text-white"
+                className="mb-2 block text-muted-foreground text-sm no-underline transition-colors hover:text-foreground"
                 href={href}
                 key={href}
               >
@@ -2902,7 +2612,7 @@ function Footer() {
             ))}
           </div>
           <div>
-            <div className="mb-4 font-semibold text-xs text-zinc-500 uppercase tracking-widest">
+            <div className="mb-4 font-semibold text-muted-foreground text-xs uppercase tracking-widest">
               Open source
             </div>
             {[
@@ -2912,7 +2622,7 @@ function Footer() {
               [`${GITHUB_URL}/blob/master/LICENSE`, "License"],
             ].map(([href, label]) => (
               <a
-                className="mb-2 block text-sm text-zinc-400 no-underline transition-colors hover:text-white"
+                className="mb-2 block text-muted-foreground text-sm no-underline transition-colors hover:text-foreground"
                 href={href}
                 key={href}
                 rel="noopener"
@@ -2923,11 +2633,11 @@ function Footer() {
             ))}
           </div>
           <div>
-            <div className="mb-4 font-semibold text-xs text-zinc-500 uppercase tracking-widest">
+            <div className="mb-4 font-semibold text-muted-foreground text-xs uppercase tracking-widest">
               Company
             </div>
             <a
-              className="mb-2 block text-sm text-zinc-400 no-underline transition-colors hover:text-white"
+              className="mb-2 block text-muted-foreground text-sm no-underline transition-colors hover:text-foreground"
               href="https://amajor.ai"
               rel="noopener"
               target="_blank"
@@ -2935,13 +2645,13 @@ function Footer() {
               A Major
             </a>
             <a
-              className="mb-2 block text-sm text-zinc-400 no-underline transition-colors hover:text-white"
+              className="mb-2 block text-muted-foreground text-sm no-underline transition-colors hover:text-foreground"
               href="mailto:hello@amajor.ai"
             >
               Contact
             </a>
             <a
-              className="mb-2 block text-sm text-zinc-400 no-underline transition-colors hover:text-white"
+              className="mb-2 block text-muted-foreground text-sm no-underline transition-colors hover:text-foreground"
               href="https://twitter.com/amajor_ai"
               rel="noopener"
               target="_blank"
@@ -2949,14 +2659,14 @@ function Footer() {
               X / Twitter
             </a>
             <a
-              className="mb-2 block text-sm text-zinc-400 no-underline transition-colors hover:text-white"
+              className="mb-2 block text-muted-foreground text-sm no-underline transition-colors hover:text-foreground"
               href="#faq"
             >
               FAQ
             </a>
           </div>
         </div>
-        <div className="flex items-center justify-between pt-6 text-xs text-zinc-600">
+        <div className="flex items-center justify-between pt-6 text-muted-foreground/60 text-xs">
           <div>© 2026 A Major. All rights reserved.</div>
           <div>backstage.amajor.ai</div>
         </div>
@@ -2975,158 +2685,15 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="dark min-h-screen overflow-x-hidden bg-zinc-950 font-sans text-white">
+    <div className="dark min-h-screen overflow-x-hidden bg-background pb-20 font-sans text-foreground md:pb-0">
       <Nav stars={stars} />
       <Hero />
       <Stats />
 
-      {/* Background removal */}
-      <section className="py-20 md:py-28" id="features">
-        <div className="mx-auto max-w-[1200px] px-6">
-          <div className="reveal mb-10">
-            <Eyebrow>Built for thumbnails</Eyebrow>
-            <h2 className="mt-1 mb-3 font-heading font-medium text-3xl text-white tracking-tight md:text-5xl">
-              Every tool you need.
-              <br />
-              <span className="text-zinc-500">Nothing you don&apos;t.</span>
-            </h2>
-            <p className="max-w-[540px] text-base text-zinc-400 md:text-lg">
-              A purpose-built editor for YouTube thumbnails. Designed around how
-              creators actually iterate on a hook.
-            </p>
-          </div>
-          <div className="reveal flex flex-col gap-6 rounded-2xl bg-zinc-900 p-8">
-            <div>
-              <Tag>
-                <svg
-                  fill="none"
-                  height="12"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2.5"
-                  viewBox="0 0 24 24"
-                  width="12"
-                >
-                  <path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M15 9h0M17.8 6.2 19 5m-16 16 9-9M12.2 6.2 11 5" />
-                </svg>
-                Background removal
-              </Tag>
-              <h3 className="mb-2 font-heading font-medium text-white text-xl">
-                One tap. Background gone. Runs on your machine.
-              </h3>
-              <p className="max-w-[520px] text-sm text-zinc-400">
-                Drag the handle to see it for yourself. WebAssembly inference on
-                every machine, every OS. Nothing uploads anywhere.
-              </p>
-            </div>
-            <CompareSlider />
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {[
-                "Runs offline in WebAssembly. No upload. No usage cap.",
-                "Open-source build ships with BRIA RMBG-1.4 for sharper cutouts.",
-                "Queue dozens at once from the gallery.",
-                "Non-destructive. Your original layer is never touched.",
-              ].map((item) => (
-                <li
-                  className="flex items-start gap-2 text-sm text-zinc-400"
-                  key={item}
-                >
-                  <span
-                    className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full"
-                    style={{ background: BLUE }}
-                  />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      {/* Gemini generation */}
-      <section className="py-20 md:py-28">
-        <div className="mx-auto max-w-[1200px] px-6">
-          <div className="reveal flex flex-col gap-6 rounded-2xl bg-zinc-900 p-8">
-            <div>
-              <Tag>
-                <svg
-                  fill="none"
-                  height="12"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2.5"
-                  viewBox="0 0 24 24"
-                  width="12"
-                >
-                  <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z" />
-                </svg>
-                Gemini image gen
-              </Tag>
-              <h3 className="mb-2 font-heading font-medium text-white text-xl">
-                AI at API rates. Not SaaS rates.
-              </h3>
-              <p className="max-w-[520px] text-sm text-zinc-400">
-                Bring your own Google AI Studio key. Pay Google directly at{" "}
-                <strong className="text-white">~$0.04 per image</strong>. No
-                middle-man markup. Type a prompt below to see it in action.
-              </p>
-            </div>
-            <GeminiPanel />
-          </div>
-        </div>
-      </section>
-
-      {/* Export dialog */}
-      <section className="py-20 md:py-28">
-        <div className="mx-auto max-w-[1200px] px-6">
-          <div className="reveal flex flex-col gap-6 rounded-2xl bg-zinc-900 p-8">
-            <div>
-              <Tag>
-                <svg
-                  fill="none"
-                  height="12"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2.5"
-                  viewBox="0 0 24 24"
-                  width="12"
-                >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" x2="12" y1="15" y2="3" />
-                </svg>
-                Export anywhere
-              </Tag>
-              <h3 className="mb-2 font-heading font-medium text-white text-xl">
-                Every format. Every platform. One dialog.
-              </h3>
-              <p className="max-w-[520px] text-sm text-zinc-400">
-                PNG, JPEG, WebP, animated GIF and MP4. YouTube, Shorts, X,
-                custom sizes. Drag the quality slider below.
-              </p>
-            </div>
-            <ExportDialog />
-          </div>
-        </div>
-      </section>
-
-      {/* Bento */}
-      <section className="py-20 md:py-28">
-        <div className="mx-auto max-w-[1200px] px-6">
-          <Bento />
-        </div>
-      </section>
-
-      <HowItWorks />
       <ByoGemini />
       <Privacy />
       <CompareTable />
-      <Testimonials />
       <OssCallout />
-      <Roadmap />
       <Pricing />
       <FAQ />
       <CtaStrip />
