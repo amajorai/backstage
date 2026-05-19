@@ -3,13 +3,40 @@ import { NextResponse } from "next/server";
 const USESEND_API_KEY = process.env.USESEND_API_KEY;
 const USESEND_HOST = process.env.USESEND_HOST ?? "https://send.amajor.ai";
 const DOWNLOAD_URL = "https://github.com/amajorai/backstage/releases/latest";
+const CONTACT_BOOK_ID = "cmpcmk30t000zmo2zk6dq7jzm";
+
+async function addContact(email: string, name: string) {
+  const [firstName, ...rest] = name.split(/\s+/);
+  const res = await fetch(
+    `${USESEND_HOST}/api/v1/contactBooks/${CONTACT_BOOK_ID}/contacts`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${USESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        firstName: firstName ?? "",
+        lastName: rest.join(" "),
+        subscribed: true,
+      }),
+    }
+  );
+  return res.ok;
+}
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const email = typeof body?.email === "string" ? body.email.trim() : "";
+  const name = typeof body?.name === "string" ? body.name.trim() : "";
 
   if (!(email && email.includes("@"))) {
     return NextResponse.json({ error: "Invalid email" }, { status: 400 });
+  }
+
+  if (!name) {
+    return NextResponse.json({ error: "Name is required" }, { status: 400 });
   }
 
   if (!USESEND_API_KEY) {
@@ -18,6 +45,8 @@ export async function POST(req: Request) {
       { status: 503 }
     );
   }
+
+  await addContact(email, name).catch(() => false);
 
   const html = `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#09090b;color:#fff;border-radius:12px">

@@ -150,14 +150,19 @@ function Nav({ stars }: { stars: string }) {
     <nav className="fixed top-0 right-0 left-0 z-50 flex justify-center py-3.5">
       <div
         className={cn(
-          "flex items-center gap-3 transition-all duration-300",
+          "flex items-center gap-3",
           scrolled
-            ? "h-11 rounded-full bg-zinc-950/80 px-4 shadow-[0_4px_24px_oklch(0_0_0/0.4)] [backdrop-filter:blur(20px)_saturate(140%)]"
+            ? "h-11 w-full max-w-[780px] rounded-full bg-zinc-950/80 px-4 [backdrop-filter:blur(20px)_saturate(140%)]"
             : "h-12 w-full max-w-[1200px] bg-transparent px-6"
         )}
+        style={{
+          transition:
+            "max-width 300ms cubic-bezier(0.22, 1, 0.36, 1), height 300ms cubic-bezier(0.22, 1, 0.36, 1), padding 300ms cubic-bezier(0.22, 1, 0.36, 1), background-color 300ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 300ms cubic-bezier(0.22, 1, 0.36, 1), border-radius 300ms cubic-bezier(0.22, 1, 0.36, 1)",
+          willChange: "max-width, height",
+        }}
       >
         <a
-          className="flex items-center gap-2 font-semibold text-sm text-white no-underline"
+          className="flex items-center gap-2 font-medium text-sm text-white no-underline"
           href="/"
         >
           <GalleryThumbnails
@@ -328,6 +333,7 @@ function DownloadEmailDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [submitState, setSubmitState] = useState<
     "idle" | "loading" | "success" | "error"
@@ -337,13 +343,13 @@ function DownloadEmailDialog({
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!email.trim()) return;
+      if (!(name.trim() && email.trim())) return;
       setSubmitState("loading");
       try {
         const res = await fetch("/api/send-download", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email.trim() }),
+          body: JSON.stringify({ name: name.trim(), email: email.trim() }),
         });
         if (res.ok) {
           setSubmitState("success");
@@ -359,7 +365,7 @@ function DownloadEmailDialog({
         setSubmitState("error");
       }
     },
-    [email]
+    [name, email]
   );
 
   return (
@@ -382,12 +388,21 @@ function DownloadEmailDialog({
                 Get the download link
               </DialogTitle>
               <DialogDescription className="text-zinc-400">
-                Enter your email and we&apos;ll send it instantly.
+                Enter your details and we&apos;ll send it instantly.
               </DialogDescription>
             </DialogHeader>
             <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
               <Input
                 autoFocus
+                className="h-14 text-lg"
+                disabled={submitState === "loading"}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your name"
+                type="text"
+                value={name}
+              />
+              <Input
+                className="h-14 text-lg"
                 disabled={submitState === "loading"}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
@@ -399,7 +414,9 @@ function DownloadEmailDialog({
               )}
               <Button
                 className="h-12 w-full"
-                disabled={!email.trim() || submitState === "loading"}
+                disabled={
+                  !(name.trim() && email.trim()) || submitState === "loading"
+                }
                 size="lg"
                 type="submit"
               >
@@ -455,6 +472,32 @@ function GradientBars({
   );
 }
 
+// ─── Money Back Badge ─────────────────────────────────────────────────
+function MoneyBackBadge() {
+  return (
+    <div className="flex items-center justify-center gap-2 rounded-lg bg-zinc-800/50 px-3 py-2.5">
+      <svg
+        aria-hidden="true"
+        className="flex-shrink-0 text-emerald-400"
+        fill="none"
+        height="16"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+        width="16"
+      >
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <polyline points="9 12 11 14 15 10" />
+      </svg>
+      <span className="font-medium text-xs text-zinc-300">
+        30-day money back guarantee
+      </span>
+    </div>
+  );
+}
+
 // ─── Hero ─────────────────────────────────────────────────────────────
 function Hero() {
   const [showDownload, setShowDownload] = useState(false);
@@ -506,14 +549,14 @@ function Hero() {
           className="reveal mb-5 max-w-[860px] text-balance font-heading font-medium text-4xl text-white leading-tight tracking-tight md:text-6xl"
           data-delay="1"
         >
-          🥇 Your agentic thumbnail designer for YouTube creators.
+          Anyone can make great thumbnails that click
         </h1>
         <p
           className="reveal mb-8 max-w-[480px] text-lg text-zinc-400 md:text-xl"
           data-delay="2"
         >
-          AI background removal, generative backgrounds, real layer editing —
-          all on your machine. Pay once, own it forever.
+          The 🥇 pro level thumbnail studio built for small creators. No Canva
+          or Photoshop subscriptions. Pay once, own it forever.
         </p>
         <div
           className="reveal mb-6 flex flex-wrap justify-center gap-3"
@@ -546,9 +589,12 @@ function Hero() {
           onOpenChange={setShowDownload}
           open={showDownload}
         />
+        <div className="reveal mt-1 mb-4" data-delay="4">
+          <MoneyBackBadge />
+        </div>
         <div
           className="reveal mb-10 flex flex-wrap items-center justify-center gap-2 text-sm text-zinc-500"
-          data-delay="4"
+          data-delay="5"
         >
           <span className="flex items-center gap-1.5 text-amber-400/80">
             Early bird
@@ -560,7 +606,7 @@ function Hero() {
           <span>·</span>
           <span>30-day refund</span>
         </div>
-        <div className="reveal w-full max-w-[900px]" data-delay="5">
+        <div className="reveal w-full max-w-[900px]" data-delay="6">
           <div
             className="overflow-hidden rounded-2xl"
             style={{
@@ -2665,25 +2711,8 @@ function Pricing() {
                 <p className="text-center text-[11px] text-zinc-500">
                   Secure checkout via Polar. Instant license delivery.
                 </p>
-                <div className="mt-1 flex items-center justify-center gap-2 rounded-lg bg-zinc-800/50 px-3 py-2.5">
-                  <svg
-                    aria-hidden="true"
-                    className="flex-shrink-0 text-emerald-400"
-                    fill="none"
-                    height="16"
-                    stroke="currentColor"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
-                    width="16"
-                  >
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    <polyline points="9 12 11 14 15 10" />
-                  </svg>
-                  <span className="font-medium text-xs text-zinc-300">
-                    30-day money back guarantee
-                  </span>
+                <div className="mt-1">
+                  <MoneyBackBadge />
                 </div>
                 <div className="mt-1 flex items-center justify-center gap-2 text-xs text-zinc-600">
                   <span>macOS</span>
@@ -2816,6 +2845,7 @@ function CtaStrip() {
               View source on GitHub
             </Button>
           </div>
+          <MoneyBackBadge />
         </div>
       </div>
     </section>
@@ -2829,7 +2859,7 @@ function Footer() {
       <div className="mx-auto max-w-[1200px] px-6">
         <div className="mb-12 grid gap-10 md:grid-cols-4">
           <div>
-            <div className="mb-3 flex items-center gap-2 font-semibold text-sm text-white">
+            <div className="mb-3 flex items-center gap-2 font-medium text-sm text-white">
               <GalleryThumbnails
                 aria-hidden="true"
                 className="fill-foreground text-foreground"
