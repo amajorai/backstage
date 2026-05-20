@@ -31,9 +31,10 @@
     "dev:desktop": "turbo -F desktop dev"
   },
   "dependencies": {
+    "@backstage/env": "workspace:*",
+    "@web-kits/audio": "^0.1.0",
     "dotenv": "catalog:",
-    "zod": "catalog:",
-    "@backstage/env": "workspace:*"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.11",

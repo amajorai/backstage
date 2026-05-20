@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Label } from "@repo/ui/label";
 import { Switch } from "@repo/ui/switch";
@@ -11,6 +11,7 @@ import {
   setAnalyticsEnabled,
   setPerfMonitoringEnabled,
 } from "@/lib/analytics-prefs";
+import * as sounds from "@/lib/sounds";
 
 export function SettingsTab() {
   const [analytics, setAnalytics] = useState(true);
@@ -26,8 +27,10 @@ export function SettingsTab() {
     setAnalyticsEnabled(enabled);
     if (enabled) {
       posthog.opt_in_capturing();
+      sounds.switchOn();
     } else {
       posthog.opt_out_capturing();
+      sounds.switchOff();
     }
     sileo.success({
       title: enabled
@@ -39,6 +42,11 @@ export function SettingsTab() {
   function handlePerfChange(enabled: boolean) {
     setPerf(enabled);
     setPerfMonitoringEnabled(enabled);
+    if (enabled) {
+      sounds.switchOn();
+    } else {
+      sounds.switchOff();
+    }
     sileo.success({
       title: enabled
         ? "Performance Monitoring enabled"

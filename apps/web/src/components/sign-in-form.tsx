@@ -1,4 +1,4 @@
-﻿import { Button } from "@repo/ui/button";
+import { Button } from "@repo/ui/button";
 import { Input } from "@repo/ui/input";
 import { Label } from "@repo/ui/label";
 import { useForm } from "@tanstack/react-form";
@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { sileo } from "sileo";
 import z from "zod";
 import { authClient } from "@/lib/auth-client";
+import * as sounds from "@/lib/sounds";
 import Loader from "./loader";
 
 export default function SignInForm({
@@ -31,11 +32,13 @@ export default function SignInForm({
           onSuccess: () => {
             router.push("/dashboard");
             sileo.success({ title: "Sign in successful" });
+            sounds.success();
           },
           onError: (error) => {
             sileo.error({
               title: error.error.message || error.error.statusText,
             });
+            sounds.error();
           },
         }
       );
@@ -61,6 +64,7 @@ export default function SignInForm({
         onSubmit={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          sounds.click();
           form.handleSubmit();
         }}
       >
@@ -126,7 +130,10 @@ export default function SignInForm({
       <div className="mt-4 text-center">
         <Button
           className="text-indigo-600 hover:text-indigo-800"
-          onClick={onSwitchToSignUp}
+          onClick={() => {
+            sounds.click();
+            onSwitchToSignUp();
+          }}
           variant="link"
         >
           Need an account? Sign Up

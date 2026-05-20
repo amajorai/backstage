@@ -14,6 +14,7 @@ import { ArrowRight, GalleryThumbnails, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import "@/styles/landing.css";
 
@@ -207,7 +208,13 @@ function Nav({ stars }: { stars: string }) {
             {githubIcon}
             <span>{stars}</span>
           </a>
-          <Button onClick={() => setShowDownload(true)} variant="contrast">
+          <Button
+            onClick={() => {
+              sounds.download();
+              setShowDownload(true);
+            }}
+            variant="contrast"
+          >
             Download
           </Button>
         </div>
@@ -410,10 +417,21 @@ function DownloadEmailDialog({
   >("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
+  const didMountRef = useRef(false);
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+    if (open) sounds.dialogOpen();
+    else sounds.dialogClose();
+  }, [open]);
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (!(name.trim() && email.trim())) return;
+      sounds.click();
       setSubmitState("loading");
       try {
         const res = await fetch("/api/send-download", {
@@ -423,16 +441,19 @@ function DownloadEmailDialog({
         });
         if (res.ok) {
           setSubmitState("success");
+          sounds.success();
         } else {
           const data = await res.json().catch(() => ({}));
           setErrorMsg(
             (data as { error?: string }).error ?? "Something went wrong"
           );
           setSubmitState("error");
+          sounds.error();
         }
       } catch {
         setErrorMsg("Something went wrong. Try again.");
         setSubmitState("error");
+        sounds.error();
       }
     },
     [name, email]
