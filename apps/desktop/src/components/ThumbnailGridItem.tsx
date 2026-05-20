@@ -23,6 +23,7 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { sileo } from "sileo";
 import { SelectionCheckbox } from "@/components/gallery/SelectionCheckbox";
 import { ThumbnailActionButtons } from "@/components/gallery/ThumbnailActionButtons";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import type { Folder } from "@/stores/use-folder-store";
@@ -146,8 +147,10 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
       return;
     }
     if (isSelectionMode) {
+      sounds.select();
       toggleSelection(thumbnail.id);
     } else {
+      sounds.click();
       onThumbnailClick(thumbnail);
     }
   }, [
@@ -340,6 +343,7 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
         <ContextMenuSeparator />
         <ContextMenuItem
           onClick={async () => {
+            sounds.click();
             await duplicateThumbnail(thumbnail.id);
             sileo.success({ title: "Thumbnail duplicated" });
           }}
@@ -347,41 +351,79 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
           <Copy className="mr-2 size-4" />
           Duplicate
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => onRename(thumbnail)}>
+        <ContextMenuItem
+          onClick={() => {
+            sounds.click();
+            onRename(thumbnail);
+          }}
+        >
           <Pencil className="mr-2 size-4" />
           Rename
         </ContextMenuItem>
         {folders.length > 0 && (
-          <ContextMenuItem onClick={() => onMoveToFolder(thumbnail)}>
+          <ContextMenuItem
+            onClick={() => {
+              sounds.click();
+              onMoveToFolder(thumbnail);
+            }}
+          >
             <FolderOpen className="mr-2 size-4" />
             Move to Folder
           </ContextMenuItem>
         )}
-        <ContextMenuItem onClick={onNewFolderClick}>
+        <ContextMenuItem
+          onClick={() => {
+            sounds.click();
+            onNewFolderClick();
+          }}
+        >
           <FolderPlus className="mr-2 size-4" />
           New Folder
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem onClick={() => onExportClick(thumbnail)}>
+        <ContextMenuItem
+          onClick={() => {
+            sounds.download();
+            onExportClick(thumbnail);
+          }}
+        >
           <Download className="mr-2 size-4" />
           Export
         </ContextMenuItem>
-        <ContextMenuItem onClick={(e) => onRemoveBackground(e, thumbnail)}>
+        <ContextMenuItem
+          onClick={(e) => {
+            sounds.click();
+            onRemoveBackground(e, thumbnail);
+          }}
+        >
           <Wand2 className="mr-2 size-4" />
           Remove Background
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => onAddColorBackground(thumbnail)}>
+        <ContextMenuItem
+          onClick={() => {
+            sounds.click();
+            onAddColorBackground(thumbnail);
+          }}
+        >
           <PaintBucket className="mr-2 size-4" />
           Add Color Background
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem onClick={() => onArchive(thumbnail)}>
+        <ContextMenuItem
+          onClick={() => {
+            sounds.click();
+            onArchive(thumbnail);
+          }}
+        >
           <Archive className="mr-2 size-4" />
           Archive
         </ContextMenuItem>
         <ContextMenuItem
           className="text-destructive focus:text-destructive"
-          onClick={() => onDelete(thumbnail)}
+          onClick={() => {
+            sounds.delete_();
+            onDelete(thumbnail);
+          }}
         >
           <Trash2 className="mr-2 size-4" />
           Delete

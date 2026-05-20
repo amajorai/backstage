@@ -11,6 +11,8 @@ import { Input } from "@repo/ui/input";
 import { TooltipProvider } from "@repo/ui/tooltip";
 import { useEffect, useRef, useState } from "react";
 import { sileo } from "sileo";
+import { AiProjectPage } from "@/components/AiProjectPage";
+import { AiProjectsGallery } from "@/components/AiProjectsGallery";
 import { ArchivePage } from "@/components/ArchivePage";
 import { AutoRenameQueue } from "@/components/AutoRenameQueue";
 import { BackgroundRemovalQueue } from "@/components/BackgroundRemovalQueue";
@@ -38,6 +40,7 @@ import { useWindowBounds } from "@/hooks/use-window-bounds";
 import { setAxiomLoggingEnabled } from "@/lib/logger";
 import { runMigrations } from "@/lib/migration";
 import { initPostHog, trackPage } from "@/lib/posthog";
+import * as sounds from "@/lib/sounds";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import { type Layer, useEditorStore } from "@/stores/use-editor-store";
 import { useFolderStore } from "@/stores/use-folder-store";
@@ -53,6 +56,7 @@ export type ViewMode = "3" | "4" | "5" | "row";
 export type Page =
   | "gallery"
   | "ai-generate"
+  | "ai-projects"
   | "trash"
   | "settings"
   | "explore"
@@ -93,6 +97,7 @@ export default function App() {
   >("editor");
   const [remixSourceUrl, setRemixSourceUrl] = useState<string | null>(null);
   const [remixTitle, setRemixTitle] = useState<string | null>(null);
+  const [openAiProjectId, setOpenAiProjectId] = useState<string | null>(null);
   const [editorRightPanel, setEditorRightPanel] = useState<
     "settings" | "ai-generate" | null
   >(null);
@@ -383,6 +388,25 @@ export default function App() {
             />
           )}
 
+        {/* AI Projects */}
+        {page === "ai-projects" &&
+          !editorVisible &&
+          (openAiProjectId ? (
+            <div className={contentClassWithBottom}>
+              <AiProjectPage
+                onClose={() => setOpenAiProjectId(null)}
+                onSettings={() => setPage("settings")}
+                projectId={openAiProjectId}
+              />
+            </div>
+          ) : (
+            <div className={contentClassWithBottom}>
+              <AiProjectsGallery
+                onOpenProject={(id) => setOpenAiProjectId(id)}
+              />
+            </div>
+          ))}
+
         {/* Explore */}
         {page === "explore" && !editorVisible && (
           <ExplorePage
@@ -446,6 +470,7 @@ export default function App() {
         />
         <Dialog
           onOpenChange={(open) => {
+            open ? sounds.dialogOpen() : sounds.dialogClose();
             setNewFolderOpen(open);
             if (!open) {
               setNewFolderName("");
@@ -482,13 +507,16 @@ export default function App() {
               value={newFolderColor}
             />
             <DialogFooter>
-              <DialogClose render={<Button variant="ghost" />}>
+              <DialogClose
+                render={<Button onClick={sounds.click} variant="ghost" />}
+              >
                 Cancel
               </DialogClose>
               <Button
                 disabled={!newFolderName.trim()}
                 onClick={async () => {
                   if (!newFolderName.trim()) return;
+                  sounds.success();
                   await useFolderStore
                     .getState()
                     .createFolder(newFolderName.trim(), newFolderColor);

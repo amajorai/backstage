@@ -2,6 +2,7 @@
 import { Slider } from "@repo/ui/slider";
 import { Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { useState } from "react";
+import * as sounds from "@/lib/sounds";
 import {
   DEFAULT_ADJUSTMENTS,
   type LayerAdjustments,
@@ -85,7 +86,10 @@ export function AdjustmentProperties({
             <Button
               className="h-6 gap-1 px-2 text-xs"
               disabled={isAutoLoading}
-              onClick={handleAuto}
+              onClick={() => {
+                sounds.click();
+                handleAuto();
+              }}
               size="sm"
               variant="ghost"
             >
@@ -100,7 +104,10 @@ export function AdjustmentProperties({
           {!isDefault(adjustments) && (
             <Button
               className="h-6 gap-1 px-2 text-xs"
-              onClick={() => onUpdate({ ...DEFAULT_ADJUSTMENTS })}
+              onClick={() => {
+                sounds.click();
+                onUpdate({ ...DEFAULT_ADJUSTMENTS });
+              }}
               size="sm"
               variant="ghost"
             >
@@ -139,7 +146,10 @@ export function AdjustmentProperties({
                   : "border-border bg-transparent text-muted-foreground hover:border-muted-foreground"
               }`}
               key={key}
-              onClick={() => update({ [key]: !adjustments[key] })}
+              onClick={() => {
+                sounds.click();
+                update({ [key]: !adjustments[key] });
+              }}
               type="button"
             >
               {label}

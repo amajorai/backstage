@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@repo/ui/tooltip";
 import { FolderPlus, Image, LayoutTemplate, Plus, Video } from "lucide-react";
 import { useCallback, useState } from "react";
 import { openAndLoadImages } from "@/lib/image-file-utils";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { useGalleryStore } from "@/stores/use-gallery-store";
 
@@ -34,6 +35,7 @@ export function AddMenu({
   const addThumbnail = useGalleryStore((s) => s.addThumbnail);
 
   const handleAddImage = useCallback(async () => {
+    sounds.click();
     setOpen(false);
     const images = await openAndLoadImages();
     for (const { dataUrl, fileName } of images) {
@@ -42,11 +44,13 @@ export function AddMenu({
   }, [addThumbnail]);
 
   const handleAddVideo = useCallback(() => {
+    sounds.click();
     setOpen(false);
     onAddVideoClick();
   }, [onAddVideoClick]);
 
   const handleNewProject = useCallback(() => {
+    sounds.click();
     setOpen(false);
     onNewProjectClick();
   }, [onNewProjectClick]);
@@ -84,6 +88,7 @@ export function AddMenu({
           {onNewFolderClick && (
             <DropdownMenuItem
               onClick={() => {
+                sounds.click();
                 setOpen(false);
                 onNewFolderClick();
               }}

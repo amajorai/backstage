@@ -15,6 +15,7 @@ import {
   ColorPickerTrigger,
 } from "@/components/ui/color-picker";
 import { computeAutoAdjustments } from "@/lib/auto-adjust";
+import * as sounds from "@/lib/sounds";
 import {
   DEFAULT_ADJUSTMENTS,
   type ImageLayer,
@@ -166,6 +167,7 @@ export function ImageProperties({ layer, onUpdate }: ImagePropertiesProps) {
           <Button
             className="size-8 shrink-0"
             onClick={() => {
+              sounds.click();
               const next = !locked;
               setLocked(next);
               onUpdate({ lockAspectRatio: next });
@@ -226,7 +228,10 @@ export function ImageProperties({ layer, onUpdate }: ImagePropertiesProps) {
         <div className="flex gap-2">
           <Button
             className="h-8 flex-1 gap-1 text-xs"
-            onClick={() => onUpdate({ flipHorizontal: !layer.flipHorizontal })}
+            onClick={() => {
+              sounds.click();
+              onUpdate({ flipHorizontal: !layer.flipHorizontal });
+            }}
             variant={layer.flipHorizontal ? "secondary" : "outline"}
           >
             <FlipHorizontal2 className="size-3" />
@@ -234,7 +239,10 @@ export function ImageProperties({ layer, onUpdate }: ImagePropertiesProps) {
           </Button>
           <Button
             className="h-8 flex-1 gap-1 text-xs"
-            onClick={() => onUpdate({ flipVertical: !layer.flipVertical })}
+            onClick={() => {
+              sounds.click();
+              onUpdate({ flipVertical: !layer.flipVertical });
+            }}
             variant={layer.flipVertical ? "secondary" : "outline"}
           >
             <FlipVertical2 className="size-3" />
@@ -252,7 +260,10 @@ export function ImageProperties({ layer, onUpdate }: ImagePropertiesProps) {
           </span>
           <Button
             className="size-6"
-            onClick={toggleLinkedRadius}
+            onClick={() => {
+              sounds.click();
+              toggleLinkedRadius();
+            }}
             size="icon"
             title={linkedRadius ? "Unlink corners" : "Link corners"}
             variant="ghost"
@@ -306,7 +317,10 @@ export function ImageProperties({ layer, onUpdate }: ImagePropertiesProps) {
                 : "border-border bg-transparent text-muted-foreground hover:border-muted-foreground"
             }`}
             key={mode}
-            onClick={() => onUpdate({ fillMode: mode })}
+            onClick={() => {
+              sounds.click();
+              onUpdate({ fillMode: mode });
+            }}
             type="button"
           >
             {mode.charAt(0).toUpperCase() + mode.slice(1)}

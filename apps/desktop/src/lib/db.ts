@@ -129,6 +129,16 @@ async function initDb(): Promise<Database> {
     )
   `);
 
+  // AI Projects table
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS ai_projects (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL
+    )
+  `);
+
   // YouTube favourites table
   await database.execute(`
     CREATE TABLE IF NOT EXISTS yt_favourites (

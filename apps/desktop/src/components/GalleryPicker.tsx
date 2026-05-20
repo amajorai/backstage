@@ -2,6 +2,7 @@
 import { Input } from "@repo/ui/input";
 import { FolderOpen, Image, Loader2, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import * as sounds from "@/lib/sounds";
 import { useFolderStore } from "@/stores/use-folder-store";
 import { useGalleryStore } from "@/stores/use-gallery-store";
 
@@ -60,6 +61,7 @@ function PickerThumbnail({
   }, [id, previewUrl, cachedPreviewUrl, loadPreviewForId]);
 
   const handleClick = useCallback(async () => {
+    sounds.select();
     setIsSelecting(true);
     try {
       const fullUrl = await loadFullImageForId(id);
@@ -144,7 +146,14 @@ export function GalleryPicker({ onSelect, onClose }: GalleryPickerProps) {
         >
           <Image className="mx-auto size-12 text-muted-foreground opacity-50" />
           <p className="mt-4 text-muted-foreground">No images in gallery</p>
-          <Button className="mt-4" onClick={onClose} variant="ghost">
+          <Button
+            className="mt-4"
+            onClick={() => {
+              sounds.click();
+              onClose();
+            }}
+            variant="ghost"
+          >
             Close
           </Button>
         </div>
@@ -190,7 +199,10 @@ export function GalleryPicker({ onSelect, onClose }: GalleryPickerProps) {
                     ? "bg-accent font-medium text-accent-foreground"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
-                onClick={() => setSelectedFolderId(null)}
+                onClick={() => {
+                  sounds.click();
+                  setSelectedFolderId(null);
+                }}
                 type="button"
               >
                 <span className="truncate">All</span>
@@ -206,11 +218,12 @@ export function GalleryPicker({ onSelect, onClose }: GalleryPickerProps) {
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                   key={folder.id}
-                  onClick={() =>
+                  onClick={() => {
+                    sounds.click();
                     setSelectedFolderId(
                       selectedFolderId === folder.id ? null : folder.id
-                    )
-                  }
+                    );
+                  }}
                   type="button"
                 >
                   <FolderOpen className="size-3.5 shrink-0" />
@@ -248,7 +261,13 @@ export function GalleryPicker({ onSelect, onClose }: GalleryPickerProps) {
         </div>
 
         <div className="flex justify-end border-border border-t px-5 py-4">
-          <Button onClick={onClose} variant="ghost">
+          <Button
+            onClick={() => {
+              sounds.click();
+              onClose();
+            }}
+            variant="ghost"
+          >
             Cancel
           </Button>
         </div>

@@ -1,6 +1,7 @@
 ﻿import { Button } from "@repo/ui/button";
 import { LogOut, ShieldCheck } from "lucide-react";
 import { useCallback } from "react";
+import * as sounds from "@/lib/sounds";
 import { useLicenseStore } from "@/stores/use-license-store";
 
 export function LicenseStatus() {
@@ -39,7 +40,10 @@ export function LicenseStatus() {
         </div>
       </div>
       <Button
-        onClick={handleDeactivate}
+        onClick={() => {
+          sounds.delete_();
+          handleDeactivate();
+        }}
         size="icon-sm"
         title="Deactivate license"
         variant="ghost"

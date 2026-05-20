@@ -30,6 +30,7 @@ import {
   getRecentIcons,
   type RecentIcon,
 } from "@/lib/recently-used";
+import * as sounds from "@/lib/sounds";
 import { useEditorStore } from "@/stores/use-editor-store";
 
 interface IconPickerProps {
@@ -129,6 +130,7 @@ export function IconPicker({ open, onOpenChange, onSelect }: IconPickerProps) {
   }, [searchTerm, fluentList]);
 
   const handleSelect = (name: string, library: "lucide" | "huge") => {
+    sounds.select();
     try {
       const Icon =
         library === "lucide"
@@ -201,6 +203,7 @@ export function IconPicker({ open, onOpenChange, onSelect }: IconPickerProps) {
   // Handle Fluent Emoji selection - parse APNG and add animated layer
   const handleFluentSelect = useCallback(
     async (folder: string, name: string) => {
+      sounds.select();
       setLoadingEmoji(name);
       try {
         const url = getFluentEmojiUrl(folder, name);
@@ -339,7 +342,13 @@ export function IconPicker({ open, onOpenChange, onSelect }: IconPickerProps) {
   });
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
+    <Dialog
+      onOpenChange={(isOpen) => {
+        isOpen ? sounds.dialogOpen() : sounds.dialogClose();
+        onOpenChange(isOpen);
+      }}
+      open={open}
+    >
       <DialogContent className="flex h-[80vh] max-w-5xl flex-col gap-3">
         <DialogHeader>
           <DialogTitle>Icon Picker</DialogTitle>
@@ -377,7 +386,10 @@ export function IconPicker({ open, onOpenChange, onSelect }: IconPickerProps) {
 
         <Tabs
           className="flex min-h-0 flex-1 flex-col"
-          onValueChange={setActiveTab}
+          onValueChange={(v) => {
+            sounds.click();
+            setActiveTab(v);
+          }}
           value={activeTab}
         >
           <TabsList className="grid w-full grid-cols-3">

@@ -8,6 +8,7 @@ import {
 import { ChevronDown, Grid2X2, Ruler } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { TitleBar } from "@/components/TitleBar";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/stores/use-editor-store";
 import { ToolOptionsBar } from "./ToolOptionsBar";
@@ -42,6 +43,7 @@ export function EditorHeader({
   }, [editValue, isEditingName]);
 
   const handleBack = () => {
+    sounds.click();
     if (hasUnsavedChanges) {
       onShowConfirmClose();
     } else {
@@ -107,7 +109,12 @@ export function EditorHeader({
               View <ChevronDown className="size-3 opacity-50" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-44">
-              <DropdownMenuItem onClick={toggleRulers}>
+              <DropdownMenuItem
+                onClick={() => {
+                  sounds.click();
+                  toggleRulers();
+                }}
+              >
                 <Ruler className="mr-2 size-4" />
                 Rulers
                 <div className="ml-auto flex items-center gap-2">
@@ -117,7 +124,12 @@ export function EditorHeader({
                   </span>
                 </div>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={toggleGrid}>
+              <DropdownMenuItem
+                onClick={() => {
+                  sounds.click();
+                  toggleGrid();
+                }}
+              >
                 <Grid2X2 className="mr-2 size-4" />
                 Grid
                 <div className="ml-auto flex items-center gap-2">
@@ -135,7 +147,10 @@ export function EditorHeader({
               buttonVariants({ variant: "ghost", size: "sm" }),
               "h-8 px-2 text-muted-foreground hover:text-foreground"
             )}
-            onClick={onOpenSettings}
+            onClick={() => {
+              sounds.click();
+              onOpenSettings();
+            }}
             type="button"
           >
             Settings

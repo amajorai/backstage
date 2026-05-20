@@ -1,5 +1,6 @@
 import { GalleryThumbnails } from "lucide-react";
 import Link from "next/link";
+import { DownloadLinks } from "./download-links";
 
 interface GitHubAsset {
   name: string;
@@ -13,10 +14,6 @@ interface GitHubRelease {
 }
 
 const GITHUB_URL = "https://github.com/amajorai/backstage";
-
-function formatMB(bytes: number) {
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
 
 const PLATFORMS = [
   {
@@ -91,6 +88,16 @@ export default async function DownloadPage() {
   const version = release?.tag_name ?? "";
   const assets = release?.assets ?? [];
 
+  const platforms = PLATFORMS.map(
+    ({ id, label, description, match, icon }) => ({
+      id,
+      label,
+      description,
+      icon,
+      assets: assets.filter((a) => match(a.name)),
+    })
+  );
+
   return (
     <div className="dark min-h-screen bg-zinc-950 font-sans text-white">
       <div className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center px-6 py-20">
@@ -113,75 +120,7 @@ export default async function DownloadPage() {
           {version ? `Version ${version} · ` : ""}Free &amp; open source
         </p>
 
-        <div className="flex w-full flex-col gap-3">
-          {PLATFORMS.map(({ id, label, description, match, icon }) => {
-            const platformAssets = assets.filter((a) => match(a.name));
-
-            if (platformAssets.length === 0) {
-              return (
-                <div
-                  className="flex items-center justify-between rounded-xl bg-zinc-900 px-6 py-4 opacity-40"
-                  key={id}
-                >
-                  <div className="flex items-center gap-4">
-                    <span className="text-zinc-400">{icon}</span>
-                    <div>
-                      <p className="font-medium text-sm text-white">{label}</p>
-                      <p className="text-xs text-zinc-500">{description}</p>
-                    </div>
-                  </div>
-                  <span className="text-xs text-zinc-600">Coming soon</span>
-                </div>
-              );
-            }
-
-            return platformAssets.map((asset) => (
-              <a
-                className="group flex items-center justify-between rounded-xl bg-zinc-900 px-6 py-4 no-underline transition-colors hover:bg-zinc-800"
-                href={asset.browser_download_url}
-                key={asset.browser_download_url}
-              >
-                <div className="flex items-center gap-4">
-                  <span className="text-zinc-400 transition-colors group-hover:text-white">
-                    {icon}
-                  </span>
-                  <div>
-                    <p className="font-medium text-sm text-white">{label}</p>
-                    <p className="text-xs text-zinc-500">
-                      {description} · {formatMB(asset.size)}
-                    </p>
-                  </div>
-                </div>
-                <svg
-                  aria-hidden="true"
-                  className="size-4 text-zinc-600 transition-colors group-hover:text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </a>
-            ));
-          })}
-        </div>
-
-        <p className="mt-10 text-xs text-zinc-600">
-          All releases on{" "}
-          <a
-            className="text-zinc-400 transition-colors hover:text-white"
-            href={`${GITHUB_URL}/releases`}
-            rel="noopener"
-            target="_blank"
-          >
-            GitHub
-          </a>
-        </p>
+        <DownloadLinks githubUrl={GITHUB_URL} platforms={platforms} />
       </div>
     </div>
   );

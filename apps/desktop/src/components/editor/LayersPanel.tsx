@@ -33,6 +33,7 @@ import { sileo } from "sileo";
 import { ScrollFadeEffect } from "@/components/scroll-fade-effect";
 import { generateThumbnailName } from "@/lib/gemini-rename";
 import { getGeminiApiKey } from "@/lib/gemini-store";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import type { GroupLayer, Layer } from "@/stores/use-editor-store";
 import { useEditorStore } from "@/stores/use-editor-store";
@@ -568,6 +569,7 @@ export function LayersPanel() {
               className="flex size-4 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
               onClick={(e) => {
                 e.stopPropagation();
+                sounds.click();
                 toggleGroupCollapse(layer.id);
               }}
               type="button"
@@ -588,6 +590,7 @@ export function LayersPanel() {
               className="flex size-5 items-center justify-center rounded text-muted-foreground hover:text-foreground"
               onClick={(e) => {
                 e.stopPropagation();
+                sounds.click();
                 pushHistory(layer.visible ? "Hide Layer" : "Show Layer");
                 updateLayer(layer.id, { visible: !layer.visible });
               }}
@@ -608,6 +611,7 @@ export function LayersPanel() {
               )}
               onClick={(e) => {
                 e.stopPropagation();
+                sounds.click();
                 pushHistory(layer.locked ? "Unlock Layer" : "Lock Layer");
                 updateLayer(layer.id, { locked: !layer.locked });
               }}
@@ -661,6 +665,7 @@ export function LayersPanel() {
           <>
             <ContextMenuItem
               onClick={() => {
+                sounds.click();
                 setActiveLayers([layer.id]);
                 duplicateLayer(layer.id);
               }}
@@ -668,12 +673,20 @@ export function LayersPanel() {
               Duplicate Group
             </ContextMenuItem>
             <ContextMenuSeparator />
-            <ContextMenuItem onClick={() => ungroup(layer.id)}>
+            <ContextMenuItem
+              onClick={() => {
+                sounds.click();
+                ungroup(layer.id);
+              }}
+            >
               Ungroup
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
-              onClick={() => removeLayer(layer.id)}
+              onClick={() => {
+                sounds.delete_();
+                removeLayer(layer.id);
+              }}
               variant="destructive"
             >
               Delete Group &amp; Contents
@@ -683,6 +696,7 @@ export function LayersPanel() {
           <>
             <ContextMenuItem
               onClick={() => {
+                sounds.click();
                 setActiveLayers([layer.id]);
                 duplicateLayer(layer.id);
               }}
@@ -691,35 +705,57 @@ export function LayersPanel() {
             </ContextMenuItem>
             <ContextMenuItem
               onClick={() => {
+                sounds.click();
                 setActiveLayers([layer.id]);
                 copyLayers();
               }}
             >
               Copy
             </ContextMenuItem>
-            <ContextMenuItem onClick={() => pasteLayers()}>
+            <ContextMenuItem
+              onClick={() => {
+                sounds.click();
+                pasteLayers();
+              }}
+            >
               Paste
             </ContextMenuItem>
             <ContextMenuSeparator />
             {activeLayerIds.length >= 2 && (
               <ContextMenuItem
-                onClick={() => createGroup(activeLayerIds, "Group")}
+                onClick={() => {
+                  sounds.click();
+                  createGroup(activeLayerIds, "Group");
+                }}
               >
                 Group Selection ({activeLayerIds.length} layers)
               </ContextMenuItem>
             )}
-            <ContextMenuItem onClick={() => createGroup([layer.id], "Group")}>
+            <ContextMenuItem
+              onClick={() => {
+                sounds.click();
+                createGroup([layer.id], "Group");
+              }}
+            >
               New Group from Layer
             </ContextMenuItem>
             {isChildRow && layer.groupId && (
-              <ContextMenuItem onClick={() => moveLayerToGroup(layer.id, null)}>
+              <ContextMenuItem
+                onClick={() => {
+                  sounds.click();
+                  moveLayerToGroup(layer.id, null);
+                }}
+              >
                 Remove from Group
               </ContextMenuItem>
             )}
             <ContextMenuSeparator />
             <ContextMenuItem
               disabled={layers.length <= 1}
-              onClick={() => removeLayer(layer.id)}
+              onClick={() => {
+                sounds.delete_();
+                removeLayer(layer.id);
+              }}
               variant="destructive"
             >
               Delete
@@ -783,7 +819,10 @@ export function LayersPanel() {
           <TooltipTrigger asChild>
             <button
               className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
-              onClick={addEmptyLayer}
+              onClick={() => {
+                sounds.click();
+                addEmptyLayer();
+              }}
               type="button"
             >
               <Plus className="size-3.5" />
@@ -797,6 +836,7 @@ export function LayersPanel() {
               className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
               disabled={activeLayerIds.length === 0}
               onClick={() => {
+                sounds.click();
                 for (const id of activeLayerIds) duplicateLayer(id);
               }}
               type="button"
@@ -812,6 +852,7 @@ export function LayersPanel() {
               className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-destructive disabled:pointer-events-none disabled:opacity-30"
               disabled={activeLayerIds.length === 0 || layers.length <= 1}
               onClick={() => {
+                sounds.delete_();
                 for (const id of activeLayerIds) removeLayer(id);
               }}
               type="button"
@@ -826,7 +867,10 @@ export function LayersPanel() {
             <button
               className="flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
               disabled={activeLayerIds.length === 0}
-              onClick={handleCreateGroup}
+              onClick={() => {
+                sounds.click();
+                handleCreateGroup();
+              }}
               type="button"
             >
               <FolderPlus className="size-3.5" />
@@ -857,11 +901,19 @@ export function LayersPanel() {
           <DropdownMenuContent align="start" side="top">
             <DropdownMenuItem
               disabled={activeLayerIds.length === 0}
-              onClick={handleAutoRenameActive}
+              onClick={() => {
+                sounds.click();
+                handleAutoRenameActive();
+              }}
             >
               Active layer
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleAutoRenameAll}>
+            <DropdownMenuItem
+              onClick={() => {
+                sounds.click();
+                handleAutoRenameAll();
+              }}
+            >
               All layers
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -887,6 +939,7 @@ export function LayersPanel() {
             <button
               className="flex w-full items-center rounded-md px-1.5 py-1 text-sm hover:bg-accent hover:text-accent-foreground"
               onClick={() => {
+                sounds.click();
                 pasteLayers();
                 setPasteMenuPos(null);
               }}
@@ -898,6 +951,7 @@ export function LayersPanel() {
             <button
               className="flex w-full items-center rounded-md px-1.5 py-1 text-sm hover:bg-accent hover:text-accent-foreground"
               onClick={() => {
+                sounds.click();
                 createGroup(
                   activeLayerIds.length >= 2 ? activeLayerIds : [],
                   "Group"

@@ -9,6 +9,7 @@
   AlertDialogTitle,
 } from "@repo/ui/alert-dialog";
 import { Loader2 } from "lucide-react";
+import * as sounds from "@/lib/sounds";
 import type { TrashItem } from "@/stores/use-trash-store";
 
 interface RestoreAllDialogProps {
@@ -38,8 +39,19 @@ export function RestoreAllDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
-          <AlertDialogAction disabled={isProcessing} onClick={onConfirm}>
+          <AlertDialogCancel
+            disabled={isProcessing}
+            onClick={() => sounds.click()}
+          >
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction
+            disabled={isProcessing}
+            onClick={() => {
+              sounds.success();
+              onConfirm();
+            }}
+          >
             {isProcessing ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />
@@ -83,11 +95,19 @@ export function EmptyTrashDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel
+            disabled={isProcessing}
+            onClick={() => sounds.click()}
+          >
+            Cancel
+          </AlertDialogCancel>
           <AlertDialogAction
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             disabled={isProcessing}
-            onClick={onConfirm}
+            onClick={() => {
+              sounds.delete_();
+              onConfirm();
+            }}
           >
             {isProcessing ? (
               <>
@@ -128,10 +148,15 @@ export function DeleteItemDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={() => sounds.click()}>
+            Cancel
+          </AlertDialogCancel>
           <AlertDialogAction
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            onClick={onConfirm}
+            onClick={() => {
+              sounds.delete_();
+              onConfirm();
+            }}
           >
             Delete Permanently
           </AlertDialogAction>
@@ -170,11 +195,19 @@ export function DeleteSelectedDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel
+            disabled={isProcessing}
+            onClick={() => sounds.click()}
+          >
+            Cancel
+          </AlertDialogCancel>
           <AlertDialogAction
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             disabled={isProcessing}
-            onClick={onConfirm}
+            onClick={() => {
+              sounds.delete_();
+              onConfirm();
+            }}
           >
             {isProcessing ? (
               <>

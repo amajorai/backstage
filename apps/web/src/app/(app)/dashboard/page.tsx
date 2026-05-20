@@ -1,10 +1,7 @@
-﻿import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/tabs";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
-
-import Dashboard from "./dashboard";
-import { SettingsTab } from "./settings-tab";
+import { DashboardTabs } from "./dashboard-tabs";
 
 export default async function DashboardPage() {
   const session = await authClient.getSession({
@@ -31,20 +28,7 @@ export default async function DashboardPage() {
         <p className="text-muted-foreground">Welcome, {session.user.name}</p>
       </div>
 
-      <Tabs defaultValue="overview">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-        </TabsList>
-
-        <TabsContent className="mt-6" value="overview">
-          <Dashboard customerState={customerState} session={session} />
-        </TabsContent>
-
-        <TabsContent className="mt-6" value="settings">
-          <SettingsTab />
-        </TabsContent>
-      </Tabs>
+      <DashboardTabs customerState={customerState} session={session} />
     </div>
   );
 }

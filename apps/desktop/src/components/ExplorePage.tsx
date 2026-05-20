@@ -20,6 +20,7 @@ import { SearchHistoryDropdown } from "@/components/SearchHistoryDropdown";
 import { ScrollFadeEffect } from "@/components/scroll-fade-effect";
 import { ViewModeButtons } from "@/components/toolbar/view-mode-buttons";
 import { usePersistedViewMode } from "@/hooks/use-persisted-view-mode";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import {
   fetchTrendingVideos,
@@ -292,7 +293,10 @@ export function ExplorePage({
         <div className="flex items-center gap-1">
           <Button
             aria-label="Back to Gallery"
-            onClick={onClose}
+            onClick={() => {
+              sounds.click();
+              onClose();
+            }}
             size="icon-sm"
             variant="ghost"
           >
@@ -357,7 +361,10 @@ export function ExplorePage({
             {searchInput && (
               <button
                 className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
-                onClick={handleClearSearch}
+                onClick={() => {
+                  sounds.click();
+                  handleClearSearch();
+                }}
                 type="button"
               >
                 <X className="size-3.5" />
@@ -404,7 +411,10 @@ export function ExplorePage({
                     : "text-muted-foreground hover:text-foreground"
                 )}
                 key={String(cat.id)}
-                onClick={() => handleSelectCategory(cat.id)}
+                onClick={() => {
+                  sounds.click();
+                  handleSelectCategory(cat.id);
+                }}
                 type="button"
               >
                 {cat.label}
@@ -432,7 +442,13 @@ export function ExplorePage({
                     {error}
                   </p>
                 </div>
-                <Button onClick={() => fetchNextChunk(false)} variant="ghost">
+                <Button
+                  onClick={() => {
+                    sounds.click();
+                    fetchNextChunk(false);
+                  }}
+                  variant="ghost"
+                >
                   <RotateCcw className="size-4" />
                   Retry
                 </Button>
@@ -542,6 +558,7 @@ function VideoCard({
                 )}
                 onClick={(e) => {
                   e.stopPropagation();
+                  sounds.click();
                   onToggleFavourite(video);
                 }}
                 title={isFavourite ? "Remove from saved" : "Save"}
@@ -556,6 +573,7 @@ function VideoCard({
                   className="rounded-full bg-black/40 p-1.5 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60"
                   onClick={(e) => {
                     e.stopPropagation();
+                    sounds.click();
                     openUrl(`https://www.youtube.com/watch?v=${video.id}`);
                   }}
                   title="Open in browser"
@@ -568,7 +586,10 @@ function VideoCard({
             {hovered && (
               <Button
                 className="gap-1.5 shadow-lg"
-                onClick={() => onRemix(video)}
+                onClick={() => {
+                  sounds.click();
+                  onRemix(video);
+                }}
                 size="sm"
               >
                 <Wand2 className="size-3.5" />

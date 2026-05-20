@@ -2,6 +2,7 @@
 import { Archive, Loader2, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { SelectionCheckbox } from "@/components/gallery/SelectionCheckbox";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { type ArchiveItem, useArchiveStore } from "@/stores/use-archive-store";
 
@@ -87,6 +88,7 @@ export function ArchiveItemCard({
           <Button
             onClick={(e) => {
               e.stopPropagation();
+              sounds.click();
               onRestore(item);
             }}
             size="sm"

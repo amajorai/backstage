@@ -70,7 +70,7 @@ export function ResizablePanel({
         aria-valuemax={maxWidth}
         aria-valuemin={minWidth}
         aria-valuenow={width}
-        className="absolute top-0 z-10 h-full w-2 cursor-col-resize"
+        className="group absolute top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
         onMouseDown={handleMouseDown}
         role="separator"
         style={{
@@ -78,7 +78,16 @@ export function ResizablePanel({
           right: handleRight,
         }}
         tabIndex={0}
-      />
+      >
+        <div className="flex h-8 w-1 flex-col items-center justify-center gap-[3px] rounded-full opacity-0 transition-opacity group-hover:opacity-100">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              className="size-[3px] rounded-full bg-muted-foreground/60"
+              key={i}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

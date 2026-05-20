@@ -2,6 +2,7 @@
 import { Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { SelectionCheckbox } from "@/components/gallery/SelectionCheckbox";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { type TrashItem, useTrashStore } from "@/stores/use-trash-store";
 
@@ -100,6 +101,7 @@ export function TrashItemCard({
           <Button
             onClick={(e) => {
               e.stopPropagation();
+              sounds.click();
               onRestore(item);
             }}
             size="sm"
@@ -112,6 +114,7 @@ export function TrashItemCard({
             className="text-destructive"
             onClick={(e) => {
               e.stopPropagation();
+              sounds.delete_();
               onDelete(item);
             }}
             size="sm"

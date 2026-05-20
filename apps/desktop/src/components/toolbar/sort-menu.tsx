@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Clock,
 } from "lucide-react";
+import * as sounds from "@/lib/sounds";
 import { type SortField, useGalleryStore } from "@/stores/use-gallery-store";
 
 const sortOptions: {
@@ -56,7 +57,10 @@ export function SortMenu() {
         {sortOptions.map((opt) => (
           <DropdownMenuItem
             key={opt.field}
-            onClick={() => setSortField(opt.field)}
+            onClick={() => {
+              sounds.click();
+              setSortField(opt.field);
+            }}
           >
             {opt.icon}
             {opt.label}
@@ -64,7 +68,10 @@ export function SortMenu() {
         ))}
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
+          onClick={() => {
+            sounds.click();
+            setSortOrder(sortOrder === "desc" ? "asc" : "desc");
+          }}
         >
           {sortOrder === "desc" ? (
             <>

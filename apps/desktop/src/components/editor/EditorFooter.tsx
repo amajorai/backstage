@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { CanvasSizeDialog } from "@/components/editor/CanvasSizeDialog";
+import * as sounds from "@/lib/sounds";
 
 export type EditorViewMode = "single" | "vertical" | "horizontal" | "artboard";
 
@@ -84,7 +85,10 @@ export function EditorFooter({
         <Tooltip>
           <TooltipTrigger
             className="cursor-pointer text-muted-foreground text-xs hover:text-foreground"
-            onClick={() => setShowCanvasSizeDialog(true)}
+            onClick={() => {
+              sounds.click();
+              setShowCanvasSizeDialog(true);
+            }}
             type="button"
           >
             {`${canvasSize.width} × ${canvasSize.height}`}
@@ -102,7 +106,10 @@ export function EditorFooter({
               <Tooltip key={mode}>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => onEditorViewModeChange(mode)}
+                    onClick={() => {
+                      sounds.click();
+                      onEditorViewModeChange(mode);
+                    }}
                     style={
                       isActive
                         ? {
@@ -154,7 +161,10 @@ export function EditorFooter({
       <div className="flex items-center gap-0.5 rounded-md px-0.5">
         <Button
           aria-label="Zoom Out"
-          onClick={onZoomOut}
+          onClick={() => {
+            sounds.click();
+            onZoomOut();
+          }}
           size="icon-sm"
           variant="ghost"
         >
@@ -162,7 +172,10 @@ export function EditorFooter({
         </Button>
         <Button
           className="min-w-12 text-xs"
-          onClick={onZoomFit}
+          onClick={() => {
+            sounds.click();
+            onZoomFit();
+          }}
           size="sm"
           variant="ghost"
         >
@@ -170,7 +183,10 @@ export function EditorFooter({
         </Button>
         <Button
           aria-label="Zoom In"
-          onClick={onZoomIn}
+          onClick={() => {
+            sounds.click();
+            onZoomIn();
+          }}
           size="icon-sm"
           variant="ghost"
         >
@@ -180,14 +196,24 @@ export function EditorFooter({
 
       {/* Save/Export */}
       <div className="flex gap-2">
-        <Button onClick={onExport} size="sm" variant="ghost">
+        <Button
+          onClick={() => {
+            sounds.download();
+            onExport();
+          }}
+          size="sm"
+          variant="ghost"
+        >
           Export
         </Button>
         <div className="relative">
           <Button
             className="gap-2"
             disabled={isSaving}
-            onClick={() => setShowSaveMenu(!showSaveMenu)}
+            onClick={() => {
+              sounds.click();
+              setShowSaveMenu(!showSaveMenu);
+            }}
             size="sm"
           >
             {isSaving ? (
@@ -219,6 +245,7 @@ export function EditorFooter({
                 <Button
                   className="w-full justify-start"
                   onClick={() => {
+                    sounds.success();
                     setShowSaveMenu(false);
                     onSave();
                   }}
@@ -231,6 +258,7 @@ export function EditorFooter({
                 <Button
                   className="w-full justify-start"
                   onClick={() => {
+                    sounds.success();
                     setShowSaveMenu(false);
                     onSaveAsNew();
                   }}

@@ -86,6 +86,7 @@ import {
   getEmbeddedProjectIds,
   getEmbeddingStats,
 } from "@/lib/semantic-search";
+import * as sounds from "@/lib/sounds";
 import {
   getYoutubeApiKey,
   removeYoutubeApiKey,
@@ -144,7 +145,10 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
         <div className="relative flex h-12 items-center bg-muted px-4">
           <Button
             disabled={isTransferring}
-            onClick={onClose}
+            onClick={() => {
+              sounds.click();
+              onClose();
+            }}
             size="icon-sm"
             type="button"
             variant="ghost"
@@ -162,7 +166,10 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
                 } disabled:pointer-events-none disabled:opacity-40`}
                 disabled={isTransferring}
                 key={tab.value}
-                onClick={() => setActiveTab(tab.value)}
+                onClick={() => {
+                  sounds.click();
+                  setActiveTab(tab.value);
+                }}
                 type="button"
               >
                 {tab.label}
@@ -175,6 +182,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
               <button
                 className="fixed right-5 bottom-16 z-50 flex size-14 items-center justify-center rounded-full border border-border bg-muted text-foreground shadow-lg transition-all hover:scale-110"
                 onClick={() => {
+                  sounds.click();
                   // biome-ignore lint/suspicious/noExplicitAny: userjot sdk
                   const uj = (window as any).uj;
                   const resolved =
@@ -301,7 +309,13 @@ function GeminiKeySection() {
 
   return (
     <div className="space-y-4">
-      <Dialog onOpenChange={setShowRemoveDialog} open={showRemoveDialog}>
+      <Dialog
+        onOpenChange={(open) => {
+          open ? sounds.dialogOpen() : sounds.dialogClose();
+          setShowRemoveDialog(open);
+        }}
+        open={showRemoveDialog}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Remove Gemini API key?</DialogTitle>
@@ -337,18 +351,30 @@ function GeminiKeySection() {
                 </div>
                 <Switch
                   checked={clearEmbeddings}
-                  onCheckedChange={setClearEmbeddings}
+                  onCheckedChange={(v) => {
+                    v ? sounds.switchOn() : sounds.switchOff();
+                    setClearEmbeddings(v);
+                  }}
                 />
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button onClick={() => setShowRemoveDialog(false)} variant="ghost">
+            <Button
+              onClick={() => {
+                sounds.click();
+                setShowRemoveDialog(false);
+              }}
+              variant="ghost"
+            >
               Cancel
             </Button>
             <Button
               disabled={isRemoving}
-              onClick={handleConfirmRemove}
+              onClick={() => {
+                sounds.delete_();
+                handleConfirmRemove();
+              }}
               variant="destructive"
             >
               {isRemoving ? (
@@ -372,7 +398,10 @@ function GeminiKeySection() {
         >
           {hasKey ? (
             <Button
-              onClick={() => setShowRemoveDialog(true)}
+              onClick={() => {
+                sounds.dialogOpen();
+                setShowRemoveDialog(true);
+              }}
               size="sm"
               variant="destructive"
             >
@@ -395,7 +424,10 @@ function GeminiKeySection() {
               {apiKey.trim().length > 0 && (
                 <Button
                   className="size-8 text-muted-foreground hover:text-foreground"
-                  onClick={handleSave}
+                  onClick={() => {
+                    sounds.success();
+                    handleSave();
+                  }}
                   size="icon"
                   variant="ghost"
                 >
@@ -407,7 +439,10 @@ function GeminiKeySection() {
         </SettingRow>
         <button
           className="mt-1.5 inline-flex items-center gap-1 pl-4 text-muted-foreground text-xs hover:text-foreground hover:underline"
-          onClick={() => openUrl("https://aistudio.google.com/apikey")}
+          onClick={() => {
+            sounds.click();
+            openUrl("https://aistudio.google.com/apikey");
+          }}
           type="button"
         >
           <ExternalLink className="size-3" />
@@ -476,7 +511,14 @@ function ExploreSettings() {
             title="YouTube"
           >
             {hasYoutubeKey ? (
-              <Button onClick={handleRemove} size="sm" variant="destructive">
+              <Button
+                onClick={() => {
+                  sounds.delete_();
+                  handleRemove();
+                }}
+                size="sm"
+                variant="destructive"
+              >
                 <Trash2 className="mr-2 size-4" />
                 Remove
               </Button>
@@ -496,7 +538,10 @@ function ExploreSettings() {
                 {youtubeKey.trim().length > 0 && (
                   <Button
                     className="size-8 text-muted-foreground hover:text-foreground"
-                    onClick={handleSave}
+                    onClick={() => {
+                      sounds.success();
+                      handleSave();
+                    }}
                     size="icon"
                     variant="ghost"
                   >
@@ -508,11 +553,12 @@ function ExploreSettings() {
           </SettingRow>
           <button
             className="mt-1.5 inline-flex items-center gap-1 pl-4 text-muted-foreground text-xs hover:text-foreground hover:underline"
-            onClick={() =>
+            onClick={() => {
+              sounds.click();
               openUrl(
                 "https://console.cloud.google.com/apis/library/youtube.googleapis.com"
-              )
-            }
+              );
+            }}
             type="button"
           >
             <ExternalLink className="size-3" />
@@ -539,7 +585,13 @@ function OnboardingSettings() {
           description="Replay the getting-started tour to rediscover features."
           title="Reset onboarding"
         >
-          <Button onClick={() => setOnboardingCompleted(false)} size="sm">
+          <Button
+            onClick={() => {
+              sounds.click();
+              setOnboardingCompleted(false);
+            }}
+            size="sm"
+          >
             <RefreshCw className="mr-1.5 size-3.5" />
             Reset
           </Button>
@@ -564,7 +616,33 @@ function ExperimentalSettings() {
         >
           <Switch
             checked={experimentalFeaturesEnabled}
-            onCheckedChange={setExperimentalFeaturesEnabled}
+            onCheckedChange={(v) => {
+              v ? sounds.switchOn() : sounds.switchOff();
+              setExperimentalFeaturesEnabled(v);
+            }}
+          />
+        </SettingRow>
+      </div>
+    </div>
+  );
+}
+
+function SoundsSettings() {
+  const { soundsEnabled, setSoundsEnabled } = useAppSettingsStore();
+  return (
+    <div className="space-y-4">
+      <p className="pl-2 font-medium text-muted-foreground text-xs">Sound</p>
+      <div className="space-y-2">
+        <SettingRow
+          description="Play sounds for clicks, dialogs, switches, and other interactions."
+          title="Sound Effects"
+        >
+          <Switch
+            checked={soundsEnabled}
+            onCheckedChange={(v) => {
+              v ? sounds.switchOn() : sounds.switchOff();
+              setSoundsEnabled(v);
+            }}
           />
         </SettingRow>
       </div>
@@ -577,6 +655,7 @@ function GeneralSettings() {
     <div className="space-y-6">
       <h2 className="pl-2 font-semibold text-lg">General</h2>
       <AppearanceSettings />
+      <SoundsSettings />
       <OnboardingSettings />
       <BillingSettings />
       <ExperimentalSettings />
@@ -705,7 +784,10 @@ function EmbeddingSettings() {
             </p>
             <div className="flex gap-2">
               <Button
-                onClick={() => setShowClearPrompt(false)}
+                onClick={() => {
+                  sounds.click();
+                  setShowClearPrompt(false);
+                }}
                 size="sm"
                 variant="ghost"
               >
@@ -713,7 +795,10 @@ function EmbeddingSettings() {
               </Button>
               <Button
                 disabled={isClearing}
-                onClick={handleClear}
+                onClick={() => {
+                  sounds.delete_();
+                  handleClear();
+                }}
                 size="sm"
                 variant="destructive"
               >
@@ -818,14 +903,23 @@ function AppearanceSettings() {
           <Switch
             checked={launchAtStartup ?? false}
             disabled={launchAtStartup === null}
-            onCheckedChange={handleLaunchAtStartup}
+            onCheckedChange={(v) => {
+              v ? sounds.switchOn() : sounds.switchOff();
+              handleLaunchAtStartup(v);
+            }}
           />
         </SettingRow>
         <SettingRow
           description="Reopen your last open projects when launching the app."
           title="Restore tabs on startup"
         >
-          <Switch checked={persistTabs} onCheckedChange={setPersistTabs} />
+          <Switch
+            checked={persistTabs}
+            onCheckedChange={(v) => {
+              v ? sounds.switchOn() : sounds.switchOff();
+              setPersistTabs(v);
+            }}
+          />
         </SettingRow>
         <SettingRow
           description="Save and restore window position and size between sessions."
@@ -833,7 +927,10 @@ function AppearanceSettings() {
         >
           <Switch
             checked={rememberWindowBounds}
-            onCheckedChange={setRememberWindowBounds}
+            onCheckedChange={(v) => {
+              v ? sounds.switchOn() : sounds.switchOff();
+              setRememberWindowBounds(v);
+            }}
           />
         </SettingRow>
       </div>
@@ -894,7 +991,10 @@ function AppearanceSettings() {
             </div>
             <Switch
               checked={seasonalEffectsEnabled}
-              onCheckedChange={setSeasonalEffectsEnabled}
+              onCheckedChange={(v) => {
+                v ? sounds.switchOn() : sounds.switchOff();
+                setSeasonalEffectsEnabled(v);
+              }}
             />
           </div>
         </FrameHeader>
@@ -927,7 +1027,10 @@ function AppearanceSettings() {
             </div>
             <Button
               disabled={!!previewSeasonTheme}
-              onClick={handlePreviewSeason}
+              onClick={() => {
+                sounds.click();
+                handlePreviewSeason();
+              }}
               size="sm"
             >
               {previewSeasonTheme ? "Previewing…" : "Preview"}
@@ -1045,7 +1148,10 @@ function BriaModelRow({
         {briaStatus?.exists ? (
           <Button
             disabled={isDownloading}
-            onClick={onDownload}
+            onClick={() => {
+              sounds.download();
+              onDownload();
+            }}
             size="sm"
             variant="ghost"
           >
@@ -1067,7 +1173,14 @@ function BriaModelRow({
                 </p>
               </div>
             )}
-            <Button disabled={isDownloading} onClick={onDownload} size="sm">
+            <Button
+              disabled={isDownloading}
+              onClick={() => {
+                sounds.download();
+                onDownload();
+              }}
+              size="sm"
+            >
               <Download className="mr-2 size-4" />
               {isDownloading ? "Downloading…" : "Download Model"}
             </Button>
@@ -1260,7 +1373,10 @@ function ProcessingSettings() {
                           : "bg-muted/50 hover:bg-muted"
                       }`}
                       key={option.value}
-                      onClick={() => setBgRemovalProvider(option.value)}
+                      onClick={() => {
+                        sounds.click();
+                        setBgRemovalProvider(option.value);
+                      }}
                       type="button"
                     >
                       <div className="flex-1">
@@ -1307,7 +1423,10 @@ function ProcessingSettings() {
                           : "bg-muted/50 hover:bg-muted"
                       }`}
                       key={option.value}
-                      onClick={() => setBgRemovalQuality(option.value)}
+                      onClick={() => {
+                        sounds.click();
+                        setBgRemovalQuality(option.value);
+                      }}
                       type="button"
                     >
                       {/* Left: label + size */}
@@ -1414,6 +1533,7 @@ function ProcessingSettings() {
                         </div>
                         <Button
                           onClick={async () => {
+                            sounds.delete_();
                             await removeHfToken();
                             setHfTokenSaved(false);
                             sileo.success({ title: "Token removed" });
@@ -1438,7 +1558,10 @@ function ProcessingSettings() {
                         />
                         <Button
                           disabled={!hfToken.trim()}
-                          onClick={handleSaveHfToken}
+                          onClick={() => {
+                            sounds.success();
+                            handleSaveHfToken();
+                          }}
                           size="sm"
                         >
                           Save
@@ -1478,7 +1601,10 @@ function ProcessingSettings() {
               <Switch
                 checked={bgRemovalGeminiEnabled}
                 disabled={!hasGeminiKey}
-                onCheckedChange={setBgRemovalGeminiEnabled}
+                onCheckedChange={(v) => {
+                  v ? sounds.switchOn() : sounds.switchOff();
+                  setBgRemovalGeminiEnabled(v);
+                }}
               />
             </div>
           </FrameHeader>
@@ -1525,7 +1651,10 @@ function ProcessingSettings() {
                       <button
                         className="h-5 w-5 rounded border border-input transition-transform hover:scale-110"
                         key={c}
-                        onClick={() => setBgRemovalGeminiColor(c)}
+                        onClick={() => {
+                          sounds.click();
+                          setBgRemovalGeminiColor(c);
+                        }}
                         style={{ background: c }}
                         title={c}
                         type="button"
@@ -1567,7 +1696,10 @@ function ProcessingSettings() {
                 </div>
                 <Switch
                   checked={bgRemovalGeminiAutoRemove}
-                  onCheckedChange={setBgRemovalGeminiAutoRemove}
+                  onCheckedChange={(v) => {
+                    v ? sounds.switchOn() : sounds.switchOff();
+                    setBgRemovalGeminiAutoRemove(v);
+                  }}
                 />
               </div>
             </FramePanel>
@@ -1967,7 +2099,10 @@ function StorageSettings({
             <Button
               className="relative overflow-hidden"
               disabled={busy}
-              onClick={handleExport}
+              onClick={() => {
+                sounds.download();
+                handleExport();
+              }}
               size="sm"
             >
               {exporting && (
@@ -2002,7 +2137,10 @@ function StorageSettings({
             <Button
               className="relative overflow-hidden"
               disabled={busy}
-              onClick={handlePickImport}
+              onClick={() => {
+                sounds.click();
+                handlePickImport();
+              }}
               size="sm"
             >
               {importing && (
@@ -2044,7 +2182,10 @@ function StorageSettings({
           >
             <Button
               disabled={regenerating || busy}
-              onClick={handleRegeneratePreviews}
+              onClick={() => {
+                sounds.click();
+                handleRegeneratePreviews();
+              }}
               size="sm"
               variant="default"
             >
@@ -2079,7 +2220,10 @@ function StorageSettings({
             <div className="flex shrink-0 items-center gap-2">
               <Button
                 disabled={isPurging || storageSize === 0 || busy}
-                onClick={handlePurge}
+                onClick={() => {
+                  sounds.delete_();
+                  handlePurge();
+                }}
                 size="sm"
                 variant="destructive"
               >
@@ -2152,11 +2296,25 @@ function BillingSettings() {
           }
           title="Lifetime License"
         >
-          <Button onClick={handleManageLicense} size="sm" variant="ghost">
+          <Button
+            onClick={() => {
+              sounds.click();
+              handleManageLicense();
+            }}
+            size="sm"
+            variant="ghost"
+          >
             <ExternalLink className="mr-2 size-4" />
             Manage
           </Button>
-          <Button onClick={handleDeactivate} size="sm" variant="destructive">
+          <Button
+            onClick={() => {
+              sounds.delete_();
+              handleDeactivate();
+            }}
+            size="sm"
+            variant="destructive"
+          >
             Deactivate
           </Button>
         </SettingRow>
@@ -2188,7 +2346,10 @@ function PrivacySettings() {
           >
             <Switch
               checked={saveSearchHistory}
-              onCheckedChange={setSaveSearchHistory}
+              onCheckedChange={(v) => {
+                v ? sounds.switchOn() : sounds.switchOff();
+                setSaveSearchHistory(v);
+              }}
             />
           </SettingRow>
         </div>
@@ -2205,7 +2366,10 @@ function PrivacySettings() {
           >
             <Switch
               checked={analyticsEnabled}
-              onCheckedChange={setAnalyticsEnabled}
+              onCheckedChange={(v) => {
+                v ? sounds.switchOn() : sounds.switchOff();
+                setAnalyticsEnabled(v);
+              }}
             />
           </SettingRow>
           <SettingRow
@@ -2214,7 +2378,10 @@ function PrivacySettings() {
           >
             <Switch
               checked={loggingEnabled}
-              onCheckedChange={setLoggingEnabled}
+              onCheckedChange={(v) => {
+                v ? sounds.switchOn() : sounds.switchOff();
+                setLoggingEnabled(v);
+              }}
             />
           </SettingRow>
         </div>
@@ -2275,7 +2442,10 @@ function UpdateSettings() {
               )}
               <Button
                 disabled={checking || downloading}
-                onClick={handleCheckNow}
+                onClick={() => {
+                  sounds.click();
+                  handleCheckNow();
+                }}
                 size="sm"
                 variant="ghost"
               >
@@ -2306,7 +2476,10 @@ function UpdateSettings() {
                 </div>
                 <Button
                   disabled={downloading}
-                  onClick={handleInstall}
+                  onClick={() => {
+                    sounds.download();
+                    handleInstall();
+                  }}
                   size="sm"
                 >
                   <Download className="mr-2 size-4" />
@@ -2340,7 +2513,10 @@ function UpdateSettings() {
           >
             <Switch
               checked={autoCheckForUpdates}
-              onCheckedChange={setAutoCheckForUpdates}
+              onCheckedChange={(v) => {
+                v ? sounds.switchOn() : sounds.switchOff();
+                setAutoCheckForUpdates(v);
+              }}
             />
           </SettingRow>
         </div>
@@ -2509,7 +2685,13 @@ function AgentSettings() {
         </span>
       </div>
 
-      <Dialog onOpenChange={setDialogOpen} open={dialogOpen}>
+      <Dialog
+        onOpenChange={(open) => {
+          open ? sounds.dialogOpen() : sounds.dialogClose();
+          setDialogOpen(open);
+        }}
+        open={dialogOpen}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -2573,11 +2755,24 @@ function AgentSettings() {
           )}
 
           <DialogFooter>
-            <Button onClick={resetForm} size="sm" variant="ghost">
+            <Button
+              onClick={() => {
+                sounds.click();
+                resetForm();
+              }}
+              size="sm"
+              variant="ghost"
+            >
               Cancel
             </Button>
             {(editingAgent || presetChosen) && (
-              <Button onClick={handleSave} size="sm">
+              <Button
+                onClick={() => {
+                  sounds.success();
+                  handleSave();
+                }}
+                size="sm"
+              >
                 Save
               </Button>
             )}
@@ -2619,7 +2814,13 @@ function AgentSettings() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button onClick={openAddDialog} size="sm">
+              <Button
+                onClick={() => {
+                  sounds.click();
+                  openAddDialog();
+                }}
+                size="sm"
+              >
                 + Add agent
               </Button>
             </div>
@@ -2644,14 +2845,20 @@ function AgentSettings() {
               </div>
               <div className="ml-2 flex shrink-0 items-center gap-1">
                 <Button
-                  onClick={() => handleEdit(agent)}
+                  onClick={() => {
+                    sounds.click();
+                    handleEdit(agent);
+                  }}
                   size="icon-sm"
                   variant="ghost"
                 >
                   <Pencil className="size-4" />
                 </Button>
                 <Button
-                  onClick={() => handleDelete(agent.id)}
+                  onClick={() => {
+                    sounds.delete_();
+                    handleDelete(agent.id);
+                  }}
                   size="icon-sm"
                   variant="ghost"
                 >

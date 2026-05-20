@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import * as sounds from "@/lib/sounds";
 
 type AppWindow = import("@tauri-apps/api/window").Window;
 
@@ -42,7 +43,10 @@ export function WindowControls() {
       <button
         aria-label="Minimize"
         className="flex h-full w-12 cursor-default items-center justify-center text-neutral-400 hover:bg-white/10 hover:text-white"
-        onClick={() => win.minimize()}
+        onClick={() => {
+          sounds.click();
+          win.minimize();
+        }}
         type="button"
       >
         <svg fill="currentColor" height="10" viewBox="0 0 10 1" width="10">
@@ -52,7 +56,10 @@ export function WindowControls() {
       <button
         aria-label={isMaximized ? "Restore" : "Maximize"}
         className="flex h-full w-12 cursor-default items-center justify-center text-neutral-400 hover:bg-white/10 hover:text-white"
-        onClick={() => win.toggleMaximize()}
+        onClick={() => {
+          sounds.click();
+          win.toggleMaximize();
+        }}
         type="button"
       >
         {isMaximized ? (
@@ -82,7 +89,10 @@ export function WindowControls() {
       <button
         aria-label="Close"
         className="flex h-full w-12 cursor-default items-center justify-center text-neutral-400 hover:bg-red-500 hover:text-white"
-        onClick={() => win.close()}
+        onClick={() => {
+          sounds.click();
+          win.close();
+        }}
         type="button"
       >
         <svg

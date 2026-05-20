@@ -193,6 +193,7 @@ function Nav({ stars }: { stars: string }) {
                 className="rounded-full px-3 py-1.5 text-muted-foreground text-sm no-underline transition-colors hover:text-foreground"
                 href={href}
                 key={href}
+                onClick={sounds.click}
               >
                 {label}
               </a>
@@ -202,6 +203,7 @@ function Nav({ stars }: { stars: string }) {
           <a
             className="flex items-center gap-1.5 text-muted-foreground text-sm no-underline transition-colors hover:text-foreground"
             href={GITHUB_URL}
+            onClick={sounds.click}
             rel="noopener"
             target="_blank"
           >
@@ -236,6 +238,7 @@ function Nav({ stars }: { stars: string }) {
           <a
             className="flex flex-col items-center gap-1 text-muted-foreground no-underline transition-colors hover:text-foreground"
             href="#compare"
+            onClick={sounds.click}
           >
             <span className="font-medium text-[10px] tracking-wide">
               Compare
@@ -244,12 +247,14 @@ function Nav({ stars }: { stars: string }) {
           <a
             className="flex flex-col items-center gap-1 text-muted-foreground no-underline transition-colors hover:text-foreground"
             href="#faq"
+            onClick={sounds.click}
           >
             <span className="font-medium text-[10px] tracking-wide">FAQ</span>
           </a>
           <a
             className="flex items-center gap-1.5 font-semibold text-foreground text-sm no-underline"
             href="/"
+            onClick={sounds.click}
           >
             <GalleryThumbnails
               aria-hidden="true"
@@ -262,6 +267,7 @@ function Nav({ stars }: { stars: string }) {
           <a
             className="flex flex-col items-center gap-1 text-muted-foreground no-underline transition-colors hover:text-foreground"
             href="#pricing"
+            onClick={sounds.click}
           >
             <span className="font-medium text-[10px] tracking-wide">
               Pricing
@@ -270,6 +276,7 @@ function Nav({ stars }: { stars: string }) {
           <a
             className="flex flex-col items-center gap-1 text-muted-foreground no-underline transition-colors hover:text-foreground"
             href={GITHUB_URL}
+            onClick={sounds.click}
             rel="noopener"
             target="_blank"
           >
@@ -632,12 +639,19 @@ function Hero() {
           data-delay="3"
         >
           <div className="flex flex-wrap justify-center gap-3">
-            <Button onClick={() => setShowDownload(true)} variant="outline">
+            <Button
+              onClick={() => {
+                sounds.download();
+                setShowDownload(true);
+              }}
+              variant="outline"
+            >
               Download for free
             </Button>
             <div className="flex flex-col items-start gap-1">
               <Button
                 nativeButton={false}
+                onClick={sounds.click}
                 render={
                   <a
                     data-polar-checkout
@@ -1029,7 +1043,10 @@ function GeminiPanel() {
               "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold text-background text-xs transition-all hover:opacity-90",
               generating && "cursor-not-allowed opacity-70"
             )}
-            onClick={generate}
+            onClick={() => {
+              sounds.click();
+              generate();
+            }}
             style={{ background: BLUE }}
             type="button"
           >
@@ -1058,7 +1075,10 @@ function GeminiPanel() {
               shimmer && "tile-shimmer"
             )}
             key={id}
-            onClick={() => setActiveTile(i)}
+            onClick={() => {
+              sounds.click();
+              setActiveTile(i);
+            }}
             style={activeTile === i ? { borderColor: BLUE } : undefined}
             type="button"
           >
@@ -1139,6 +1159,7 @@ function ExportDialog() {
           <button
             aria-label="Close"
             className="text-muted-foreground transition-colors hover:text-foreground"
+            onClick={sounds.click}
             type="button"
           >
             <svg
@@ -1182,7 +1203,10 @@ function ExportDialog() {
                         : "border bg-transparent text-muted-foreground hover:border-foreground/40"
                     )}
                     key={f.key}
-                    onClick={() => setActiveFormat(f.key)}
+                    onClick={() => {
+                      sounds.click();
+                      setActiveFormat(f.key);
+                    }}
                     style={
                       activeFormat === f.key ? { background: BLUE } : undefined
                     }
@@ -1263,12 +1287,14 @@ function ExportDialog() {
         <div className="flex items-center justify-end gap-2 px-5 py-3.5">
           <button
             className="rounded-lg px-4 py-2 text-muted-foreground text-sm transition-colors hover:text-foreground"
+            onClick={sounds.click}
             type="button"
           >
             Cancel
           </button>
           <button
             className="rounded-lg px-4 py-2 font-semibold text-background text-sm transition-all hover:opacity-90"
+            onClick={sounds.click}
             style={{ background: BLUE }}
             type="button"
           >
@@ -1540,6 +1566,7 @@ function LayersMock() {
           aria-label={label}
           className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
           key={label}
+          onClick={sounds.click}
           type="button"
         >
           {icon}
@@ -1548,6 +1575,7 @@ function LayersMock() {
       <button
         aria-label="AI rename"
         className="ml-auto flex h-7 w-7 items-center justify-center rounded transition-colors"
+        onClick={sounds.click}
         style={{ color: BLUE }}
         type="button"
       >
@@ -1575,8 +1603,16 @@ function LayersMock() {
             hiddenRows.has(layer.id) && "opacity-40"
           )}
           key={layer.id}
-          onClick={() => setSelectedRow(layer.id)}
-          onKeyDown={(e) => e.key === "Enter" && setSelectedRow(layer.id)}
+          onClick={() => {
+            sounds.click();
+            setSelectedRow(layer.id);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              sounds.click();
+              setSelectedRow(layer.id);
+            }
+          }}
           role="button"
           tabIndex={0}
         >
@@ -1585,6 +1621,7 @@ function LayersMock() {
             className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
             onClick={(e) => {
               e.stopPropagation();
+              sounds.click();
               toggleHidden(layer.id);
             }}
             type="button"
@@ -1594,7 +1631,10 @@ function LayersMock() {
           <button
             aria-label="Lock"
             className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-muted-foreground/60 transition-colors hover:text-muted-foreground"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              sounds.click();
+            }}
             type="button"
           >
             <svg
@@ -1884,6 +1924,7 @@ function ByoGemini() {
                 </p>
                 <button
                   className="self-end rounded-full px-3 py-1.5 font-semibold text-background text-xs"
+                  onClick={sounds.click}
                   style={{ background: BLUE }}
                   type="button"
                 >
@@ -2235,6 +2276,7 @@ function OssCallout() {
                 <a
                   className="inline-flex items-center gap-2 rounded-full bg-muted px-5 py-2.5 font-semibold text-foreground text-sm no-underline transition-colors hover:bg-muted/80"
                   href={GITHUB_URL}
+                  onClick={sounds.click}
                   rel="noopener"
                   target="_blank"
                 >
@@ -2251,6 +2293,7 @@ function OssCallout() {
                 <a
                   className="inline-flex items-center gap-2 rounded-full bg-muted/60 px-5 py-2.5 font-semibold text-foreground text-sm no-underline transition-colors hover:bg-muted"
                   href={`${GITHUB_URL}#getting-started`}
+                  onClick={sounds.click}
                   rel="noopener"
                   target="_blank"
                 >
@@ -2417,6 +2460,7 @@ function Pricing() {
                 <Button
                   className="mt-1 w-full"
                   nativeButton={false}
+                  onClick={sounds.click}
                   render={
                     <a
                       data-polar-checkout
@@ -2510,7 +2554,10 @@ function FAQ() {
         <div className="reveal mx-auto flex max-w-2xl flex-col gap-0">
           {items.map((item) => (
             <details className="last:pb-0" key={item.q} open={item.open}>
-              <summary className="flex cursor-pointer select-none list-none items-center justify-between gap-4 py-5 font-semibold text-base text-foreground transition-colors hover:text-foreground/80">
+              <summary
+                className="flex cursor-pointer select-none list-none items-center justify-between gap-4 py-5 font-semibold text-base text-foreground transition-colors hover:text-foreground/80"
+                onClick={sounds.click}
+              >
                 {item.q}
                 <span className="faq-icon flex-shrink-0 text-muted-foreground transition-transform duration-200">
                   <svg
@@ -2554,6 +2601,7 @@ function CtaStrip() {
             <div className="flex flex-col items-start gap-1">
               <Button
                 nativeButton={false}
+                onClick={sounds.click}
                 render={
                   <a
                     data-polar-checkout
@@ -2571,6 +2619,7 @@ function CtaStrip() {
             </div>
             <Button
               nativeButton={false}
+              onClick={sounds.click}
               render={<a href={GITHUB_URL} rel="noopener" target="_blank" />}
               variant="outline"
             >
@@ -2605,6 +2654,7 @@ function Footer() {
               <a
                 className="text-foreground/80 no-underline transition-colors hover:text-foreground"
                 href="https://amajor.ai"
+                onClick={sounds.click}
               >
                 A Major
               </a>
@@ -2627,6 +2677,7 @@ function Footer() {
                 className="mb-2 block text-muted-foreground text-sm no-underline transition-colors hover:text-foreground"
                 href={href}
                 key={href}
+                onClick={sounds.click}
               >
                 {label}
               </a>
@@ -2646,6 +2697,7 @@ function Footer() {
                 className="mb-2 block text-muted-foreground text-sm no-underline transition-colors hover:text-foreground"
                 href={href}
                 key={href}
+                onClick={sounds.click}
                 rel="noopener"
                 target="_blank"
               >
@@ -2660,6 +2712,7 @@ function Footer() {
             <a
               className="mb-2 block text-muted-foreground text-sm no-underline transition-colors hover:text-foreground"
               href="https://amajor.ai"
+              onClick={sounds.click}
               rel="noopener"
               target="_blank"
             >
@@ -2668,12 +2721,14 @@ function Footer() {
             <a
               className="mb-2 block text-muted-foreground text-sm no-underline transition-colors hover:text-foreground"
               href="mailto:hello@amajor.ai"
+              onClick={sounds.click}
             >
               Contact
             </a>
             <a
               className="mb-2 block text-muted-foreground text-sm no-underline transition-colors hover:text-foreground"
               href="https://twitter.com/amajor_ai"
+              onClick={sounds.click}
               rel="noopener"
               target="_blank"
             >
@@ -2682,6 +2737,7 @@ function Footer() {
             <a
               className="mb-2 block text-muted-foreground text-sm no-underline transition-colors hover:text-foreground"
               href="#faq"
+              onClick={sounds.click}
             >
               FAQ
             </a>

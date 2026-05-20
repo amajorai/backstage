@@ -29,6 +29,7 @@ import { AddMenu } from "@/components/toolbar/add-menu";
 import { SelectionToolbar } from "@/components/toolbar/selection-toolbar";
 import { SortMenu } from "@/components/toolbar/sort-menu";
 import { ViewModeButtons } from "@/components/toolbar/view-mode-buttons";
+import * as sounds from "@/lib/sounds";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import { useAutoRenameQueue } from "@/stores/use-auto-rename-queue";
 import { useBackgroundRemovalQueue } from "@/stores/use-background-removal-queue";
@@ -365,7 +366,10 @@ export function BottomToolbar({
             <TooltipTrigger asChild>
               <Button
                 className={showFolderBadges ? "bg-muted-foreground/15" : ""}
-                onClick={() => setShowFolderBadges(!showFolderBadges)}
+                onClick={() => {
+                  sounds.click();
+                  setShowFolderBadges(!showFolderBadges);
+                }}
                 size="icon-sm"
                 type="button"
                 variant="ghost"
@@ -458,11 +462,12 @@ export function BottomToolbar({
                       ? "text-primary"
                       : "text-muted-foreground"
                   }
-                  onClick={() =>
+                  onClick={() => {
+                    sounds.click();
                     setSearchMode(
                       searchMode === "semantic" ? "text" : "semantic"
-                    )
-                  }
+                    );
+                  }}
                   size="icon-sm"
                   type="button"
                   variant="ghost"
@@ -483,7 +488,10 @@ export function BottomToolbar({
       {/* Right side buttons */}
       <div className="flex items-center gap-2">
         <Button
-          onClick={toggleSelectionMode}
+          onClick={() => {
+            sounds.click();
+            toggleSelectionMode();
+          }}
           size="sm"
           variant={isSelectionMode ? "secondary" : "ghost"}
         >
@@ -495,7 +503,10 @@ export function BottomToolbar({
             <TooltipTrigger asChild>
               <Button
                 aria-label="Archive"
-                onClick={onArchiveClick}
+                onClick={() => {
+                  sounds.click();
+                  onArchiveClick!();
+                }}
                 size="icon-sm"
                 variant="ghost"
               >
@@ -512,7 +523,10 @@ export function BottomToolbar({
               <Button
                 aria-label="Trash"
                 className="relative"
-                onClick={onTrashClick}
+                onClick={() => {
+                  sounds.click();
+                  onTrashClick();
+                }}
                 size="icon-sm"
                 variant="ghost"
               >
@@ -534,7 +548,10 @@ export function BottomToolbar({
               <TooltipTrigger asChild>
                 <Button
                   aria-label="Settings"
-                  onClick={onSettingsClick}
+                  onClick={() => {
+                    sounds.click();
+                    onSettingsClick();
+                  }}
                   size="icon-sm"
                   variant="ghost"
                 >
@@ -574,11 +591,19 @@ export function BottomToolbar({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel
+              disabled={isDeleting}
+              onClick={() => sounds.click()}
+            >
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={isDeleting}
-              onClick={handleBulkDelete}
+              onClick={() => {
+                sounds.delete_();
+                handleBulkDelete();
+              }}
             >
               {isDeleting ? (
                 <>

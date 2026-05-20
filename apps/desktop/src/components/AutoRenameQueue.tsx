@@ -9,6 +9,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { useAutoRenameQueue } from "@/stores/use-auto-rename-queue";
 
@@ -55,7 +56,10 @@ export function AutoRenameQueue() {
           {queue.length > 0 && (completedCount > 0 || errorCount > 0) && (
             <Button
               className="h-6 w-6"
-              onClick={clearCompleted}
+              onClick={() => {
+                sounds.click();
+                clearCompleted();
+              }}
               size="icon-sm"
               title="Clear finished"
               variant="ghost"
@@ -65,7 +69,10 @@ export function AutoRenameQueue() {
           )}
           <Button
             className="h-6 w-6"
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={() => {
+              sounds.click();
+              setIsExpanded(!isExpanded);
+            }}
             size="icon-sm"
             title={isExpanded ? "Collapse" : "Expand"}
             variant="ghost"
@@ -120,7 +127,10 @@ export function AutoRenameQueue() {
                 {item.status !== "processing" && (
                   <Button
                     className="h-6 w-6 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                    onClick={() => removeFromQueue(item.id)}
+                    onClick={() => {
+                      sounds.click();
+                      removeFromQueue(item.id);
+                    }}
                     size="icon-sm"
                     variant="ghost"
                   >

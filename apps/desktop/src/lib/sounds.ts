@@ -1,9 +1,9 @@
 import { defineSound } from "@web-kits/audio";
-import { getSoundsEnabled } from "./sounds-prefs";
+import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 
 function guard(fn: () => void): () => void {
   return () => {
-    if (getSoundsEnabled()) fn();
+    if (useAppSettingsStore.getState().soundsEnabled) fn();
   };
 }
 
@@ -87,5 +87,29 @@ export const download = guard(
         gain: 0.14,
       },
     ],
+  })
+);
+
+export const delete_ = guard(
+  defineSound({
+    source: { type: "sine", frequency: { start: 300, end: 120 } },
+    envelope: { decay: 0.12 },
+    gain: 0.2,
+  })
+);
+
+export const select = guard(
+  defineSound({
+    source: { type: "sine", frequency: { start: 600, end: 750 } },
+    envelope: { decay: 0.03 },
+    gain: 0.12,
+  })
+);
+
+export const hover = guard(
+  defineSound({
+    source: { type: "sine", frequency: 1200 },
+    envelope: { decay: 0.02 },
+    gain: 0.06,
   })
 );

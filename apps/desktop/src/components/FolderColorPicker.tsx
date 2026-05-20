@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { FOLDER_COLORS } from "@/stores/use-folder-store";
 
@@ -15,7 +16,10 @@ export function FolderColorPicker({ value, onChange }: FolderColorPickerProps) {
           "flex size-7 items-center justify-center rounded-full border-2 bg-muted transition-transform hover:scale-110",
           value === null ? "border-foreground" : "border-transparent"
         )}
-        onClick={() => onChange(null)}
+        onClick={() => {
+          sounds.click();
+          onChange(null);
+        }}
         title="No color"
         type="button"
       >
@@ -28,7 +32,10 @@ export function FolderColorPicker({ value, onChange }: FolderColorPickerProps) {
             value === color ? "border-foreground" : "border-transparent"
           )}
           key={color}
-          onClick={() => onChange(color)}
+          onClick={() => {
+            sounds.click();
+            onChange(color);
+          }}
           style={{ backgroundColor: color }}
           title={color}
           type="button"

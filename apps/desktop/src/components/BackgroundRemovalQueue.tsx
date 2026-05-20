@@ -2,6 +2,7 @@
 import { ScrollArea } from "@repo/ui/scroll-area";
 import { CheckCircle2, ChevronDown, Loader2, X, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { useBackgroundRemovalQueue } from "@/stores/use-background-removal-queue";
 
@@ -50,7 +51,10 @@ export function BackgroundRemovalQueue() {
           {queue.length > 0 && (completedCount > 0 || errorCount > 0) && (
             <Button
               className="h-6 w-6"
-              onClick={clearCompleted}
+              onClick={() => {
+                sounds.click();
+                clearCompleted();
+              }}
               size="icon-sm"
               title="Clear finished"
               variant="ghost"
@@ -60,7 +64,10 @@ export function BackgroundRemovalQueue() {
           )}
           <Button
             className="h-6 w-6"
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={() => {
+              sounds.click();
+              setIsExpanded(!isExpanded);
+            }}
             size="icon-sm"
             title={isExpanded ? "Collapse" : "Expand"}
             variant="ghost"
@@ -108,7 +115,10 @@ export function BackgroundRemovalQueue() {
                 {item.status !== "processing" && (
                   <Button
                     className="h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
-                    onClick={() => removeFromQueue(item.id)}
+                    onClick={() => {
+                      sounds.click();
+                      removeFromQueue(item.id);
+                    }}
                     size="icon-sm"
                     variant="ghost"
                   >

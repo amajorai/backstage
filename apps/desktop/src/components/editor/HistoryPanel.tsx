@@ -1,6 +1,7 @@
 import { Clock, CornerDownLeft } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { ScrollFadeEffect } from "@/components/scroll-fade-effect";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/stores/use-editor-store";
 
@@ -53,7 +54,10 @@ export function HistoryPanel() {
                     : "text-neutral-600 hover:bg-neutral-700/30"
               )}
               key={i}
-              onClick={() => jumpToHistory(i)}
+              onClick={() => {
+                sounds.click();
+                jumpToHistory(i);
+              }}
               ref={isCurrent ? currentRef : undefined}
             >
               <CornerDownLeft

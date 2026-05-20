@@ -7,6 +7,7 @@ import {
 import { GalleryThumbnails } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import { getCurrentSeason, SEASONS, SnowfallBackground } from "./snow-flakes";
@@ -36,6 +37,7 @@ export function TitleBar({
       : null;
 
   const handleLogoClick = () => {
+    sounds.click();
     setBounceKey((k) => k + 1);
   };
 

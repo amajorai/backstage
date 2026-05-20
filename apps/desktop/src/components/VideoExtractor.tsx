@@ -3,6 +3,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
+import * as sounds from "@/lib/sounds";
 import { useGalleryStore } from "@/stores/use-gallery-store";
 
 interface VideoExtractorProps {
@@ -125,7 +126,14 @@ export function VideoExtractor({ onClose }: VideoExtractorProps) {
       >
         <div className="flex items-center justify-between border-border border-b px-5 py-4">
           <h2 className="font-semibold text-lg">Extract Frames</h2>
-          <Button onClick={onClose} size="icon-sm" variant="ghost">
+          <Button
+            onClick={() => {
+              sounds.click();
+              onClose();
+            }}
+            size="icon-sm"
+            variant="ghost"
+          >
             <X className="size-4" />
           </Button>
         </div>
@@ -142,7 +150,10 @@ export function VideoExtractor({ onClose }: VideoExtractorProps) {
                   />
                   <button
                     className="absolute top-2 right-2 flex items-center gap-1 rounded bg-black/60 px-2 py-1 text-white text-xs hover:bg-black/80"
-                    onClick={() => setPreviewFrame(null)}
+                    onClick={() => {
+                      sounds.click();
+                      setPreviewFrame(null);
+                    }}
                     type="button"
                   >
                     <X className="size-3" />
@@ -185,7 +196,14 @@ export function VideoExtractor({ onClose }: VideoExtractorProps) {
             </>
           ) : (
             <div className="flex aspect-video items-center justify-center rounded-lg bg-muted">
-              <Button onClick={handleSelectVideo}>Select Video</Button>
+              <Button
+                onClick={() => {
+                  sounds.click();
+                  handleSelectVideo();
+                }}
+              >
+                Select Video
+              </Button>
             </div>
           )}
 
@@ -229,6 +247,7 @@ export function VideoExtractor({ onClose }: VideoExtractorProps) {
                     className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100"
                     onClick={(e) => {
                       e.stopPropagation();
+                      sounds.delete_();
                       handleRemoveFrame(frame.id);
                     }}
                     type="button"
@@ -247,23 +266,44 @@ export function VideoExtractor({ onClose }: VideoExtractorProps) {
         <div className="flex items-center justify-between border-border border-t px-5 py-4">
           <div className="flex gap-2">
             {videoSrc && (
-              <Button onClick={handleSelectVideo} variant="outline">
+              <Button
+                onClick={() => {
+                  sounds.click();
+                  handleSelectVideo();
+                }}
+                variant="outline"
+              >
                 Change Video
               </Button>
             )}
           </div>
           <div className="flex gap-3">
-            <Button onClick={onClose} variant="ghost">
+            <Button
+              onClick={() => {
+                sounds.click();
+                onClose();
+              }}
+              variant="ghost"
+            >
               Cancel
             </Button>
             {videoSrc && !previewFrame && (
-              <Button onClick={handleAddFrame} variant="outline">
+              <Button
+                onClick={() => {
+                  sounds.click();
+                  handleAddFrame();
+                }}
+                variant="outline"
+              >
                 Add Frame
               </Button>
             )}
             <Button
               disabled={selectedFrames.length === 0 || isImporting}
-              onClick={handleImport}
+              onClick={() => {
+                sounds.success();
+                handleImport();
+              }}
             >
               {isImporting
                 ? "Importing…"

@@ -1,6 +1,7 @@
 ﻿import { Button } from "@repo/ui/button";
 import { Grid2X2, Grid3X3, LayoutGrid, List } from "lucide-react";
 import type { ViewMode } from "@/App";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 
 // Order: 5 (most dense) → 4 → 3 (least dense) → row
@@ -35,7 +36,10 @@ export function ViewModeButtons({
         <Button
           className={cn(viewMode === mode && "bg-muted-foreground/15")}
           key={mode}
-          onClick={() => onViewModeChange(mode)}
+          onClick={() => {
+            sounds.click();
+            onViewModeChange(mode);
+          }}
           size="icon-sm"
           title={viewModeTitles[mode]}
           variant="ghost"

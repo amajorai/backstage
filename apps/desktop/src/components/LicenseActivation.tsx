@@ -17,6 +17,7 @@ import {
   POLAR_EMBED_CHECKOUT_URL,
   usePolarCheckout,
 } from "@/hooks/use-polar-checkout";
+import * as sounds from "@/lib/sounds";
 import { useLicenseStore } from "@/stores/use-license-store";
 
 const BENEFITS = [
@@ -185,7 +186,10 @@ export function LicenseActivation({ onBack }: { onBack?: () => void }) {
               <div className="flex flex-col items-center gap-3">
                 <Button
                   className="h-14 w-full"
-                  onClick={openCheckout}
+                  onClick={() => {
+                    sounds.click();
+                    openCheckout();
+                  }}
                   size="lg"
                   variant="contrast"
                 >
@@ -193,7 +197,10 @@ export function LicenseActivation({ onBack }: { onBack?: () => void }) {
                 </Button>
                 <button
                   className="cursor-pointer bg-transparent p-0 text-muted-foreground text-sm transition-colors hover:text-foreground"
-                  onClick={() => setView("activation")}
+                  onClick={() => {
+                    sounds.click();
+                    setView("activation");
+                  }}
                   type="button"
                 >
                   I already have a key →
@@ -230,7 +237,10 @@ export function LicenseActivation({ onBack }: { onBack?: () => void }) {
                 <Button
                   className="h-14 w-full"
                   disabled={!licenseKey.trim() || isValidating}
-                  onClick={handleActivate}
+                  onClick={() => {
+                    sounds.click();
+                    handleActivate();
+                  }}
                   size="lg"
                   variant="contrast"
                 >
@@ -250,7 +260,10 @@ export function LicenseActivation({ onBack }: { onBack?: () => void }) {
                   Don't have your key?{" "}
                   <button
                     className="cursor-pointer bg-transparent p-0 text-foreground hover:underline"
-                    onClick={() => setRetrieveDialogOpen(true)}
+                    onClick={() => {
+                      sounds.click();
+                      setRetrieveDialogOpen(true);
+                    }}
                     type="button"
                   >
                     Retrieve it from your account
@@ -265,7 +278,10 @@ export function LicenseActivation({ onBack }: { onBack?: () => void }) {
 
                 <Button
                   className="h-14 w-full"
-                  onClick={openCheckout}
+                  onClick={() => {
+                    sounds.click();
+                    openCheckout();
+                  }}
                   size="lg"
                   variant="secondary"
                 >
@@ -282,7 +298,17 @@ export function LicenseActivation({ onBack }: { onBack?: () => void }) {
         <div className="relative flex h-12 items-center bg-muted px-4">
           <button
             className="flex items-center gap-1 rounded-md px-3 py-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground"
-            onClick={view === "activation" ? () => setView("pricing") : onBack}
+            onClick={
+              view === "activation"
+                ? () => {
+                    sounds.click();
+                    setView("pricing");
+                  }
+                : () => {
+                    sounds.click();
+                    onBack?.();
+                  }
+            }
             type="button"
           >
             <ArrowLeft className="size-4" />

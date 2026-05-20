@@ -33,6 +33,7 @@ import {
   TagsInputItemText,
 } from "@/components/ui/tags-input";
 import type { CanvasContext, CarouselGeneratorConfig } from "@/lib/gemini-text";
+import * as sounds from "@/lib/sounds";
 
 const TONE_PRESETS = [
   "Professional",
@@ -223,7 +224,10 @@ export function CarouselGeneratorDialog({
                   <Badge
                     className="cursor-pointer text-xs"
                     key={preset}
-                    onClick={() => handleAddTonePreset(preset)}
+                    onClick={() => {
+                      sounds.click();
+                      handleAddTonePreset(preset);
+                    }}
                     variant="outline"
                   >
                     + {preset}
@@ -281,7 +285,10 @@ export function CarouselGeneratorDialog({
                   <Badge
                     className="cursor-pointer text-xs"
                     key={preset}
-                    onClick={() => handleAddStylePreset(preset)}
+                    onClick={() => {
+                      sounds.click();
+                      handleAddStylePreset(preset);
+                    }}
                     variant="outline"
                   >
                     + {preset}
@@ -322,7 +329,13 @@ export function CarouselGeneratorDialog({
           </Collapsible>
 
           <div className="flex justify-end pt-2">
-            <Button disabled={!topic || isGenerating} onClick={handleGenerate}>
+            <Button
+              disabled={!topic || isGenerating}
+              onClick={() => {
+                sounds.click();
+                handleGenerate();
+              }}
+            >
               {isGenerating ? (
                 <>
                   <Loader2 className="mr-2 size-4 animate-spin" />

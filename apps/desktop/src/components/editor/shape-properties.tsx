@@ -13,6 +13,7 @@ import {
   ColorPickerInput,
   ColorPickerTrigger,
 } from "@/components/ui/color-picker";
+import * as sounds from "@/lib/sounds";
 import type { Layer, ShapeLayer } from "@/stores/use-editor-store";
 
 interface ShapePropertiesProps {
@@ -211,7 +212,10 @@ export function ShapeProperties({ layer, onUpdate }: ShapePropertiesProps) {
               </span>
               <Button
                 className="size-6"
-                onClick={toggleLinked}
+                onClick={() => {
+                  sounds.click();
+                  toggleLinked();
+                }}
                 size="icon"
                 title={linked ? "Unlink corners" : "Link corners"}
                 variant="ghost"

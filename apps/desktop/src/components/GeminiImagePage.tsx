@@ -50,6 +50,7 @@ import {
   generateImageWithGemini,
 } from "@/lib/gemini-image";
 import { getGeminiApiKey } from "@/lib/gemini-store";
+import * as sounds from "@/lib/sounds";
 import { thumbnailUrlToDataUrl } from "@/lib/youtube-api";
 import type { Layer } from "@/stores/use-editor-store";
 import { useFolderStore } from "@/stores/use-folder-store";
@@ -70,6 +71,12 @@ interface GeminiImagePageProps {
   remixSourceUrl?: string;
   remixTitle?: string;
   fullPage?: boolean;
+  onGenerationComplete?: (args: {
+    images: string[];
+    prompt: string;
+    autoPrompt: string;
+    model: string;
+  }) => void;
 }
 
 interface GeneratedImage {
@@ -89,6 +96,34 @@ async function renderToDataUrl(
   return canvas.toDataURL("image/png");
 }
 
+function buildAutoPrompt({
+  hasRemix,
+  hasCharacterSet,
+  hasInputImages,
+}: {
+  hasRemix: boolean;
+  hasCharacterSet: boolean;
+  hasInputImages: boolean;
+}): string {
+  const parts: string[] = [];
+  if (hasRemix) {
+    parts.push(
+      "Create a new image inspired by this thumbnail. Reimagine it with a fresh, creative take while preserving the core theme and visual style."
+    );
+  }
+  if (hasInputImages && !hasRemix) {
+    parts.push(
+      "Use the provided image(s) as a visual reference for style and composition."
+    );
+  }
+  if (hasCharacterSet) {
+    parts.push(
+      "Maintain the exact character appearance, features, and style from the character reference images provided."
+    );
+  }
+  return parts.join(" ");
+}
+
 export function GeminiImagePage({
   editorLayers,
   canvasWidth,
@@ -100,6 +135,7 @@ export function GeminiImagePage({
   remixSourceUrl,
   remixTitle,
   fullPage = false,
+  onGenerationComplete,
 }: GeminiImagePageProps) {
   const isEditorMode = editorLayers !== null;
 
@@ -338,11 +374,6 @@ export function GeminiImagePage({
       setError("Please configure your Gemini API key first");
       return;
     }
-    if (!prompt.trim()) {
-      setError("Please enter a prompt");
-      return;
-    }
-
     let inputImages: string[] = [];
 
     if (useSelectedAsInput && selectedIndices.size > 0) {
@@ -382,6 +413,17 @@ export function GeminiImagePage({
       inputImages = [...inputImages, ...charImages];
     }
 
+    const autoPrompt = buildAutoPrompt({
+      hasRemix: !!remixSourceUrl,
+      hasCharacterSet: charImages.length > 0,
+      hasInputImages: inputImages.length > 0 && !remixSourceUrl,
+    });
+
+    if (!(autoPrompt || prompt.trim())) {
+      setError("Please enter a prompt");
+      return;
+    }
+
     setIsGenerating(true);
     setError(null);
     setGeneratedImages([]);
@@ -392,12 +434,16 @@ export function GeminiImagePage({
     const results: GeneratedImage[] = [];
     let errorCount = 0;
 
+    const effectivePrompt = [autoPrompt, prompt.trim()]
+      .filter(Boolean)
+      .join(" ");
+
     const promises = Array.from({ length: generationCount }, async (_, i) => {
       try {
         const result = await generateImageWithGemini(
           apiKey,
           model,
-          prompt.trim(),
+          effectivePrompt,
           inputImages.length > 0 ? inputImages : undefined
         );
         const newImageUrl = base64ToDataUrl(
@@ -421,6 +467,12 @@ export function GeminiImagePage({
     if (results.length > 0) {
       sileo.success({
         title: `Generated ${results.length} image${results.length > 1 ? "s" : ""}`,
+      });
+      onGenerationComplete?.({
+        images: results.sort((a, b) => a.index - b.index).map((r) => r.url),
+        prompt,
+        autoPrompt,
+        model,
       });
     }
     if (errorCount > 0) {
@@ -450,6 +502,7 @@ export function GeminiImagePage({
     remixDataUrl,
     characterSetImageIds,
     characterSetImages,
+    onGenerationComplete,
   ]);
 
   const toggleSelection = useCallback((idx: number) => {
@@ -526,6 +579,21 @@ export function GeminiImagePage({
         : selectedProjectIds.size + (remixDataUrl ? 1 : 0);
   const showCompareSlider =
     hasGeneratedImages && effectiveInputCount === 1 && inputPreviewUrl !== null;
+
+  const hasAutoPrompt = useMemo(() => {
+    const hasRemix = !!remixSourceUrl;
+    const hasCharacterSet = characterSetImageIds.size > 0;
+    const hasInputImages = isEditorMode
+      ? editorInputMode !== "none"
+      : selectedProjectIds.size > 0;
+    return hasRemix || hasCharacterSet || hasInputImages;
+  }, [
+    remixSourceUrl,
+    characterSetImageIds,
+    isEditorMode,
+    editorInputMode,
+    selectedProjectIds,
+  ]);
 
   const estimatedCost = estimateGenerationCost(
     model,
@@ -773,7 +841,10 @@ export function GeminiImagePage({
           <div className="flex h-12 items-center gap-2 bg-muted px-4">
             <button
               className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
-              onClick={onClose}
+              onClick={() => {
+                sounds.click();
+                onClose();
+              }}
               type="button"
             >
               <ArrowLeft className="size-4" />
@@ -835,8 +906,13 @@ export function GeminiImagePage({
         </label>
       )}
       <Button
-        disabled={!(hasApiKey && prompt.trim()) || isGenerating}
-        onClick={handleGenerate}
+        disabled={
+          !(hasApiKey && (hasAutoPrompt || prompt.trim())) || isGenerating
+        }
+        onClick={() => {
+          sounds.click();
+          handleGenerate();
+        }}
         size="default"
       >
         {isGenerating ? (
@@ -868,7 +944,10 @@ export function GeminiImagePage({
             <Tooltip>
               <TooltipTrigger
                 className={`${buttonVariants({ size: "icon-sm", variant: "ghost" })}`}
-                onClick={onClose}
+                onClick={() => {
+                  sounds.click();
+                  onClose();
+                }}
               >
                 <ArrowLeft className="size-4" />
               </TooltipTrigger>
@@ -969,7 +1048,10 @@ export function GeminiImagePage({
                         <Button
                           className="absolute top-1/2 left-4 -translate-y-1/2"
                           disabled={viewingIndex === 0}
-                          onClick={() => setViewingIndex((i) => i - 1)}
+                          onClick={() => {
+                            sounds.click();
+                            setViewingIndex((i) => i - 1);
+                          }}
                           size="icon"
                           variant="secondary"
                         >
@@ -978,7 +1060,10 @@ export function GeminiImagePage({
                         <Button
                           className="absolute top-1/2 right-4 -translate-y-1/2"
                           disabled={viewingIndex === generatedImages.length - 1}
-                          onClick={() => setViewingIndex((i) => i + 1)}
+                          onClick={() => {
+                            sounds.click();
+                            setViewingIndex((i) => i + 1);
+                          }}
                           size="icon"
                           variant="secondary"
                         >
@@ -1029,11 +1114,21 @@ export function GeminiImagePage({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={handleSaveSelectedAsLayers}>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          sounds.success();
+                          handleSaveSelectedAsLayers();
+                        }}
+                      >
                         <Layers className="mr-2 size-4" />
                         Save as Layers
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleSaveSelectedAsImages}>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          sounds.success();
+                          handleSaveSelectedAsImages();
+                        }}
+                      >
                         <ImagePlus className="mr-2 size-4" />
                         Save to Gallery
                       </DropdownMenuItem>
@@ -1042,7 +1137,10 @@ export function GeminiImagePage({
                 ) : (
                   <Button
                     disabled={!hasSelection}
-                    onClick={handleSaveSelectedAsImages}
+                    onClick={() => {
+                      sounds.success();
+                      handleSaveSelectedAsImages();
+                    }}
                     size="sm"
                     variant="ghost"
                   >
@@ -1058,18 +1156,34 @@ export function GeminiImagePage({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={handleSaveAllAsLayers}>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          sounds.success();
+                          handleSaveAllAsLayers();
+                        }}
+                      >
                         <Layers className="mr-2 size-4" />
                         Save as Layers
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleSaveAllAsImages}>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          sounds.success();
+                          handleSaveAllAsImages();
+                        }}
+                      >
                         <ImagePlus className="mr-2 size-4" />
                         Save to Gallery
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 ) : (
-                  <Button onClick={handleSaveAllAsImages} size="sm">
+                  <Button
+                    onClick={() => {
+                      sounds.success();
+                      handleSaveAllAsImages();
+                    }}
+                    size="sm"
+                  >
                     Save All ({generatedImages.length})
                   </Button>
                 )}
@@ -1091,7 +1205,10 @@ export function GeminiImagePage({
           <div className="flex h-12 items-center gap-2 bg-muted px-4">
             <button
               className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
-              onClick={onClose}
+              onClick={() => {
+                sounds.click();
+                onClose();
+              }}
               type="button"
             >
               <ArrowLeft className="size-4" />
@@ -1140,7 +1257,10 @@ function ProjectThumbnailCheckbox({
       className={`relative aspect-video w-full cursor-pointer overflow-hidden rounded border-2 transition-colors ${
         isSelected ? "border-primary" : "border-transparent hover:border-border"
       }`}
-      onClick={() => onToggle(id, !isSelected)}
+      onClick={() => {
+        sounds.select();
+        onToggle(id, !isSelected);
+      }}
       title={name}
       type="button"
     >

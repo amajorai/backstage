@@ -12,6 +12,7 @@ import { Label } from "@repo/ui/label";
 import { Link2, Link2Off } from "lucide-react";
 import { useState } from "react";
 import { sileo } from "sileo";
+import * as sounds from "@/lib/sounds";
 
 interface CanvasSizeDialogProps {
   open: boolean;
@@ -92,9 +93,10 @@ export function CanvasSizeDialog({
             <Checkbox
               checked={keepAspectRatio}
               id="keep-aspect-ratio"
-              onCheckedChange={(checked) =>
-                setKeepAspectRatio(checked === true)
-              }
+              onCheckedChange={(checked) => {
+                sounds.click();
+                setKeepAspectRatio(checked === true);
+              }}
             />
             <Label
               className="flex cursor-pointer items-center gap-1.5 text-xs"
@@ -110,11 +112,18 @@ export function CanvasSizeDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={() => onOpenChange(false)} variant="ghost">
+          <Button
+            onClick={() => {
+              sounds.click();
+              onOpenChange(false);
+            }}
+            variant="ghost"
+          >
             Cancel
           </Button>
           <Button
             onClick={() => {
+              sounds.success();
               onApply(tempSize);
               onOpenChange(false);
               sileo.success({

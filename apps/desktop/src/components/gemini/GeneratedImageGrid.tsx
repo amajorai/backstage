@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 
 interface GeneratedImage {
@@ -46,7 +47,10 @@ export function GeneratedImageGrid({
                     : "border-transparent"
               )}
               key={img.index}
-              onClick={() => onViewingIndexChange(idx)}
+              onClick={() => {
+                sounds.select();
+                onViewingIndexChange(idx);
+              }}
               type="button"
             >
               <img
@@ -64,6 +68,7 @@ export function GeneratedImageGrid({
                 )}
                 onClick={(e) => {
                   e.stopPropagation();
+                  sounds.select();
                   onToggleSelection(idx);
                 }}
                 onKeyDown={(e) => {
@@ -85,7 +90,10 @@ export function GeneratedImageGrid({
       <div className="flex items-center justify-center gap-2">
         <button
           className="text-muted-foreground text-xs hover:text-foreground"
-          onClick={onSelectAll}
+          onClick={() => {
+            sounds.click();
+            onSelectAll();
+          }}
           type="button"
         >
           Select all
@@ -93,7 +101,10 @@ export function GeneratedImageGrid({
         <span className="text-muted-foreground text-xs">•</span>
         <button
           className="text-muted-foreground text-xs hover:text-foreground"
-          onClick={onDeselectAll}
+          onClick={() => {
+            sounds.click();
+            onDeselectAll();
+          }}
           type="button"
         >
           Deselect all

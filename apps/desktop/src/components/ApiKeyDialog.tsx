@@ -18,6 +18,7 @@ import {
   removeGeminiApiKey,
   setGeminiApiKey,
 } from "@/lib/gemini-store";
+import * as sounds from "@/lib/sounds";
 
 interface ApiKeyDialogProps {
   open: boolean;
@@ -91,7 +92,10 @@ export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
                   <span>API key is configured</span>
                 </div>
                 <Button
-                  onClick={handleRemove}
+                  onClick={() => {
+                    sounds.delete_();
+                    handleRemove();
+                  }}
                   size="icon-sm"
                   title="Remove API key"
                   variant="ghost"
@@ -121,7 +125,10 @@ export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
 
             <button
               className="inline-flex cursor-pointer items-center gap-1 bg-transparent p-0 text-muted-foreground text-xs hover:text-foreground hover:underline"
-              onClick={() => openUrl("https://aistudio.google.com/apikey")}
+              onClick={() => {
+                sounds.click();
+                openUrl("https://aistudio.google.com/apikey");
+              }}
               type="button"
             >
               <ExternalLink className="size-3" />
@@ -131,11 +138,25 @@ export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
         )}
 
         <DialogFooter>
-          <Button onClick={() => onOpenChange(false)} size="sm" variant="ghost">
+          <Button
+            onClick={() => {
+              sounds.click();
+              onOpenChange(false);
+            }}
+            size="sm"
+            variant="ghost"
+          >
             {hasKey ? "Close" : "Cancel"}
           </Button>
           {!hasKey && (
-            <Button disabled={!apiKey.trim()} onClick={handleSave} size="sm">
+            <Button
+              disabled={!apiKey.trim()}
+              onClick={() => {
+                sounds.success();
+                handleSave();
+              }}
+              size="sm"
+            >
               Save Key
             </Button>
           )}

@@ -23,6 +23,7 @@ import {
   getRecentLogos,
   type RecentLogo,
 } from "@/lib/recently-used";
+import * as sounds from "@/lib/sounds";
 import { fetchAllLogos, type SvglLogo, searchLogos } from "@/lib/svgl";
 import { useEditorStore } from "@/stores/use-editor-store";
 
@@ -190,6 +191,7 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
 
   const handleSelect = useCallback(
     async (entry: DisplayLogo) => {
+      sounds.select();
       setLoadingKey(entry.variantKey);
       try {
         const url = entry.resolvedRoute;
@@ -286,7 +288,13 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
   );
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
+    <Dialog
+      onOpenChange={(isOpen) => {
+        isOpen ? sounds.dialogOpen() : sounds.dialogClose();
+        onOpenChange(isOpen);
+      }}
+      open={open}
+    >
       <DialogContent className="flex h-[80vh] max-w-5xl flex-col gap-3">
         <DialogHeader>
           <DialogTitle>Logo Picker</DialogTitle>

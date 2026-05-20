@@ -27,6 +27,7 @@ import {
   Undo2,
   Wand2,
 } from "lucide-react";
+import * as sounds from "@/lib/sounds";
 import { useEditorStore } from "@/stores/use-editor-store";
 import { IconPicker } from "./IconPicker";
 import { LogoPicker } from "./LogoPicker";
@@ -83,6 +84,7 @@ export function EditorToolbar({
   const canAiGenerate = !isProcessing;
 
   const handleAddText = () => {
+    sounds.click();
     addTextLayer("Your Text");
     const newLayerId = useEditorStore.getState().activeLayerIds[0];
     if (newLayerId) {
@@ -98,6 +100,7 @@ export function EditorToolbar({
     shapeType: "rect" | "ellipse" | "polygon" | "star",
     options?: { sides?: number; starPoints?: number; innerRadiusRatio?: number }
   ) => {
+    sounds.click();
     addShapeLayer(shapeType, options);
     const newLayerId = useEditorStore.getState().activeLayerIds[0];
     if (newLayerId) {
@@ -130,7 +133,10 @@ export function EditorToolbar({
             size: "icon-sm",
             variant: activeTool === "select" ? "secondary" : "ghost",
           })}
-          onClick={() => setActiveTool("select")}
+          onClick={() => {
+            sounds.click();
+            setActiveTool("select");
+          }}
         >
           <MousePointer className="size-4" />
         </TooltipTrigger>
@@ -152,7 +158,10 @@ export function EditorToolbar({
                 variant: isMagicSelectActive ? "secondary" : "ghost",
               })}
               disabled={!canMagicSelect}
-              onClick={() => setActiveTool("magic-select")}
+              onClick={() => {
+                sounds.click();
+                setActiveTool("magic-select");
+              }}
               type="button"
             >
               <Lasso className="size-4" />
@@ -237,7 +246,10 @@ export function EditorToolbar({
             size: "icon-sm",
             variant: isEyeDropperActive ? "secondary" : "ghost",
           })}
-          onClick={() => setActiveTool("eyedropper")}
+          onClick={() => {
+            sounds.click();
+            setActiveTool("eyedropper");
+          }}
         >
           <Pipette className="size-4" />
         </TooltipTrigger>
@@ -259,7 +271,10 @@ export function EditorToolbar({
                 variant: isBrushActive ? "secondary" : "ghost",
               })}
               disabled={!canPaintOnLayer}
-              onClick={() => setActiveTool("brush")}
+              onClick={() => {
+                sounds.click();
+                setActiveTool("brush");
+              }}
               type="button"
             >
               <Paintbrush className="size-4" />
@@ -286,7 +301,10 @@ export function EditorToolbar({
                 variant: isEraserActive ? "secondary" : "ghost",
               })}
               disabled={!canPaintOnLayer}
-              onClick={() => setActiveTool("eraser")}
+              onClick={() => {
+                sounds.click();
+                setActiveTool("eraser");
+              }}
               type="button"
             >
               <Eraser className="size-4" />
@@ -305,7 +323,10 @@ export function EditorToolbar({
           >
             <Button
               disabled={!canCrop}
-              onClick={() => setActiveTool("crop")}
+              onClick={() => {
+                sounds.click();
+                setActiveTool("crop");
+              }}
               size="icon-sm"
               variant={isCropActive ? "secondary" : "ghost"}
             >
@@ -325,7 +346,10 @@ export function EditorToolbar({
           >
             <Button
               disabled={!canCrop}
-              onClick={onSmartCrop}
+              onClick={() => {
+                sounds.click();
+                onSmartCrop();
+              }}
               size="icon-sm"
               variant="ghost"
             >
@@ -345,7 +369,10 @@ export function EditorToolbar({
       <Tooltip>
         <TooltipTrigger
           className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
-          onClick={onAddImage}
+          onClick={() => {
+            sounds.click();
+            onAddImage();
+          }}
         >
           <ImagePlus className="size-4" />
         </TooltipTrigger>
@@ -355,7 +382,10 @@ export function EditorToolbar({
       <Tooltip>
         <TooltipTrigger
           className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
-          onClick={() => onShowIconPickerChange(true)}
+          onClick={() => {
+            sounds.click();
+            onShowIconPickerChange(true);
+          }}
         >
           <Smile className="size-4" />
         </TooltipTrigger>
@@ -365,7 +395,10 @@ export function EditorToolbar({
       <Tooltip>
         <TooltipTrigger
           className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
-          onClick={() => onShowLogoPickerChange(true)}
+          onClick={() => {
+            sounds.click();
+            onShowLogoPickerChange(true);
+          }}
         >
           <Building2 className="size-4" />
         </TooltipTrigger>
@@ -381,7 +414,10 @@ export function EditorToolbar({
           >
             <Button
               disabled={!canSaveLayer}
-              onClick={onSaveLayerAsImage}
+              onClick={() => {
+                sounds.download();
+                onSaveLayerAsImage();
+              }}
               size="icon-sm"
               variant="ghost"
             >
@@ -401,7 +437,10 @@ export function EditorToolbar({
       <Tooltip>
         <TooltipTrigger
           className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
-          onClick={onGenerateCarousel}
+          onClick={() => {
+            sounds.click();
+            onGenerateCarousel();
+          }}
         >
           <Bot className="size-4" />
         </TooltipTrigger>
@@ -417,7 +456,10 @@ export function EditorToolbar({
           >
             <Button
               disabled={!canRemoveBg}
-              onClick={onRemoveBackground}
+              onClick={() => {
+                sounds.click();
+                onRemoveBackground();
+              }}
               size="icon-sm"
               variant="ghost"
             >
@@ -441,7 +483,10 @@ export function EditorToolbar({
           >
             <Button
               disabled={!canRemoveBg}
-              onClick={onAddColorBackground}
+              onClick={() => {
+                sounds.click();
+                onAddColorBackground();
+              }}
               size="icon-sm"
               variant="ghost"
             >
@@ -465,7 +510,10 @@ export function EditorToolbar({
           >
             <Button
               disabled={!canAiGenerate}
-              onClick={onAiGenerate}
+              onClick={() => {
+                sounds.click();
+                onAiGenerate();
+              }}
               size="icon-sm"
               variant="ghost"
             >
@@ -487,7 +535,10 @@ export function EditorToolbar({
           <span>
             <Button
               disabled={!canUndo()}
-              onClick={undo}
+              onClick={() => {
+                sounds.click();
+                undo();
+              }}
               size="icon-sm"
               variant="ghost"
             >
@@ -503,7 +554,10 @@ export function EditorToolbar({
           <span>
             <Button
               disabled={!canRedo()}
-              onClick={redo}
+              onClick={() => {
+                sounds.click();
+                redo();
+              }}
               size="icon-sm"
               variant="ghost"
             >

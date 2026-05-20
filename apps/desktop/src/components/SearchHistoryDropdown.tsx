@@ -1,5 +1,6 @@
 ﻿import { Button } from "@repo/ui/button";
 import { Clock, X } from "lucide-react";
+import * as sounds from "@/lib/sounds";
 
 interface SearchHistoryDropdownProps {
   items: string[];
@@ -24,7 +25,10 @@ export function SearchHistoryDropdown({
         </span>
         <Button
           className="h-auto p-0 text-[10px] text-muted-foreground hover:text-foreground"
-          onClick={onClearAll}
+          onClick={() => {
+            sounds.click();
+            onClearAll();
+          }}
           type="button"
           variant="ghost"
         >
@@ -36,7 +40,10 @@ export function SearchHistoryDropdown({
           <li className="flex items-center px-2" key={item}>
             <button
               className="flex flex-1 items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
-              onClick={() => onSelect(item)}
+              onClick={() => {
+                sounds.select();
+                onSelect(item);
+              }}
               type="button"
             >
               <Clock className="size-3.5 shrink-0 text-muted-foreground" />
@@ -46,6 +53,7 @@ export function SearchHistoryDropdown({
               className="ml-1 rounded p-1 text-muted-foreground hover:text-foreground"
               onClick={(e) => {
                 e.stopPropagation();
+                sounds.click();
                 onRemove(item);
               }}
               type="button"

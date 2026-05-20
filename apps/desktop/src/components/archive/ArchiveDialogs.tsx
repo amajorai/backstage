@@ -9,6 +9,7 @@
   AlertDialogTitle,
 } from "@repo/ui/alert-dialog";
 import { Loader2 } from "lucide-react";
+import * as sounds from "@/lib/sounds";
 
 interface RestoreAllArchiveDialogProps {
   open: boolean;
@@ -36,8 +37,19 @@ export function RestoreAllArchiveDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
-          <AlertDialogAction disabled={isProcessing} onClick={onConfirm}>
+          <AlertDialogCancel
+            disabled={isProcessing}
+            onClick={() => sounds.click()}
+          >
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction
+            disabled={isProcessing}
+            onClick={() => {
+              sounds.success();
+              onConfirm();
+            }}
+          >
             {isProcessing ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />
@@ -81,8 +93,19 @@ export function RestoreSelectedArchiveDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
-          <AlertDialogAction disabled={isProcessing} onClick={onConfirm}>
+          <AlertDialogCancel
+            disabled={isProcessing}
+            onClick={() => sounds.click()}
+          >
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction
+            disabled={isProcessing}
+            onClick={() => {
+              sounds.success();
+              onConfirm();
+            }}
+          >
             {isProcessing ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />

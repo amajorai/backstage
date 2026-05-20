@@ -18,6 +18,7 @@ import {
   ColorPickerInput,
   ColorPickerTrigger,
 } from "@/components/ui/color-picker";
+import * as sounds from "@/lib/sounds";
 
 interface AddColorBackgroundDialogProps {
   open: boolean;
@@ -75,7 +76,10 @@ export function AddColorBackgroundDialog({
                     color === p.color ? "border-primary" : "border-transparent"
                   }`}
                   key={p.color}
-                  onClick={() => setColor(p.color)}
+                  onClick={() => {
+                    sounds.click();
+                    setColor(p.color);
+                  }}
                   style={{ background: p.color }}
                   title={p.label}
                   type="button"
@@ -125,10 +129,23 @@ export function AddColorBackgroundDialog({
         </div>
 
         <DialogFooter>
-          <Button onClick={() => onOpenChange(false)} variant="ghost">
+          <Button
+            onClick={() => {
+              sounds.click();
+              onOpenChange(false);
+            }}
+            variant="ghost"
+          >
             Cancel
           </Button>
-          <Button onClick={handleConfirm}>Add Background</Button>
+          <Button
+            onClick={() => {
+              sounds.success();
+              handleConfirm();
+            }}
+          >
+            Add Background
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

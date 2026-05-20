@@ -28,6 +28,7 @@ import {
   File,
   GalleryHorizontal,
   GalleryThumbnails,
+  GitBranch,
   RotateCcw,
   Settings,
   Sparkles,
@@ -42,6 +43,7 @@ import {
   SEASONS,
   SnowfallBackground,
 } from "@/components/snow-flakes";
+import * as sounds from "@/lib/sounds";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import { useEditorStore } from "@/stores/use-editor-store";
 import type { TabEntry } from "@/stores/use-tabs-store";
@@ -50,6 +52,7 @@ import { useTabsStore } from "@/stores/use-tabs-store";
 type ActivePage =
   | "gallery"
   | "ai-generate"
+  | "ai-projects"
   | "trash"
   | "archive"
   | "settings"
@@ -58,6 +61,7 @@ type ActivePage =
 const PAGE_LABELS: Record<ActivePage, string> = {
   gallery: "Home",
   "ai-generate": "Generate",
+  "ai-projects": "AI Sessions",
   trash: "Trash",
   archive: "Archive",
   settings: "Settings",
@@ -67,6 +71,7 @@ const PAGE_LABELS: Record<ActivePage, string> = {
 const PAGE_ICONS: Record<ActivePage, React.ReactNode> = {
   gallery: <GalleryHorizontal className="size-3 shrink-0" />,
   "ai-generate": <Sparkles className="size-3 shrink-0" />,
+  "ai-projects": <GitBranch className="size-3 shrink-0" />,
   trash: <Trash2 className="size-3 shrink-0" />,
   archive: <File className="size-3 shrink-0" />,
   settings: <Settings className="size-3 shrink-0" />,
@@ -368,6 +373,7 @@ export function TabBar({
               [
                 "gallery",
                 "ai-generate",
+                "ai-projects",
                 "explore",
                 "archive",
                 "trash",
@@ -379,6 +385,7 @@ export function TabBar({
                 <DropdownMenuItem
                   key={p}
                   onClick={() => {
+                    sounds.click();
                     if (p === "gallery") handleGalleryClick();
                     onPageChange?.(p);
                   }}
@@ -426,7 +433,10 @@ export function TabBar({
                           : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       } ${isDragging ? "opacity-40" : ""}`}
                       draggable
-                      onClick={() => setActiveTab(tab.id)}
+                      onClick={() => {
+                        sounds.click();
+                        setActiveTab(tab.id);
+                      }}
                       onDragEnd={handleDragEnd}
                       onDragOver={(e) => handleDragOver(e, index)}
                       onDragStart={(e) => handleDragStart(e, index)}
@@ -454,6 +464,7 @@ export function TabBar({
                         }`}
                         onClick={(e) => {
                           e.stopPropagation();
+                          sounds.click();
                           handleCloseTab(tab);
                         }}
                         style={noDrag}
@@ -464,13 +475,21 @@ export function TabBar({
                     </div>
                   </ContextMenuTrigger>
                   <ContextMenuContent className="w-52">
-                    <ContextMenuItem onClick={() => handleCloseTab(tab)}>
+                    <ContextMenuItem
+                      onClick={() => {
+                        sounds.click();
+                        handleCloseTab(tab);
+                      }}
+                    >
                       <X className="mr-2 size-4" />
                       Close Tab
                     </ContextMenuItem>
                     <ContextMenuItem
                       disabled={tabs.length <= 1}
-                      onClick={() => handleCloseOtherTabs(tab)}
+                      onClick={() => {
+                        sounds.click();
+                        handleCloseOtherTabs(tab);
+                      }}
                     >
                       <XSquare className="mr-2 size-4" />
                       Close Other Tabs
@@ -478,7 +497,10 @@ export function TabBar({
                     <ContextMenuSeparator />
                     <ContextMenuItem
                       disabled={closedTabs.length === 0}
-                      onClick={() => reopenClosedTab()}
+                      onClick={() => {
+                        sounds.click();
+                        reopenClosedTab();
+                      }}
                     >
                       <RotateCcw className="mr-2 size-4" />
                       <div className="flex flex-col">
@@ -516,9 +538,12 @@ export function TabBar({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => sounds.click()}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
+                sounds.click();
                 pendingAction?.();
                 setPendingAction(null);
               }}

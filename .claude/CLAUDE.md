@@ -1,3 +1,94 @@
+# Data Versioning Contract
+
+The desktop app supports users on different app versions simultaneously (perpetual license model with 1-year update windows). This means a backup created on v2.0 may be restored on v1.5, and a project file from v1.0 must still open on v3.0. **All persistent data must be versioned and forwards/backwards compatible.**
+
+## Versioned Data Surfaces
+
+Every one of these must carry a `schemaVersion: number` field:
+
+| File | Location | Current version |
+|------|----------|----------------|
+| Layer data | `thumbnails/{id}/layers.json` | 1 |
+| Crash recovery | `recovery/{id}.json` | 1 |
+| Revision snapshots | `revisions/{id}/{revId}.json` | 1 |
+| AI project graph | `ai-projects/{id}/graph.json` | 1 |
+| Backup manifest | `manifest.json` inside ZIP | 1 |
+
+The SQLite schema version is tracked via `PRAGMA user_version` — **not** try-catch ALTER TABLE statements.
+
+## Rules for Every Schema Change
+
+1. **Bump `schemaVersion`** in the affected data structure.
+2. **Write a migration function** named `migrateV{n}ToV{n+1}(data: unknown): V{n+1}Type`.
+3. **Add it to the migration pipeline** that runs sequentially on load: `v1 → v2 → v3 → current`.
+4. **Never remove or rename a field** — only add new optional fields with defaults that preserve existing behavior.
+5. **New fields must not change behavior when absent** — treat missing as the old default.
+
+## Migration Pipeline Pattern
+
+```typescript
+const MIGRATIONS = {
+  1: migrateV1ToV2,
+  2: migrateV2ToV3,
+} as const;
+
+function migrate<T>(data: { schemaVersion: number } & Record<string, unknown>): T {
+  let current = data;
+  while (current.schemaVersion in MIGRATIONS) {
+    current = MIGRATIONS[current.schemaVersion as keyof typeof MIGRATIONS](current);
+  }
+  return current as T;
+}
+```
+
+Always call `migrate()` on read. Always write with the current `schemaVersion`.
+
+## Backup ZIP Manifest
+
+Every backup ZIP must include a `manifest.json` at the root:
+
+```json
+{
+  "schemaVersion": 1,
+  "appVersion": "1.2.1",
+  "createdAt": "2026-05-20T12:00:00Z",
+  "dataSchemaVersions": {
+    "layers": 1,
+    "recovery": 1,
+    "revisions": 1,
+    "aiProjects": 1,
+    "sqlite": 3
+  }
+}
+```
+
+On restore, **reject the backup with a clear error** if any `dataSchemaVersions` value exceeds what the running app version supports. Never silently restore an incompatible backup.
+
+## SQLite Schema Versioning
+
+Use `PRAGMA user_version` to track the schema version. Run migrations in a transaction at app startup:
+
+```typescript
+const version = db.pragma('user_version', { simple: true }) as number;
+if (version < TARGET_VERSION) {
+  runSqliteMigrations(db, version, TARGET_VERSION);
+}
+```
+
+Never use try-catch ALTER TABLE — it hides schema drift and makes the version state unknowable.
+
+## License Version Gate
+
+When the app starts and the user's license `expiresAt` is in the past, check the running app version against GitHub releases. If the running version was released after `expiresAt`:
+
+- Show a blocking modal explaining which version they're entitled to.
+- Provide a direct GitHub release download link to the last entitled version.
+- Do **not** auto-downgrade programmatically — link them to the correct binary.
+
+The update checker must also respect `expiresAt`: fetch GitHub releases, find the newest version with `published_at ≤ expiresAt`, and only offer that version.
+
+---
+
 # Ultracite Code Standards
 
 This project uses **Ultracite**, a zero-config Biome preset that enforces strict code quality standards through automated formatting and linting.

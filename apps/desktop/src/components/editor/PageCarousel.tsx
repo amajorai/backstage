@@ -6,6 +6,7 @@ import {
   TooltipTrigger,
 } from "@repo/ui/tooltip";
 import { ChevronLeft, ChevronRight, Copy, Plus, Trash2 } from "lucide-react";
+import * as sounds from "@/lib/sounds";
 import { useEditorStore } from "@/stores/use-editor-store";
 
 export function PageCarousel() {
@@ -17,11 +18,17 @@ export function PageCarousel() {
   const duplicatePage = useEditorStore((s) => s.duplicatePage);
 
   const handlePrev = () => {
-    if (activePageIndex > 0) setActivePage(activePageIndex - 1);
+    if (activePageIndex > 0) {
+      sounds.click();
+      setActivePage(activePageIndex - 1);
+    }
   };
 
   const handleNext = () => {
-    if (activePageIndex < pages.length - 1) setActivePage(activePageIndex + 1);
+    if (activePageIndex < pages.length - 1) {
+      sounds.click();
+      setActivePage(activePageIndex + 1);
+    }
   };
 
   return (
@@ -66,7 +73,14 @@ export function PageCarousel() {
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button onClick={addPage} size="icon-sm" variant="ghost">
+              <Button
+                onClick={() => {
+                  sounds.click();
+                  addPage();
+                }}
+                size="icon-sm"
+                variant="ghost"
+              >
                 <Plus className="size-4" />
               </Button>
             </TooltipTrigger>
@@ -76,7 +90,10 @@ export function PageCarousel() {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                onClick={() => duplicatePage(activePageIndex)}
+                onClick={() => {
+                  sounds.click();
+                  duplicatePage(activePageIndex);
+                }}
                 size="icon-sm"
                 variant="ghost"
               >
@@ -90,7 +107,10 @@ export function PageCarousel() {
             <TooltipTrigger asChild>
               <Button
                 disabled={pages.length <= 1}
-                onClick={() => removePage(activePageIndex)}
+                onClick={() => {
+                  sounds.delete_();
+                  removePage(activePageIndex);
+                }}
                 size="icon-sm"
                 variant="ghost"
               >

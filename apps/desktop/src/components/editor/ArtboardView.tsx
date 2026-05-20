@@ -9,6 +9,7 @@ import { Copy, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { KonvaCanvas } from "@/components/editor/KonvaCanvas";
 import { StaticPageCanvas } from "@/components/editor/StaticPageCanvas";
+import * as sounds from "@/lib/sounds";
 import type { Page } from "@/stores/use-editor-store";
 
 const ARTBOARD_GAP = 80;
@@ -270,6 +271,7 @@ export function ArtboardView({
                           className="h-5 w-5"
                           onClick={(e) => {
                             e.stopPropagation();
+                            sounds.click();
                             duplicatePage(index);
                           }}
                           size="icon-sm"
@@ -287,6 +289,7 @@ export function ArtboardView({
                           disabled={pages.length <= 1}
                           onClick={(e) => {
                             e.stopPropagation();
+                            sounds.delete_();
                             removePage(index);
                           }}
                           size="icon-sm"
@@ -302,7 +305,14 @@ export function ArtboardView({
 
                 {/* Artboard content */}
                 <div
-                  onClick={isActive ? undefined : () => setActivePage(index)}
+                  onClick={
+                    isActive
+                      ? undefined
+                      : () => {
+                          sounds.click();
+                          setActivePage(index);
+                        }
+                  }
                   style={{
                     width: canvasWidth,
                     height: canvasHeight,
@@ -331,7 +341,10 @@ export function ArtboardView({
                       canvasHeight={canvasHeight}
                       canvasWidth={canvasWidth}
                       layers={page.layers}
-                      onClick={() => setActivePage(index)}
+                      onClick={() => {
+                        sounds.click();
+                        setActivePage(index);
+                      }}
                       scale={1}
                     />
                   )}
@@ -352,7 +365,10 @@ export function ArtboardView({
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  onClick={addPage}
+                  onClick={() => {
+                    sounds.click();
+                    addPage();
+                  }}
                   style={{
                     width: Math.max(120, canvasWidth * 0.3),
                     height: canvasHeight,

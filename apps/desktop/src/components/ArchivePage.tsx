@@ -34,6 +34,7 @@ import { EmptyState } from "@/components/gallery/EmptyState";
 import { gridComponents } from "@/components/gallery/VirtuosoGridComponents";
 import { useDragSelection } from "@/hooks/use-drag-selection";
 import { usePersistedViewMode } from "@/hooks/use-persisted-view-mode";
+import * as sounds from "@/lib/sounds";
 import {
   type ArchiveFolder,
   type ArchiveItem,
@@ -387,7 +388,10 @@ export function ArchivePage({ onClose }: ArchivePageProps) {
           <div className="flex flex-col gap-1 py-2">
             <Button
               className="justify-start"
-              onClick={() => handleMoveSelectedToFolder(null)}
+              onClick={() => {
+                sounds.click();
+                handleMoveSelectedToFolder(null);
+              }}
               variant="ghost"
             >
               No folder (unfiled)
@@ -396,7 +400,10 @@ export function ArchivePage({ onClose }: ArchivePageProps) {
               <Button
                 className="justify-start"
                 key={folder.id}
-                onClick={() => handleMoveSelectedToFolder(folder.id)}
+                onClick={() => {
+                  sounds.click();
+                  handleMoveSelectedToFolder(folder.id);
+                }}
                 style={folder.color ? { color: folder.color } : undefined}
                 variant="ghost"
               >
@@ -446,7 +453,10 @@ export function ArchivePage({ onClose }: ArchivePageProps) {
             </DialogClose>
             <Button
               disabled={!newFolderName.trim()}
-              onClick={handleCreateFolder}
+              onClick={() => {
+                sounds.success();
+                handleCreateFolder();
+              }}
             >
               Create
             </Button>
@@ -480,7 +490,10 @@ export function ArchivePage({ onClose }: ArchivePageProps) {
             </DialogClose>
             <Button
               disabled={!renameFolderName.trim()}
-              onClick={handleRenameFolder}
+              onClick={() => {
+                sounds.success();
+                handleRenameFolder();
+              }}
             >
               Rename
             </Button>
@@ -505,7 +518,10 @@ export function ArchivePage({ onClose }: ArchivePageProps) {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleDeleteFolder}
+              onClick={() => {
+                sounds.delete_();
+                handleDeleteFolder();
+              }}
             >
               Delete Folder
             </AlertDialogAction>

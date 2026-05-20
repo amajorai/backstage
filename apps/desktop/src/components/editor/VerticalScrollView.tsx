@@ -9,6 +9,7 @@ import { Copy, Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { KonvaCanvas } from "@/components/editor/KonvaCanvas";
 import { StaticPageCanvas } from "@/components/editor/StaticPageCanvas";
+import * as sounds from "@/lib/sounds";
 import type { Page } from "@/stores/use-editor-store";
 
 interface VerticalScrollViewProps {
@@ -84,7 +85,14 @@ export function VerticalScrollView({
                 </div>
                 <div
                   className="relative"
-                  onClick={isActive ? undefined : () => setActivePage(index)}
+                  onClick={
+                    isActive
+                      ? undefined
+                      : () => {
+                          sounds.click();
+                          setActivePage(index);
+                        }
+                  }
                   style={{
                     width: pageDisplayWidth,
                     height: pageDisplayHeight,
@@ -115,7 +123,10 @@ export function VerticalScrollView({
                       canvasHeight={canvasHeight}
                       canvasWidth={canvasWidth}
                       layers={page.layers}
-                      onClick={() => setActivePage(index)}
+                      onClick={() => {
+                        sounds.click();
+                        setActivePage(index);
+                      }}
                       scale={scale}
                     />
                   )}
@@ -127,6 +138,7 @@ export function VerticalScrollView({
                           className="h-5 w-5"
                           onClick={(e) => {
                             e.stopPropagation();
+                            sounds.click();
                             duplicatePage(index);
                           }}
                           size="icon-sm"
@@ -144,6 +156,7 @@ export function VerticalScrollView({
                           disabled={pages.length <= 1}
                           onClick={(e) => {
                             e.stopPropagation();
+                            sounds.delete_();
                             removePage(index);
                           }}
                           size="icon-sm"
@@ -164,7 +177,10 @@ export function VerticalScrollView({
             <TooltipTrigger asChild>
               <Button
                 className="mt-2"
-                onClick={addPage}
+                onClick={() => {
+                  sounds.click();
+                  addPage();
+                }}
                 size="sm"
                 style={{ width: pageDisplayWidth }}
                 variant="outline"

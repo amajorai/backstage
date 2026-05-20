@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { sileo } from "sileo";
+import * as sounds from "@/lib/sounds";
 import type { ThumbnailItem } from "@/stores/use-gallery-store";
 import { useGalleryStore } from "@/stores/use-gallery-store";
 
@@ -66,6 +67,7 @@ export function ThumbnailActionButtons({
           }
           onClick={async (e) => {
             e.stopPropagation();
+            sounds.click();
             await onAutoRename(thumbnail);
           }}
         >
@@ -81,7 +83,10 @@ export function ThumbnailActionButtons({
               variant: "ghost",
             }) + "text-white"
           }
-          onClick={(e) => onRemoveBackground(e, thumbnail)}
+          onClick={(e) => {
+            sounds.click();
+            onRemoveBackground(e, thumbnail);
+          }}
         >
           <Wand2 className="size-4" />
         </TooltipTrigger>
@@ -97,6 +102,7 @@ export function ThumbnailActionButtons({
           }
           onClick={(e) => {
             e.stopPropagation();
+            sounds.download();
             onExportClick(thumbnail);
           }}
         >
@@ -159,6 +165,7 @@ export function ThumbnailActionButtons({
                 className="w-full justify-start"
                 onClick={async (e) => {
                   e.stopPropagation();
+                  sounds.click();
                   await duplicateThumbnail(thumbnail.id);
                   sileo.success({ title: "Thumbnail duplicated" });
                   setMenuOpenId(null);
@@ -173,6 +180,7 @@ export function ThumbnailActionButtons({
                 className="w-full justify-start"
                 onClick={(e) => {
                   e.stopPropagation();
+                  sounds.click();
                   onRename(thumbnail);
                   setMenuOpenId(null);
                 }}
@@ -186,6 +194,7 @@ export function ThumbnailActionButtons({
                 className="w-full justify-start"
                 onClick={(e) => {
                   e.stopPropagation();
+                  sounds.click();
                   onAddColorBackground(thumbnail);
                   setMenuOpenId(null);
                 }}
@@ -199,6 +208,7 @@ export function ThumbnailActionButtons({
                 className="w-full justify-start"
                 onClick={(e) => {
                   e.stopPropagation();
+                  sounds.click();
                   onArchive(thumbnail);
                   setMenuOpenId(null);
                 }}
@@ -212,6 +222,7 @@ export function ThumbnailActionButtons({
                 className="w-full justify-start text-destructive hover:text-destructive"
                 onClick={(e) => {
                   e.stopPropagation();
+                  sounds.delete_();
                   onDelete(thumbnail);
                   setMenuOpenId(null);
                 }}

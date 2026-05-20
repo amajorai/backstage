@@ -10,6 +10,7 @@ import {
   ColorPickerInput,
   ColorPickerTrigger,
 } from "@/components/ui/color-picker";
+import * as sounds from "@/lib/sounds";
 import { useEditorStore } from "@/stores/use-editor-store";
 
 function Divider() {
@@ -69,7 +70,10 @@ function SelectOptions() {
             ? "bg-primary/15 text-primary"
             : "text-muted-foreground hover:bg-muted hover:text-foreground"
         }`}
-        onClick={() => setSelectActiveLayerOnly(!selectActiveLayerOnly)}
+        onClick={() => {
+          sounds.click();
+          setSelectActiveLayerOnly(!selectActiveLayerOnly);
+        }}
         type="button"
       >
         <Layers className="size-3" />

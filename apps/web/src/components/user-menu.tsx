@@ -1,4 +1,4 @@
-﻿import { Button } from "@repo/ui/button";
+import { Button } from "@repo/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +12,7 @@ import { Skeleton } from "@repo/ui/skeleton";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import * as sounds from "@/lib/sounds";
 
 export default function UserMenu() {
   const router = useRouter();
@@ -24,7 +25,9 @@ export default function UserMenu() {
   if (!session) {
     return (
       <Link href="/login">
-        <Button variant="ghost">Sign In</Button>
+        <Button onClick={sounds.click} variant="ghost">
+          Sign In
+        </Button>
       </Link>
     );
   }
@@ -32,7 +35,9 @@ export default function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost">{session.user.name}</Button>
+        <Button onClick={sounds.click} variant="ghost">
+          {session.user.name}
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="bg-card">
         <DropdownMenuGroup>
@@ -42,6 +47,7 @@ export default function UserMenu() {
           <DropdownMenuItem
             className="text-destructive focus:text-destructive"
             onClick={() => {
+              sounds.click();
               authClient.signOut({
                 fetchOptions: {
                   onSuccess: () => {

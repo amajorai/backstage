@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { sileo } from "sileo";
+import * as sounds from "@/lib/sounds";
 import { searchVideos, type YoutubeVideo } from "@/lib/youtube-api";
 import { getYoutubeApiKey } from "@/lib/youtube-store";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
@@ -122,6 +123,7 @@ export function CommandPalette({
   );
 
   const run = (fn: () => void) => {
+    sounds.click();
     onOpenChange(false);
     fn();
   };

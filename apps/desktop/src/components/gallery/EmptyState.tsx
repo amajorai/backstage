@@ -1,5 +1,6 @@
 ﻿import { Button } from "@repo/ui/button";
 import type { ReactNode } from "react";
+import * as sounds from "@/lib/sounds";
 
 interface EmptyStateProps {
   /** Icon to display */
@@ -42,7 +43,13 @@ export function EmptyState({
       </div>
       {action &&
         (isValidAction(action) ? (
-          <Button onClick={action.onClick} variant="ghost">
+          <Button
+            onClick={() => {
+              sounds.click();
+              action.onClick();
+            }}
+            variant="ghost"
+          >
             {action.icon}
             {action.label}
           </Button>

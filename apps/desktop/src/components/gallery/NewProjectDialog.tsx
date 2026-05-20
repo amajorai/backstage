@@ -19,6 +19,7 @@ import {
   Smartphone,
 } from "lucide-react";
 import { useState } from "react";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 
 export interface NewProjectDialogProps {
@@ -144,6 +145,7 @@ export function NewProjectDialog({
   };
 
   const handleCreate = () => {
+    sounds.success();
     let w = customWidth;
     let h = customHeight;
     let name = "New Project";
@@ -182,6 +184,7 @@ export function NewProjectDialog({
                 )}
                 key={preset.id}
                 onClick={() => {
+                  sounds.click();
                   setSelectedPreset(preset.id);
                   setIsCustom(false);
                 }}
@@ -208,7 +211,10 @@ export function NewProjectDialog({
                 isCustom &&
                   "border-primary bg-muted/30 ring-2 ring-primary/20 ring-offset-2"
               )}
-              onClick={() => setIsCustom(true)}
+              onClick={() => {
+                sounds.click();
+                setIsCustom(true);
+              }}
               type="button"
             >
               <div className="flex flex-1 items-center justify-center py-2">

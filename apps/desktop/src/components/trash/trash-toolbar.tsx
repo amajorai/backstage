@@ -5,6 +5,7 @@ import { useMemo, useRef, useState } from "react";
 import type { ViewMode } from "@/App";
 import { SearchHistoryDropdown } from "@/components/SearchHistoryDropdown";
 import { ViewModeButtons } from "@/components/toolbar/view-mode-buttons";
+import * as sounds from "@/lib/sounds";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import { useSearchHistoryStore } from "@/stores/use-search-history-store";
 
@@ -88,6 +89,7 @@ export function TrashToolbar({
   };
 
   const handleClear = () => {
+    sounds.click();
     if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
     onSearchChange("");
     setSearchFocused(true);
@@ -101,7 +103,10 @@ export function TrashToolbar({
           <div className="flex items-center gap-2">
             <Button
               aria-label="Clear Selection"
-              onClick={onExitSelectionMode}
+              onClick={() => {
+                sounds.click();
+                onExitSelectionMode();
+              }}
               size="icon-sm"
               title="Clear selection"
               variant="ghost"
@@ -117,7 +122,10 @@ export function TrashToolbar({
             <TooltipTrigger asChild>
               <Button
                 disabled={isProcessing || selectedCount === 0}
-                onClick={onRestoreSelected}
+                onClick={() => {
+                  sounds.click();
+                  onRestoreSelected();
+                }}
                 size="sm"
                 variant="ghost"
               >
@@ -138,7 +146,10 @@ export function TrashToolbar({
               <Button
                 className="text-destructive hover:text-destructive"
                 disabled={isProcessing || selectedCount === 0}
-                onClick={onDeleteSelected}
+                onClick={() => {
+                  sounds.delete_();
+                  onDeleteSelected();
+                }}
                 size="sm"
                 variant="ghost"
               >
@@ -157,7 +168,10 @@ export function TrashToolbar({
           <div className="flex items-center gap-1">
             <Button
               aria-label="Back to Gallery"
-              onClick={onBack}
+              onClick={() => {
+                sounds.click();
+                onBack();
+              }}
               size="icon-sm"
               variant="ghost"
             >
@@ -243,7 +257,14 @@ export function TrashToolbar({
               <>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button onClick={onRestoreAll} size="sm" variant="ghost">
+                    <Button
+                      onClick={() => {
+                        sounds.click();
+                        onRestoreAll();
+                      }}
+                      size="sm"
+                      variant="ghost"
+                    >
                       <RotateCcw className="mr-2 size-4" />
                       Restore All
                     </Button>
@@ -256,7 +277,10 @@ export function TrashToolbar({
                   <TooltipTrigger asChild>
                     <Button
                       className="text-destructive hover:text-destructive"
-                      onClick={onEmptyTrash}
+                      onClick={() => {
+                        sounds.delete_();
+                        onEmptyTrash();
+                      }}
                       size="sm"
                       variant="ghost"
                     >
@@ -273,7 +297,10 @@ export function TrashToolbar({
             )}
             <Button
               aria-label="Enter Selection Mode"
-              onClick={onEnterSelectionMode}
+              onClick={() => {
+                sounds.click();
+                onEnterSelectionMode();
+              }}
               size="sm"
               variant="ghost"
             >

@@ -23,6 +23,7 @@ const SAVE_SEARCH_HISTORY_FIELD = "save_search_history";
 const SHOW_FOLDER_BADGES_FIELD = "show_folder_badges";
 const ONBOARDING_COMPLETED_FIELD = "onboarding_completed";
 const EXPERIMENTAL_FEATURES_FIELD = "experimental_features_enabled";
+const SOUNDS_ENABLED_FIELD = "sounds_enabled";
 
 export type AppTheme = "light" | "dark" | "system";
 export type BgRemovalQuality = "fast" | "balanced" | "best";
@@ -69,6 +70,7 @@ interface AppSettingsState {
   showFolderBadges: boolean;
   onboardingCompleted: boolean;
   experimentalFeaturesEnabled: boolean;
+  soundsEnabled: boolean;
   isInitialLoadDone: boolean;
 
   // Actions
@@ -95,6 +97,7 @@ interface AppSettingsState {
   setShowFolderBadges: (enabled: boolean) => Promise<void>;
   setOnboardingCompleted: (completed: boolean) => Promise<void>;
   setExperimentalFeaturesEnabled: (enabled: boolean) => Promise<void>;
+  setSoundsEnabled: (enabled: boolean) => Promise<void>;
   loadSettings: () => Promise<void>;
 }
 
@@ -120,6 +123,7 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
   showFolderBadges: true,
   onboardingCompleted: false,
   experimentalFeaturesEnabled: false,
+  soundsEnabled: true,
   isInitialLoadDone: false,
 
   setPreviewSeasonTheme: (theme) => set({ previewSeasonTheme: theme }),
@@ -469,6 +473,23 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
     }
   },
 
+  setSoundsEnabled: async (enabled: boolean) => {
+    try {
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
+      await store.set(SOUNDS_ENABLED_FIELD, enabled);
+      await store.save();
+      set({ soundsEnabled: enabled });
+    } catch (error) {
+      logger.error(
+        { err: error },
+        "[Settings] Failed to save setting: soundsEnabled"
+      );
+    }
+  },
+
   loadSettings: async () => {
     try {
       logger.info("[Settings] Loading app settings...");
@@ -528,6 +549,7 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
       const experimentalFeaturesEnabled = await store.get<boolean>(
         EXPERIMENTAL_FEATURES_FIELD
       );
+      const soundsEnabled = await store.get<boolean>(SOUNDS_ENABLED_FIELD);
 
       const finalTheme = theme ?? "dark";
 
@@ -552,6 +574,7 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
         showFolderBadges: showFolderBadges ?? true,
         onboardingCompleted: onboardingCompleted ?? false,
         experimentalFeaturesEnabled: experimentalFeaturesEnabled ?? false,
+        soundsEnabled: soundsEnabled ?? true,
         isInitialLoadDone: true,
       });
 

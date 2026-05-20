@@ -10,6 +10,7 @@ import {
   ColorPickerTrigger,
 } from "@/components/ui/color-picker";
 import { applyRasterColorMap, extractRasterColors } from "@/lib/raster-color";
+import * as sounds from "@/lib/sounds";
 import type { ImageLayer } from "@/stores/use-editor-store";
 
 interface ImageColorPropertiesProps {
@@ -106,7 +107,10 @@ export function ImageColorProperties({
           return (
             <ColorPicker
               key={originalColor}
-              onOpenChange={(open) => setOpenColor(open ? originalColor : null)}
+              onOpenChange={(open) => {
+                if (open) sounds.click();
+                setOpenColor(open ? originalColor : null);
+              }}
               onValueChange={(value) => handleColorChange(originalColor, value)}
               open={openColor === originalColor}
               value={displayColor}

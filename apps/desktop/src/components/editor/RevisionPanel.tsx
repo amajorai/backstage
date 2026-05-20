@@ -13,6 +13,7 @@ import { Clock, RotateCcw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { sileo } from "sileo";
 import { ScrollFadeEffect } from "@/components/scroll-fade-effect";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/stores/use-editor-store";
 import { useRevisionStore } from "@/stores/use-revision-store";
@@ -103,7 +104,10 @@ export function RevisionPanel({ projectId, onRestored }: RevisionPanelProps) {
                 <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                   <Button
                     className="h-5 w-5 text-primary/70 hover:bg-transparent hover:text-primary"
-                    onClick={() => setConfirmRestoreId(rev.id)}
+                    onClick={() => {
+                      sounds.click();
+                      setConfirmRestoreId(rev.id);
+                    }}
                     size="icon"
                     title="Restore this revision"
                     type="button"
@@ -113,7 +117,10 @@ export function RevisionPanel({ projectId, onRestored }: RevisionPanelProps) {
                   </Button>
                   <Button
                     className="h-5 w-5 text-neutral-400 hover:bg-transparent hover:text-red-400"
-                    onClick={() => setConfirmDeleteId(rev.id)}
+                    onClick={() => {
+                      sounds.delete_();
+                      setConfirmDeleteId(rev.id);
+                    }}
                     size="icon"
                     title="Delete this revision"
                     type="button"
@@ -141,9 +148,12 @@ export function RevisionPanel({ projectId, onRestored }: RevisionPanelProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => sounds.click()}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
+                sounds.success();
                 if (confirmRestoreId) handleRestore(confirmRestoreId);
                 setConfirmRestoreId(null);
               }}
@@ -167,10 +177,13 @@ export function RevisionPanel({ projectId, onRestored }: RevisionPanelProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => sounds.click()}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
+                sounds.delete_();
                 if (confirmDeleteId) handleDelete(confirmDeleteId);
                 setConfirmDeleteId(null);
               }}

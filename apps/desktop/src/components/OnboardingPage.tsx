@@ -44,6 +44,7 @@ import {
 import { getGeminiApiKey, setGeminiApiKey } from "@/lib/gemini-store";
 import { getHfToken, setHfToken } from "@/lib/hf-store";
 import { POLAR_CONFIG } from "@/lib/polar-config";
+import * as sounds from "@/lib/sounds";
 import { getYoutubeApiKey, setYoutubeApiKey } from "@/lib/youtube-store";
 import {
   type AppTheme,
@@ -105,7 +106,10 @@ function UpdateStep() {
         <Button
           className="h-14 w-full"
           disabled={downloading}
-          onClick={() => downloadAndInstall(available)}
+          onClick={() => {
+            sounds.download();
+            downloadAndInstall(available);
+          }}
           size="lg"
           style={{ animation: "fade-slide-up 0.38s ease-out 160ms both" }}
           variant="contrast"
@@ -262,7 +266,10 @@ function LicensePricingStep({ onNext }: { onNext: () => void }) {
       >
         <Button
           className="h-14 w-full"
-          onClick={openCheckout}
+          onClick={() => {
+            sounds.click();
+            openCheckout();
+          }}
           size="lg"
           variant="contrast"
         >
@@ -270,7 +277,10 @@ function LicensePricingStep({ onNext }: { onNext: () => void }) {
         </Button>
         <button
           className="cursor-pointer bg-transparent p-0 text-muted-foreground text-sm transition-colors hover:text-foreground"
-          onClick={onNext}
+          onClick={() => {
+            sounds.click();
+            onNext();
+          }}
           type="button"
         >
           I already have a key →
@@ -350,7 +360,10 @@ function LicenseForm({ onComplete }: { onComplete: () => void }) {
         <Button
           className="h-14 w-full"
           disabled={!licenseKey.trim() || isValidating}
-          onClick={handleActivate}
+          onClick={() => {
+            sounds.click();
+            handleActivate();
+          }}
           size="lg"
           variant="contrast"
         >
@@ -373,7 +386,10 @@ function LicenseForm({ onComplete }: { onComplete: () => void }) {
           Already have a key?{" "}
           <button
             className="cursor-pointer bg-transparent p-0 text-foreground hover:underline"
-            onClick={() => openUrl(POLAR_CONFIG.customerPortalUrl)}
+            onClick={() => {
+              sounds.click();
+              openUrl(POLAR_CONFIG.customerPortalUrl);
+            }}
             type="button"
           >
             Retrieve it from your account
@@ -388,7 +404,10 @@ function LicenseForm({ onComplete }: { onComplete: () => void }) {
 
         <Button
           className="h-14 w-full"
-          onClick={openCheckout}
+          onClick={() => {
+            sounds.click();
+            openCheckout();
+          }}
           size="lg"
           variant="secondary"
         >
@@ -423,7 +442,10 @@ function PreferencesStep() {
                   : "border-border text-muted-foreground hover:border-foreground/40"
               }`}
               key={t.value}
-              onClick={() => setTheme(t.value)}
+              onClick={() => {
+                sounds.click();
+                setTheme(t.value);
+              }}
               type="button"
             >
               {t.icon}
@@ -600,7 +622,10 @@ function GeminiKeyStep() {
         Free from Google AI Studio.{" "}
         <button
           className="inline-flex items-center gap-0.5 text-foreground hover:underline"
-          onClick={() => openUrl("https://aistudio.google.com/apikey")}
+          onClick={() => {
+            sounds.click();
+            openUrl("https://aistudio.google.com/apikey");
+          }}
           type="button"
         >
           Get your key
@@ -690,11 +715,12 @@ function YoutubeKeyStep() {
         Free from Google Cloud Console.{" "}
         <button
           className="inline-flex items-center gap-0.5 text-foreground hover:underline"
-          onClick={() =>
+          onClick={() => {
+            sounds.click();
             openUrl(
               "https://console.cloud.google.com/apis/library/youtube.googleapis.com"
-            )
-          }
+            );
+          }}
           type="button"
         >
           Get your key
@@ -846,7 +872,10 @@ function BgRemovalStep() {
                 : "bg-muted/50 hover:bg-muted"
             }`}
             key={p.value}
-            onClick={() => setBgRemovalProvider(p.value)}
+            onClick={() => {
+              sounds.click();
+              setBgRemovalProvider(p.value);
+            }}
             style={{
               animation: `fade-slide-up 0.38s ease-out ${120 + i * 80}ms both`,
             }}
@@ -919,9 +948,10 @@ function BgRemovalStep() {
                     RMBG-2.0 is gated.{" "}
                     <button
                       className="inline-flex items-center gap-0.5 text-foreground hover:underline"
-                      onClick={() =>
-                        openUrl("https://huggingface.co/briaai/RMBG-2.0")
-                      }
+                      onClick={() => {
+                        sounds.click();
+                        openUrl("https://huggingface.co/briaai/RMBG-2.0");
+                      }}
                       type="button"
                     >
                       Agree &amp; get token
@@ -1083,7 +1113,10 @@ function FeedbackStep() {
     <div className="flex w-full flex-col items-center gap-3">
       <Button
         className="h-14 w-full"
-        onClick={openFeedback}
+        onClick={() => {
+          sounds.click();
+          openFeedback();
+        }}
         size="lg"
         style={{ animation: "fade-slide-up 0.38s ease-out 120ms both" }}
         variant="contrast"
@@ -1380,7 +1413,10 @@ export function OnboardingPage({
                 </div>
                 <Button
                   className="h-14 w-full"
-                  onClick={onComplete}
+                  onClick={() => {
+                    sounds.success();
+                    onComplete();
+                  }}
                   size="lg"
                   style={{
                     animation: "fade-slide-up 0.38s ease-out 160ms both",
@@ -1447,7 +1483,10 @@ export function OnboardingPage({
           <button
             className="flex items-center gap-1 rounded-md px-3 py-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
             disabled={isFirst}
-            onClick={handleBack}
+            onClick={() => {
+              sounds.click();
+              handleBack();
+            }}
             type="button"
           >
             <ArrowLeft className="size-4" />
@@ -1466,7 +1505,10 @@ export function OnboardingPage({
                       : "size-1.5 bg-foreground/15"
                 }`}
                 key={s.id}
-                onClick={() => go(i > stepIndex ? "forward" : "backward", i)}
+                onClick={() => {
+                  sounds.click();
+                  go(i > stepIndex ? "forward" : "backward", i);
+                }}
                 type="button"
               />
             ))}
@@ -1474,7 +1516,14 @@ export function OnboardingPage({
 
           {isLicenseInfoStep ? (
             <div className="ml-auto">
-              <Button onClick={openPageCheckout} size="sm" variant="contrast">
+              <Button
+                onClick={() => {
+                  sounds.click();
+                  openPageCheckout();
+                }}
+                size="sm"
+                variant="contrast"
+              >
                 Buy Now
               </Button>
             </div>
@@ -1483,7 +1532,10 @@ export function OnboardingPage({
               <div className="ml-auto">
                 <button
                   className="flex items-center gap-1 rounded-md px-3 py-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground"
-                  onClick={handleNext}
+                  onClick={() => {
+                    sounds.click();
+                    handleNext();
+                  }}
                   type="button"
                 >
                   Next

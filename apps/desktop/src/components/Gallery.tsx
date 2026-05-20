@@ -59,6 +59,7 @@ import {
   loadDroppedImageFiles,
   openAndLoadImages,
 } from "@/lib/image-file-utils";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { useAutoRenameQueue } from "@/stores/use-auto-rename-queue";
 import { useFolderStore } from "@/stores/use-folder-store";
@@ -510,7 +511,10 @@ export function Gallery({
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:text-foreground"
             )}
-            onClick={() => setSelectedFolderId(null)}
+            onClick={() => {
+              sounds.click();
+              setSelectedFolderId(null);
+            }}
             type="button"
           >
             All
@@ -618,11 +622,12 @@ export function Gallery({
                     )}
                   <button
                     className="flex items-center gap-1.5"
-                    onClick={() =>
+                    onClick={() => {
+                      sounds.click();
                       setSelectedFolderId(
                         selectedFolderId === folder.id ? null : folder.id
-                      )
-                    }
+                      );
+                    }}
                     type="button"
                   >
                     {folder.isCharacterSet ? (
@@ -697,6 +702,7 @@ export function Gallery({
                       className="ml-0.5 rounded"
                       onClick={(e) => {
                         e.stopPropagation();
+                        sounds.delete_();
                         setDeleteFolderTarget(folder.id);
                       }}
                       title="Delete folder"
@@ -710,6 +716,7 @@ export function Gallery({
               <ContextMenuContent className="w-44">
                 <ContextMenuItem
                   onClick={() => {
+                    sounds.click();
                     setRenameFolderName(folder.name);
                     setRenamingFolderId(folder.id);
                   }}
@@ -717,29 +724,41 @@ export function Gallery({
                   Rename
                 </ContextMenuItem>
                 <ContextMenuItem
-                  onClick={() => setColorFolderTarget(folder.id)}
+                  onClick={() => {
+                    sounds.click();
+                    setColorFolderTarget(folder.id);
+                  }}
                 >
                   Change Color
                 </ContextMenuItem>
                 <ContextMenuSeparator />
                 <ContextMenuItem
-                  onClick={() =>
+                  onClick={() => {
+                    sounds.click();
                     useFolderStore
                       .getState()
-                      .toggleCharacterSet(folder.id, !folder.isCharacterSet)
-                  }
+                      .toggleCharacterSet(folder.id, !folder.isCharacterSet);
+                  }}
                 >
                   {folder.isCharacterSet
                     ? "Unmark as Character Set"
                     : "Mark as Character Set"}
                 </ContextMenuItem>
                 <ContextMenuSeparator />
-                <ContextMenuItem onClick={() => handleArchiveFolder(folder.id)}>
+                <ContextMenuItem
+                  onClick={() => {
+                    sounds.click();
+                    handleArchiveFolder(folder.id);
+                  }}
+                >
                   Archive Folder
                 </ContextMenuItem>
                 <ContextMenuSeparator />
                 <ContextMenuItem
-                  onClick={() => setDeleteFolderTarget(folder.id)}
+                  onClick={() => {
+                    sounds.delete_();
+                    setDeleteFolderTarget(folder.id);
+                  }}
                   variant="destructive"
                 >
                   Delete
@@ -798,7 +817,13 @@ export function Gallery({
                         Try a different search term
                       </p>
                     </div>
-                    <Button onClick={() => setSearchQuery("")} variant="ghost">
+                    <Button
+                      onClick={() => {
+                        sounds.click();
+                        setSearchQuery("");
+                      }}
+                      variant="ghost"
+                    >
                       <X className="size-4" />
                       Clear Search
                     </Button>
@@ -858,26 +883,47 @@ export function Gallery({
             </div>
           </ContextMenuTrigger>
           <ContextMenuContent>
-            <ContextMenuItem onClick={onNewProjectClick}>
+            <ContextMenuItem
+              onClick={() => {
+                sounds.click();
+                onNewProjectClick();
+              }}
+            >
               <LayoutTemplate className="mr-2 size-4" />
               New Project
             </ContextMenuItem>
-            <ContextMenuItem onClick={onNewFolderClick}>
+            <ContextMenuItem
+              onClick={() => {
+                sounds.click();
+                onNewFolderClick();
+              }}
+            >
               <FolderPlus className="mr-2 size-4" />
               New Folder
             </ContextMenuItem>
             <ContextMenuSeparator />
-            <ContextMenuItem onClick={handleAddImage}>
+            <ContextMenuItem
+              onClick={() => {
+                sounds.click();
+                handleAddImage();
+              }}
+            >
               <ImagePlus className="mr-2 size-4" />
               Add Image
             </ContextMenuItem>
-            <ContextMenuItem onClick={() => setShowVideoExtractor(true)}>
+            <ContextMenuItem
+              onClick={() => {
+                sounds.click();
+                setShowVideoExtractor(true);
+              }}
+            >
               <MonitorPlay className="mr-2 size-4" />
               Upload Video
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
               onClick={() => {
+                sounds.select();
                 toggleSelectionMode();
                 selectAll(projects.map((t) => t.id));
               }}
@@ -887,6 +933,7 @@ export function Gallery({
             </ContextMenuItem>
             <ContextMenuItem
               onClick={() => {
+                sounds.click();
                 if (isSelectionMode) {
                   exitSelectionMode();
                 } else {
@@ -932,6 +979,7 @@ export function Gallery({
               )}
               onClick={async () => {
                 if (moveFolderThumbnail) {
+                  sounds.click();
                   await setThumbnailFolder(moveFolderThumbnail.id, null);
                   sileo.success({ title: "Moved out of folder" });
                   setMoveFolderThumbnail(null);
@@ -951,6 +999,7 @@ export function Gallery({
                 key={folder.id}
                 onClick={async () => {
                   if (moveFolderThumbnail) {
+                    sounds.click();
                     await setThumbnailFolder(moveFolderThumbnail.id, folder.id);
                     sileo.success({ title: `Moved to "${folder.name}"` });
                     setMoveFolderThumbnail(null);
@@ -986,6 +1035,7 @@ export function Gallery({
             <button
               className="flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
               onClick={async () => {
+                sounds.click();
                 const ids = Array.from(
                   useSelectionStore.getState().selectedIds
                 );
@@ -1008,6 +1058,7 @@ export function Gallery({
                 className="flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
                 key={folder.id}
                 onClick={async () => {
+                  sounds.click();
                   const ids = Array.from(
                     useSelectionStore.getState().selectedIds
                   );
@@ -1064,6 +1115,7 @@ export function Gallery({
             <Button
               onClick={() => {
                 if (selectedThumbnail && newName.trim()) {
+                  sounds.success();
                   updateThumbnailName(selectedThumbnail.id, newName.trim());
                   sileo.success({ title: "Thumbnail renamed" });
                   setRenameDialogOpen(false);
@@ -1090,9 +1142,14 @@ export function Gallery({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => sounds.click()}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleConfirmDeleteFolder}
+              onClick={() => {
+                sounds.delete_();
+                handleConfirmDeleteFolder();
+              }}
               variant="destructive"
             >
               Delete
@@ -1139,10 +1196,13 @@ export function Gallery({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => sounds.click()}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
                 if (selectedThumbnail) {
+                  sounds.delete_();
                   await deleteThumbnail(selectedThumbnail.id);
                   sileo.info({ title: "Moved to trash" });
                   setDeleteDialogOpen(false);

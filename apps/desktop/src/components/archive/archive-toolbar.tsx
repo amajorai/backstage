@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import type { ViewMode } from "@/App";
 import { ViewModeButtons } from "@/components/toolbar/view-mode-buttons";
+import * as sounds from "@/lib/sounds";
 import type { ArchiveFolder } from "@/stores/use-archive-store";
 
 interface ArchiveToolbarProps {
@@ -79,7 +80,10 @@ export function ArchiveToolbar({
           <div className="flex items-center gap-2">
             <Button
               aria-label="Clear Selection"
-              onClick={onExitSelectionMode}
+              onClick={() => {
+                sounds.click();
+                onExitSelectionMode();
+              }}
               size="icon-sm"
               title="Clear selection"
               variant="ghost"
@@ -95,7 +99,10 @@ export function ArchiveToolbar({
             <TooltipTrigger asChild>
               <Button
                 disabled={isProcessing || selectedCount === 0}
-                onClick={onRestoreSelected}
+                onClick={() => {
+                  sounds.click();
+                  onRestoreSelected();
+                }}
                 size="sm"
                 variant="ghost"
               >
@@ -115,7 +122,10 @@ export function ArchiveToolbar({
             <TooltipTrigger asChild>
               <Button
                 disabled={isProcessing || selectedCount === 0}
-                onClick={onMoveSelectedToFolder}
+                onClick={() => {
+                  sounds.click();
+                  onMoveSelectedToFolder();
+                }}
                 size="sm"
                 variant="ghost"
               >
@@ -133,7 +143,10 @@ export function ArchiveToolbar({
           <div className="flex items-center gap-1">
             <Button
               aria-label="Back to Gallery"
-              onClick={onBack}
+              onClick={() => {
+                sounds.click();
+                onBack();
+              }}
               size="icon-sm"
               variant="ghost"
             >
@@ -152,7 +165,10 @@ export function ArchiveToolbar({
                     ? "bg-secondary text-secondary-foreground"
                     : "text-muted-foreground"
                 }
-                onClick={() => onSelectFolder(null)}
+                onClick={() => {
+                  sounds.click();
+                  onSelectFolder(null);
+                }}
                 size="sm"
                 variant="ghost"
               >
@@ -169,7 +185,10 @@ export function ArchiveToolbar({
                         ? "bg-secondary text-secondary-foreground"
                         : "text-muted-foreground"
                     }
-                    onClick={() => onSelectFolder(folder.id)}
+                    onClick={() => {
+                      sounds.click();
+                      onSelectFolder(folder.id);
+                    }}
                     size="sm"
                     style={folder.color ? { color: folder.color } : undefined}
                     variant="ghost"
@@ -184,14 +203,22 @@ export function ArchiveToolbar({
                       <MoreHorizontal className="size-3" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-40">
-                      <DropdownMenuItem onClick={() => onRenameFolder(folder)}>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          sounds.click();
+                          onRenameFolder(folder);
+                        }}
+                      >
                         <Pencil className="mr-2 size-4" />
                         Rename
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
-                        onClick={() => onDeleteFolder(folder)}
+                        onClick={() => {
+                          sounds.delete_();
+                          onDeleteFolder(folder);
+                        }}
                       >
                         <Trash2 className="mr-2 size-4" />
                         Delete
@@ -204,7 +231,10 @@ export function ArchiveToolbar({
                 <TooltipTrigger asChild>
                   <Button
                     aria-label="New archive folder"
-                    onClick={onCreateFolder}
+                    onClick={() => {
+                      sounds.click();
+                      onCreateFolder();
+                    }}
                     size="icon-sm"
                     title="New folder"
                     variant="ghost"
@@ -249,7 +279,14 @@ export function ArchiveToolbar({
               <>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button onClick={onRestoreAll} size="sm" variant="ghost">
+                    <Button
+                      onClick={() => {
+                        sounds.click();
+                        onRestoreAll();
+                      }}
+                      size="sm"
+                      variant="ghost"
+                    >
                       <RotateCcw className="mr-2 size-4" />
                       Restore All
                     </Button>
@@ -261,7 +298,14 @@ export function ArchiveToolbar({
                 <div className="h-4 w-px bg-border" />
               </>
             )}
-            <Button onClick={onEnterSelectionMode} size="sm" variant="ghost">
+            <Button
+              onClick={() => {
+                sounds.click();
+                onEnterSelectionMode();
+              }}
+              size="sm"
+              variant="ghost"
+            >
               Select
             </Button>
           </div>

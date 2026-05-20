@@ -3,6 +3,7 @@ import { Label } from "@repo/ui/label";
 import { Textarea } from "@repo/ui/textarea";
 import { AlertCircle } from "lucide-react";
 import type { ReactNode } from "react";
+import * as sounds from "@/lib/sounds";
 
 interface GeminiPromptPanelProps {
   hasApiKey: boolean;
@@ -34,7 +35,10 @@ export function GeminiPromptPanel({
           </div>
           <Button
             className="self-start"
-            onClick={onSettings}
+            onClick={() => {
+              sounds.click();
+              onSettings();
+            }}
             size="sm"
             variant="outline"
           >

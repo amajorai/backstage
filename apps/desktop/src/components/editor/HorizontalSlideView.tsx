@@ -72,7 +72,10 @@ export function HorizontalSlideView({
                     {index + 1}
                   </div>
                   <div
-                    onClick={() => setActivePage(index)}
+                    onClick={() => {
+                      sounds.click();
+                      setActivePage(index);
+                    }}
                     style={{
                       width: thumbW,
                       height: thumbH,
@@ -98,7 +101,10 @@ export function HorizontalSlideView({
                       <TooltipTrigger asChild>
                         <Button
                           className="h-5 w-5"
-                          onClick={() => duplicatePage(index)}
+                          onClick={() => {
+                            sounds.click();
+                            duplicatePage(index);
+                          }}
                           size="icon-sm"
                           variant="secondary"
                         >
@@ -112,7 +118,10 @@ export function HorizontalSlideView({
                         <Button
                           className="h-5 w-5"
                           disabled={pages.length <= 1}
-                          onClick={() => removePage(index)}
+                          onClick={() => {
+                            sounds.delete_();
+                            removePage(index);
+                          }}
                           size="icon-sm"
                           variant="secondary"
                         >
@@ -130,7 +139,10 @@ export function HorizontalSlideView({
               <TooltipTrigger asChild>
                 <Button
                   className="flex-shrink-0"
-                  onClick={addPage}
+                  onClick={() => {
+                    sounds.click();
+                    addPage();
+                  }}
                   size="icon"
                   style={{ width: Math.max(28, thumbW * 0.5), height: thumbH }}
                   variant="outline"

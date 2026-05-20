@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { POLAR_CONFIG } from "@/lib/polar-config";
+import * as sounds from "@/lib/sounds";
 import { useLicenseStore } from "@/stores/use-license-store";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -274,7 +275,10 @@ export function CustomerPortalDialog({
               <Button
                 className="w-full"
                 disabled={!email.trim()}
-                onClick={handleSignIn}
+                onClick={() => {
+                  sounds.click();
+                  handleSignIn();
+                }}
                 variant="contrast"
               >
                 Continue
@@ -282,7 +286,10 @@ export function CustomerPortalDialog({
               </Button>
               <Button
                 className="w-full"
-                onClick={() => onOpenChange(false)}
+                onClick={() => {
+                  sounds.click();
+                  onOpenChange(false);
+                }}
                 variant="ghost"
               >
                 Cancel
@@ -321,7 +328,10 @@ export function CustomerPortalDialog({
                   className="flex w-full items-center justify-between rounded-lg border border-border px-4 py-3 text-left transition-colors hover:bg-muted disabled:opacity-50"
                   disabled={k.status !== "granted"}
                   key={k.id}
-                  onClick={() => handleActivate(k.key)}
+                  onClick={() => {
+                    sounds.click();
+                    handleActivate(k.key);
+                  }}
                   type="button"
                 >
                   <div>
@@ -340,7 +350,10 @@ export function CustomerPortalDialog({
             <DialogFooter>
               <button
                 className="cursor-pointer bg-transparent p-0 text-muted-foreground text-sm hover:text-foreground"
-                onClick={() => setStep("email")}
+                onClick={() => {
+                  sounds.click();
+                  setStep("email");
+                }}
                 type="button"
               >
                 ← Use a different account
@@ -386,8 +399,14 @@ export function CustomerPortalDialog({
                   className="w-full"
                   onClick={
                     sessionToken || email
-                      ? handleTransfer
-                      : () => setStep("email")
+                      ? () => {
+                          sounds.click();
+                          handleTransfer();
+                        }
+                      : () => {
+                          sounds.click();
+                          setStep("email");
+                        }
                   }
                   variant="contrast"
                 >
@@ -397,6 +416,7 @@ export function CustomerPortalDialog({
               <Button
                 className="w-full"
                 onClick={() => {
+                  sounds.click();
                   openPortal();
                   setStep("guide");
                 }}
@@ -407,7 +427,10 @@ export function CustomerPortalDialog({
               </Button>
               <Button
                 className="w-full"
-                onClick={() => onOpenChange(false)}
+                onClick={() => {
+                  sounds.click();
+                  onOpenChange(false);
+                }}
                 variant="ghost"
               >
                 Cancel
@@ -455,6 +478,7 @@ export function CustomerPortalDialog({
               <Button
                 className="w-full"
                 onClick={async () => {
+                  sounds.click();
                   setStep("activating");
                   const success = await validateLicense(activeKey);
                   if (success) {
@@ -473,7 +497,14 @@ export function CustomerPortalDialog({
                 <RefreshCw className="mr-2 size-4" />
                 Retry Activation
               </Button>
-              <Button className="w-full" onClick={openPortal} variant="ghost">
+              <Button
+                className="w-full"
+                onClick={() => {
+                  sounds.click();
+                  openPortal();
+                }}
+                variant="ghost"
+              >
                 <ExternalLink className="mr-2 size-4" />
                 Re-open Customer Portal
               </Button>

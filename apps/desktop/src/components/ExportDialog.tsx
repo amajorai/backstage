@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { sileo } from "sileo";
 import { renderLayersToCanvas } from "@/lib/canvas-renderer";
 import { exportCanvasFramesToGif } from "@/lib/gif-encoder";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { exportCanvasFramesToMp4 } from "@/lib/video-encoder";
 import { useEditorStore } from "@/stores/use-editor-store";
@@ -848,7 +849,14 @@ export function ExportDialog({
               ? `Export ${thumbnails!.length} Thumbnails`
               : "Export Image"}
           </h2>
-          <Button onClick={onClose} size="icon-sm" variant="ghost">
+          <Button
+            onClick={() => {
+              sounds.click();
+              onClose();
+            }}
+            size="icon-sm"
+            variant="ghost"
+          >
             <X className="size-4" />
           </Button>
         </div>
@@ -984,6 +992,7 @@ export function ExportDialog({
                           )}
                           key={i}
                           onClick={() => {
+                            sounds.click();
                             const newSet = new Set(selectedIndices);
                             if (newSet.has(i)) {
                               newSet.delete(i);
@@ -1129,7 +1138,10 @@ export function ExportDialog({
                       : "border-0"
                   )}
                   key={f.value}
-                  onClick={() => setFormat(f.value)}
+                  onClick={() => {
+                    sounds.click();
+                    setFormat(f.value);
+                  }}
                   size="sm"
                   variant={format === f.value ? "secondary" : "outline"}
                 >
@@ -1147,7 +1159,10 @@ export function ExportDialog({
                           : "border-0"
                       )}
                       key={f.value}
-                      onClick={() => setFormat(f.value)}
+                      onClick={() => {
+                        sounds.click();
+                        setFormat(f.value);
+                      }}
                       size="sm"
                       variant={format === f.value ? "secondary" : "outline"}
                     >
@@ -1250,7 +1265,13 @@ export function ExportDialog({
         </div>
 
         <div className="flex justify-end gap-3 border-border border-t px-5 py-4">
-          <Button onClick={onClose} variant="ghost">
+          <Button
+            onClick={() => {
+              sounds.click();
+              onClose();
+            }}
+            variant="ghost"
+          >
             Cancel
           </Button>
           <Button
@@ -1263,6 +1284,7 @@ export function ExportDialog({
                   (layerScope === "select" && selectedLayerIndices.size === 0)))
             }
             onClick={() => {
+              sounds.download();
               if (isBatchMode) {
                 handleMultiThumbnailExport();
               } else if (

@@ -27,6 +27,7 @@ import {
   ColorPickerInput,
   ColorPickerTrigger,
 } from "@/components/ui/color-picker";
+import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import type { Layer, TextLayer } from "@/stores/use-editor-store";
 
@@ -139,13 +140,22 @@ export function TextProperties({
           </label>
           <button
             className="cursor-pointer rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-            onClick={onRefreshFonts}
+            onClick={() => {
+              sounds.click();
+              onRefreshFonts();
+            }}
             title="Refresh fonts"
           >
             <RefreshCw className="size-3" />
           </button>
         </div>
-        <Popover onOpenChange={setOpenFont} open={openFont}>
+        <Popover
+          onOpenChange={(isOpen) => {
+            isOpen ? sounds.dialogOpen() : sounds.dialogClose();
+            setOpenFont(isOpen);
+          }}
+          open={openFont}
+        >
           <PopoverTrigger asChild>
             <Button
               aria-expanded={openFont}
@@ -176,6 +186,7 @@ export function TextProperties({
                       <button
                         className="mt-1 w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
                         onClick={() => {
+                          sounds.click();
                           onUpdate({ fontFamily: searchFont });
                           setOpenFont(false);
                         }}
@@ -198,11 +209,13 @@ export function TextProperties({
                               "bg-accent text-accent-foreground"
                           )}
                           onClick={() => {
+                            sounds.click();
                             onUpdate({ fontFamily: font });
                             setOpenFont(false);
                           }}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
+                              sounds.click();
                               onUpdate({ fontFamily: font });
                               setOpenFont(false);
                             }
@@ -248,21 +261,30 @@ export function TextProperties({
         <div className="flex gap-1 pt-5">
           <Button
             className="h-8 w-8 p-0"
-            onClick={toggleBold}
+            onClick={() => {
+              sounds.click();
+              toggleBold();
+            }}
             variant={layer.fontStyle.includes("bold") ? "secondary" : "ghost"}
           >
             <Bold className="size-4" />
           </Button>
           <Button
             className="h-8 w-8 p-0"
-            onClick={toggleItalic}
+            onClick={() => {
+              sounds.click();
+              toggleItalic();
+            }}
             variant={layer.fontStyle.includes("italic") ? "secondary" : "ghost"}
           >
             <Italic className="size-4" />
           </Button>
           <Button
             className="h-8 w-8 p-0"
-            onClick={() => toggleDecoration("underline")}
+            onClick={() => {
+              sounds.click();
+              toggleDecoration("underline");
+            }}
             variant={
               currentDecoration.includes("underline") ? "secondary" : "ghost"
             }
@@ -271,7 +293,10 @@ export function TextProperties({
           </Button>
           <Button
             className="h-8 w-8 p-0"
-            onClick={() => toggleDecoration("line-through")}
+            onClick={() => {
+              sounds.click();
+              toggleDecoration("line-through");
+            }}
             variant={
               currentDecoration.includes("line-through") ? "secondary" : "ghost"
             }
@@ -292,7 +317,10 @@ export function TextProperties({
               <Button
                 className="h-8 flex-1 p-0"
                 key={value}
-                onClick={() => onUpdate({ align: value })}
+                onClick={() => {
+                  sounds.click();
+                  onUpdate({ align: value });
+                }}
                 variant={currentAlign === value ? "secondary" : "ghost"}
               >
                 {icon}
@@ -309,7 +337,10 @@ export function TextProperties({
               <Button
                 className="h-8 flex-1 p-0 text-xs"
                 key={value}
-                onClick={() => onUpdate({ textTransform: value })}
+                onClick={() => {
+                  sounds.click();
+                  onUpdate({ textTransform: value });
+                }}
                 variant={currentTransform === value ? "secondary" : "ghost"}
               >
                 {label}
@@ -445,7 +476,10 @@ export function TextProperties({
           {layer.backgroundColor ? (
             <button
               className="text-muted-foreground text-xs hover:text-foreground"
-              onClick={() => onUpdate({ backgroundColor: "" })}
+              onClick={() => {
+                sounds.click();
+                onUpdate({ backgroundColor: "" });
+              }}
               type="button"
             >
               Remove
@@ -453,7 +487,10 @@ export function TextProperties({
           ) : (
             <button
               className="text-muted-foreground text-xs hover:text-foreground"
-              onClick={() => onUpdate({ backgroundColor: "#ffffff" })}
+              onClick={() => {
+                sounds.click();
+                onUpdate({ backgroundColor: "#ffffff" });
+              }}
               type="button"
             >
               + Add

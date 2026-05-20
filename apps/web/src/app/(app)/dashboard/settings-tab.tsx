@@ -12,14 +12,17 @@ import {
   setPerfMonitoringEnabled,
 } from "@/lib/analytics-prefs";
 import * as sounds from "@/lib/sounds";
+import { getSoundsEnabled, setSoundsEnabled } from "@/lib/sounds-prefs";
 
 export function SettingsTab() {
   const [analytics, setAnalytics] = useState(true);
   const [perf, setPerf] = useState(true);
+  const [soundsEnabled, setSoundsEnabledState] = useState(true);
 
   useEffect(() => {
     setAnalytics(getAnalyticsEnabled());
     setPerf(getPerfMonitoringEnabled());
+    setSoundsEnabledState(getSoundsEnabled());
   }, []);
 
   function handleAnalyticsChange(enabled: boolean) {
@@ -52,6 +55,17 @@ export function SettingsTab() {
         ? "Performance Monitoring enabled"
         : "Performance Monitoring disabled",
     });
+  }
+
+  function handleSoundsChange(enabled: boolean) {
+    setSoundsEnabledState(enabled);
+    setSoundsEnabled(enabled);
+    if (enabled) {
+      sounds.switchOn();
+      sileo.success({ title: "Sound effects enabled" });
+    } else {
+      sileo.success({ title: "Sound effects disabled" });
+    }
   }
 
   return (
@@ -93,6 +107,32 @@ export function SettingsTab() {
             checked={perf}
             id="perf-toggle"
             onCheckedChange={handlePerfChange}
+          />
+        </div>
+      </div>
+
+      <div>
+        <h2 className="font-semibold text-lg">Preferences</h2>
+        <p className="mt-1 text-muted-foreground text-sm">
+          Customize your app experience.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-between rounded-lg border p-4">
+          <div className="space-y-0.5">
+            <Label className="text-base" htmlFor="sounds-toggle">
+              Sound Effects
+            </Label>
+            <p className="text-muted-foreground text-sm">
+              Play audio feedback for button clicks, form submissions, and other
+              interactions.
+            </p>
+          </div>
+          <Switch
+            checked={soundsEnabled}
+            id="sounds-toggle"
+            onCheckedChange={handleSoundsChange}
           />
         </div>
       </div>

@@ -12,6 +12,7 @@ import {
   Wand2,
   X,
 } from "lucide-react";
+import * as sounds from "@/lib/sounds";
 
 interface SelectionToolbarProps {
   selectedCount: number;
@@ -44,7 +45,10 @@ export function SelectionToolbar({
     <div className="flex flex-1 items-center justify-center gap-4">
       <div className="flex items-center gap-2">
         <Button
-          onClick={onClearSelection}
+          onClick={() => {
+            sounds.click();
+            onClearSelection();
+          }}
           size="icon-sm"
           title="Clear selection"
           variant="ghost"
@@ -58,7 +62,10 @@ export function SelectionToolbar({
         <TooltipTrigger asChild>
           <Button
             disabled={isDuplicating}
-            onClick={onDuplicate}
+            onClick={() => {
+              sounds.click();
+              onDuplicate();
+            }}
             size="sm"
             variant="ghost"
           >
@@ -76,7 +83,14 @@ export function SelectionToolbar({
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button onClick={onAutoRename} size="sm" variant="ghost">
+          <Button
+            onClick={() => {
+              sounds.click();
+              onAutoRename();
+            }}
+            size="sm"
+            variant="ghost"
+          >
             <Sparkles className="mr-2 size-4" />
             Auto Rename
           </Button>
@@ -89,7 +103,10 @@ export function SelectionToolbar({
         <TooltipTrigger asChild>
           <Button
             className="text-destructive hover:text-destructive"
-            onClick={onDelete}
+            onClick={() => {
+              sounds.delete_();
+              onDelete();
+            }}
             size="sm"
             variant="ghost"
           >
@@ -103,7 +120,14 @@ export function SelectionToolbar({
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button onClick={onRemoveBackground} size="sm" variant="ghost">
+          <Button
+            onClick={() => {
+              sounds.click();
+              onRemoveBackground();
+            }}
+            size="sm"
+            variant="ghost"
+          >
             <Wand2 className="mr-2 size-4" />
             Remove BG
           </Button>
@@ -114,7 +138,14 @@ export function SelectionToolbar({
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button onClick={onAddColorBackground} size="sm" variant="ghost">
+          <Button
+            onClick={() => {
+              sounds.click();
+              onAddColorBackground();
+            }}
+            size="sm"
+            variant="ghost"
+          >
             <PaintBucket className="mr-2 size-4" />
             Add Color BG
           </Button>
@@ -126,7 +157,14 @@ export function SelectionToolbar({
       {onMoveToFolder && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button onClick={onMoveToFolder} size="sm" variant="ghost">
+            <Button
+              onClick={() => {
+                sounds.click();
+                onMoveToFolder!();
+              }}
+              size="sm"
+              variant="ghost"
+            >
               <FolderOpen className="mr-2 size-4" />
               Move to Folder
             </Button>
@@ -139,7 +177,14 @@ export function SelectionToolbar({
       {onExport && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button onClick={onExport} size="sm" variant="ghost">
+            <Button
+              onClick={() => {
+                sounds.download();
+                onExport!();
+              }}
+              size="sm"
+              variant="ghost"
+            >
               <Download className="mr-2 size-4" />
               Export
             </Button>
@@ -152,7 +197,14 @@ export function SelectionToolbar({
       {onArchive && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button onClick={onArchive} size="sm" variant="ghost">
+            <Button
+              onClick={() => {
+                sounds.click();
+                onArchive!();
+              }}
+              size="sm"
+              variant="ghost"
+            >
               <Archive className="mr-2 size-4" />
               Archive
             </Button>

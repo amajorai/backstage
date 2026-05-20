@@ -54,6 +54,7 @@ import {
   loadRecovery,
   saveRecovery,
 } from "@/lib/revision-storage";
+import * as sounds from "@/lib/sounds";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import type {
   EditorSnapshot,
@@ -1663,7 +1664,10 @@ export function ImageEditor({
                         ? "border-border border-b-2 text-foreground"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
-                    onClick={() => setRightTab("layers")}
+                    onClick={() => {
+                      sounds.click();
+                      setRightTab("layers");
+                    }}
                     type="button"
                   >
                     Layers
@@ -1674,7 +1678,10 @@ export function ImageEditor({
                         ? "border-border border-b-2 text-foreground"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
-                    onClick={() => setRightTab("history")}
+                    onClick={() => {
+                      sounds.click();
+                      setRightTab("history");
+                    }}
                     type="button"
                   >
                     History
@@ -1685,7 +1692,10 @@ export function ImageEditor({
                         ? "border-border border-b-2 text-foreground"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
-                    onClick={() => setRightTab("revisions")}
+                    onClick={() => {
+                      sounds.click();
+                      setRightTab("revisions");
+                    }}
                     type="button"
                   >
                     Saves
@@ -1743,6 +1753,7 @@ export function ImageEditor({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
+                sounds.click();
                 setShowConfirmClose(false);
                 onClose();
               }}
@@ -1768,6 +1779,7 @@ export function ImageEditor({
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={() => {
+                sounds.click();
                 if (projectId) deleteRecovery(projectId);
                 setShowRecoveryDialog(false);
               }}
@@ -1776,6 +1788,7 @@ export function ImageEditor({
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
+                sounds.success();
                 if (recoveryPages) {
                   useEditorStore.setState({
                     pages: recoveryPages,
