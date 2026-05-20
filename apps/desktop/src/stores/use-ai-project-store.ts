@@ -121,6 +121,7 @@ export const useAiProjectStore = create<AiProjectStore>((set, get) => ({
     }
 
     const updatedGraph: AiProjectGraph = {
+      schemaVersion: 1,
       nodes: updatedNodes,
       activeNodeId: nodeId,
     };

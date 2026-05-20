@@ -1,14 +1,11 @@
 import { appDataDir, join } from "@tauri-apps/api/path";
-import {
-  exists,
-  mkdir,
-  readFile,
-  remove,
-  writeFile,
-} from "@tauri-apps/plugin-fs";
+import { exists, readFile, remove, writeFile } from "@tauri-apps/plugin-fs";
 import { getDb } from "@/lib/db";
+import { bytesToDataUrl, dataUrlToBytes, ensureDir } from "@/lib/fs-utils";
+import { migrate } from "@/lib/schema-migration";
 
 const AI_PROJECTS_DIR = "ai-projects";
+const GRAPH_SCHEMA_VERSION = 1;
 
 export interface AiGenerationNode {
   id: string;
@@ -22,6 +19,7 @@ export interface AiGenerationNode {
 }
 
 export interface AiProjectGraph {
+  schemaVersion: number;
   nodes: AiGenerationNode[];
   activeNodeId: string | null;
 }
@@ -33,6 +31,11 @@ export interface AiProjectRecord {
   updatedAt: number;
 }
 
+const graphMigrations = {
+  // v0 had no schemaVersion — same shape, just stamp the version
+  0: (d: Record<string, unknown>) => ({ ...d, schemaVersion: 1 }),
+} as const;
+
 async function getBaseDir(): Promise<string> {
   const appData = await appDataDir();
   return join(appData, AI_PROJECTS_DIR);
@@ -41,12 +44,6 @@ async function getBaseDir(): Promise<string> {
 async function getProjectDir(projectId: string): Promise<string> {
   const base = await getBaseDir();
   return join(base, projectId);
-}
-
-async function ensureDir(path: string): Promise<void> {
-  if (!(await exists(path))) {
-    await mkdir(path, { recursive: true });
-  }
 }
 
 export async function createAiProject(id: string, name: string): Promise<void> {
@@ -58,7 +55,11 @@ export async function createAiProject(id: string, name: string): Promise<void> {
   );
   const dir = await getProjectDir(id);
   await ensureDir(dir);
-  const emptyGraph: AiProjectGraph = { nodes: [], activeNodeId: null };
+  const emptyGraph: AiProjectGraph = {
+    schemaVersion: GRAPH_SCHEMA_VERSION,
+    nodes: [],
+    activeNodeId: null,
+  };
   await writeGraphFile(dir, emptyGraph);
 }
 
@@ -103,9 +104,16 @@ export async function loadProjectGraph(
   projectId: string
 ): Promise<AiProjectGraph> {
   const path = await graphPath(projectId);
-  if (!(await exists(path))) return { nodes: [], activeNodeId: null };
+  if (!(await exists(path))) {
+    return {
+      schemaVersion: GRAPH_SCHEMA_VERSION,
+      nodes: [],
+      activeNodeId: null,
+    };
+  }
   const bytes = await readFile(path);
-  return JSON.parse(new TextDecoder().decode(bytes)) as AiProjectGraph;
+  const raw = JSON.parse(new TextDecoder().decode(bytes));
+  return migrate<AiProjectGraph>(raw, graphMigrations, GRAPH_SCHEMA_VERSION);
 }
 
 export async function saveProjectGraph(
@@ -115,7 +123,7 @@ export async function saveProjectGraph(
   const db = await getDb();
   const dir = await getProjectDir(projectId);
   await ensureDir(dir);
-  await writeGraphFile(dir, graph);
+  await writeGraphFile(dir, { ...graph, schemaVersion: GRAPH_SCHEMA_VERSION });
   await db.execute("UPDATE ai_projects SET updatedAt = ? WHERE id = ?", [
     Date.now(),
     projectId,
@@ -131,14 +139,7 @@ export async function saveNodeImage(
   const dir = await getProjectDir(projectId);
   await ensureDir(dir);
   const path = await join(dir, `${nodeId}_${index}.webp`);
-  const base64 = dataUrl.split(",")[1];
-  if (!base64) throw new Error("Invalid data URL");
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  await writeFile(path, bytes);
+  await writeFile(path, dataUrlToBytes(dataUrl));
 }
 
 export async function loadNodeImages(
@@ -152,11 +153,7 @@ export async function loadNodeImages(
     const path = await join(dir, `${nodeId}_${i}.webp`);
     if (!(await exists(path))) continue;
     const bytes = await readFile(path);
-    let binary = "";
-    for (const byte of bytes) {
-      binary += String.fromCharCode(byte);
-    }
-    images.push(`data:image/webp;base64,${btoa(binary)}`);
+    images.push(bytesToDataUrl(bytes, "image/webp"));
   }
   return images;
 }

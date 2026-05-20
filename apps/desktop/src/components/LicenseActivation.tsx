@@ -26,8 +26,8 @@ const BENEFITS = [
     desc: "No subscription. Pay once, own it forever.",
   },
   {
-    title: "All future updates included",
-    desc: "Every new feature and improvement, always.",
+    title: "1 year of updates included",
+    desc: "Every new feature and improvement for a full year.",
   },
   {
     title: "30-day money back guarantee",

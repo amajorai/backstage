@@ -2267,10 +2267,10 @@ function OssCallout() {
               </h2>
               <p className="mb-6 text-muted-foreground">
                 Every line of Backstage is on GitHub: the desktop app, the pro
-                level editing engine, and the AI integrations. The lifetime deal
-                is for the prebuilt, signed, auto-updating binaries we ship and
-                support. If you&apos;d rather compile it yourself, that&apos;s
-                free.
+                level editing engine, and the AI integrations. The one-time
+                purchase is for the prebuilt, signed, auto-updating binaries we
+                ship and support — including 1 year of updates. If you&apos;d
+                rather compile it yourself, that&apos;s free.
               </p>
               <div className="flex flex-wrap gap-3">
                 <a
@@ -2374,15 +2374,15 @@ function Pricing() {
                     Backstage Lifetime
                   </h3>
                   <p className="text-muted-foreground text-sm">
-                    One payment. Every feature. Every update. Every platform.
-                    Forever.
+                    One payment. Every feature. Every platform. Yours forever,
+                    with 1 year of updates included.
                   </p>
                 </div>
                 <ul className="flex flex-col gap-2.5">
                   {[
                     "Layer editor, AI tools, video extractor, carousel",
                     "Mac, Windows, and Linux signed binaries",
-                    "All future updates (template library, A/B analyzer, more)",
+                    "1 year of updates included (template library, A/B analyzer, more)",
                     "Priority email support, direct from the dev",
                     "Use on every device you own",
                   ].map((item) => (
@@ -2509,7 +2509,7 @@ function FAQ() {
   const items = [
     {
       q: 'What does "lifetime" actually mean?',
-      a: 'You hire Backstage once for $29 and it works for you forever, on every machine you own. No subscription, no expiry, no "AI credit" meter. Every future version is included. If we shut down tomorrow, your designer keeps running because it lives on your machine, not ours.',
+      a: 'You hire Backstage once for $29 and it works on your machine forever — no subscription, no expiry, no "AI credit" meter. Your purchase includes 1 year of updates from the day you buy. After that year, your app keeps running exactly as it was; you just won\'t receive new versions unless you renew. If we shut down tomorrow, your designer keeps working because it lives on your machine, not ours.',
       open: true,
     },
     {

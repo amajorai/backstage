@@ -1,15 +1,17 @@
 import { appDataDir, join } from "@tauri-apps/api/path";
 import {
   exists,
-  mkdir,
   readFile,
   remove,
   rename,
   writeFile,
 } from "@tauri-apps/plugin-fs";
+import { bytesToDataUrl, dataUrlToBytes, ensureDir } from "@/lib/fs-utils";
 import { logger } from "@/lib/logger";
+import { migrate } from "@/lib/schema-migration";
 
 const THUMBNAILS_DIR = "thumbnails";
+const LAYERS_SCHEMA_VERSION = 1;
 const PREVIEW_SIZE = 1920; // Preview thumbnail max dimension in pixels
 
 /**
@@ -26,43 +28,6 @@ async function getThumbnailsBaseDir(): Promise<string> {
 async function getThumbDir(id: string): Promise<string> {
   const baseDir = await getThumbnailsBaseDir();
   return await join(baseDir, id);
-}
-
-/**
- * Ensure a directory exists, creating it if necessary
- */
-async function ensureDir(path: string): Promise<void> {
-  if (!(await exists(path))) {
-    await mkdir(path, { recursive: true });
-  }
-}
-
-/**
- * Convert data URL to Uint8Array
- */
-function dataUrlToBytes(dataUrl: string): Uint8Array {
-  const base64 = dataUrl.split(",")[1];
-  if (!base64) {
-    throw new Error("Invalid data URL: missing base64 content");
-  }
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
-}
-
-/**
- * Convert Uint8Array to data URL
- */
-function bytesToDataUrl(bytes: Uint8Array, mimeType: string): string {
-  let binary = "";
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  const base64 = btoa(binary);
-  return `data:${mimeType};base64,${base64}`;
 }
 
 /**
@@ -201,6 +166,15 @@ export async function loadFullImage(id: string): Promise<string | null> {
   }
 }
 
+interface LayerFileV1 {
+  schemaVersion: 1;
+  layers: unknown[];
+}
+
+const layerMigrations = {
+  0: (d: Record<string, unknown>) => ({ ...d, schemaVersion: 1 }),
+} as const;
+
 /**
  * Save layer data to file
  */
@@ -212,9 +186,8 @@ export async function saveLayerData(
   await ensureDir(thumbDir);
 
   const layersPath = await join(thumbDir, "layers.json");
-  const layersJson = JSON.stringify(layers);
-  const encoder = new TextEncoder();
-  await writeFile(layersPath, encoder.encode(layersJson));
+  const data: LayerFileV1 = { schemaVersion: LAYERS_SCHEMA_VERSION, layers };
+  await writeFile(layersPath, new TextEncoder().encode(JSON.stringify(data)));
 }
 
 /**
@@ -230,9 +203,15 @@ export async function loadLayerData(id: string): Promise<unknown[] | null> {
     }
 
     const bytes = await readFile(layersPath);
-    const decoder = new TextDecoder();
-    const json = decoder.decode(bytes);
-    return JSON.parse(json);
+    const raw = JSON.parse(new TextDecoder().decode(bytes));
+    // v0 wrote a bare layer array
+    if (Array.isArray(raw)) return raw;
+    const data = migrate<LayerFileV1>(
+      raw,
+      layerMigrations,
+      LAYERS_SCHEMA_VERSION
+    );
+    return data.layers;
   } catch (error) {
     logger.error(
       { err: error, thumbnailId: id },

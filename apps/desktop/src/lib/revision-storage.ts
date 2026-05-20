@@ -2,16 +2,35 @@ import { appDataDir, join } from "@tauri-apps/api/path";
 import {
   exists,
   size as fsSize,
-  mkdir,
   readFile,
   remove,
   writeFile,
 } from "@tauri-apps/plugin-fs";
+import { ensureDir } from "@/lib/fs-utils";
 import { logger } from "@/lib/logger";
+import { migrate } from "@/lib/schema-migration";
 import type { Page } from "@/stores/use-editor-store";
 
 const RECOVERY_DIR = "recovery";
 const REVISIONS_DIR = "revisions";
+const RECOVERY_SCHEMA_VERSION = 1;
+const REVISION_SCHEMA_VERSION = 1;
+
+interface RecoveryFileV1 {
+  schemaVersion: 1;
+  savedAt: number;
+  pages: Page[];
+}
+
+interface RevisionFileV1 {
+  schemaVersion: 1;
+  pages: Page[];
+}
+
+const recoveryMigrations = {
+  // v0 had no schemaVersion field — same shape, just add the version stamp
+  0: (d: Record<string, unknown>) => ({ ...d, schemaVersion: 1 }),
+} as const;
 
 async function getRecoveryDir(): Promise<string> {
   const appData = await appDataDir();
@@ -23,17 +42,6 @@ async function getRevisionsBaseDir(): Promise<string> {
   return join(appData, REVISIONS_DIR);
 }
 
-async function ensureDir(path: string): Promise<void> {
-  if (!(await exists(path))) {
-    await mkdir(path, { recursive: true });
-  }
-}
-
-interface RecoveryFile {
-  savedAt: number;
-  pages: Page[];
-}
-
 export async function saveRecovery(
   projectId: string,
   pages: Page[]
@@ -42,7 +50,11 @@ export async function saveRecovery(
     const dir = await getRecoveryDir();
     await ensureDir(dir);
     const filePath = await join(dir, `${projectId}.json`);
-    const data: RecoveryFile = { savedAt: Date.now(), pages };
+    const data: RecoveryFileV1 = {
+      schemaVersion: RECOVERY_SCHEMA_VERSION,
+      savedAt: Date.now(),
+      pages,
+    };
     await writeFile(filePath, new TextEncoder().encode(JSON.stringify(data)));
   } catch (error) {
     logger.error({ err: error }, "[Recovery] Failed to save");
@@ -57,7 +69,12 @@ export async function loadRecovery(
     const filePath = await join(dir, `${projectId}.json`);
     if (!(await exists(filePath))) return null;
     const bytes = await readFile(filePath);
-    const data = JSON.parse(new TextDecoder().decode(bytes)) as RecoveryFile;
+    const raw = JSON.parse(new TextDecoder().decode(bytes));
+    const data = migrate<RecoveryFileV1>(
+      raw,
+      recoveryMigrations,
+      RECOVERY_SCHEMA_VERSION
+    );
     return { savedAt: data.savedAt, pages: data.pages };
   } catch (error) {
     logger.error({ err: error }, "[Recovery] Failed to load");
@@ -84,7 +101,11 @@ export async function saveRevisionData(
   const projectDir = await join(base, projectId);
   await ensureDir(projectDir);
   const filePath = await join(projectDir, `${revId}.json`);
-  await writeFile(filePath, new TextEncoder().encode(JSON.stringify(pages)));
+  const data: RevisionFileV1 = {
+    schemaVersion: REVISION_SCHEMA_VERSION,
+    pages,
+  };
+  await writeFile(filePath, new TextEncoder().encode(JSON.stringify(data)));
 }
 
 export async function loadRevisionData(
@@ -96,7 +117,11 @@ export async function loadRevisionData(
     const filePath = await join(base, projectId, `${revId}.json`);
     if (!(await exists(filePath))) return null;
     const bytes = await readFile(filePath);
-    return JSON.parse(new TextDecoder().decode(bytes)) as Page[];
+    const raw = JSON.parse(new TextDecoder().decode(bytes));
+    // v0 wrote a bare Page[] array — handle gracefully
+    if (Array.isArray(raw)) return raw as Page[];
+    const data = migrate<RevisionFileV1>(raw, {}, REVISION_SCHEMA_VERSION);
+    return data.pages;
   } catch (error) {
     logger.error({ err: error }, "[Revisions] Failed to load revision data");
     return null;
@@ -165,18 +190,12 @@ export async function getProjectStorageSize(
   let total = 0;
   for (const p of paths) {
     try {
-      const e = await exists(p);
-      // eslint-disable-next-line no-console
-      console.log("[StorageSize]", p, "exists:", e);
-      if (e) {
-        const s = await fsSize(p);
-        console.log("[StorageSize]", p, "size:", s);
-        total += s;
+      if (await exists(p)) {
+        total += await fsSize(p);
       }
-    } catch (err) {
-      console.log("[StorageSize] error for", p, err);
+    } catch {
+      // ignore per-path errors
     }
   }
-  console.log("[StorageSize] total:", total);
   return total;
 }

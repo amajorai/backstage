@@ -75,7 +75,9 @@ if (version < TARGET_VERSION) {
 }
 ```
 
-Never use try-catch ALTER TABLE — it hides schema drift and makes the version state unknowable.
+Never use try-catch ALTER TABLE in **new migrations** — it hides schema drift and makes the version state unknowable. New migrations must rely on `PRAGMA user_version` to know what's already been applied.
+
+The one exception is the **`safeAddColumn` helper in `lib/db.ts`**, which catches "duplicate column name" errors specifically for the bootstrap-from-untracked-installs path. Pre-tracker installs may report `user_version = 0` while having a fully-migrated schema, and the migration loop has to be safe to re-run on them. New migrations should still use `safeAddColumn` for any `ADD COLUMN` so the bootstrap path remains forward-safe.
 
 ## License Version Gate
 

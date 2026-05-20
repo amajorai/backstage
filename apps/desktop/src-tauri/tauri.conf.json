@@ -43,7 +43,12 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "upgradeCode": "B4E1D3A2-7F6C-4B8E-9A1D-2C5F3E8B0D4A"
+      }
+    }
   },
   "plugins": {
     "updater": {

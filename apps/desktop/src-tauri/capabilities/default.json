@@ -38,7 +38,8 @@
         { "path": "$HOME/**" },
         { "path": "$DOWNLOAD/**" },
         { "path": "$DESKTOP/**" },
-        { "path": "$DOCUMENT/**" }
+        { "path": "$DOCUMENT/**" },
+        { "path": "$LOCALAPPDATA/**" }
       ]
     },
     "sql:default",

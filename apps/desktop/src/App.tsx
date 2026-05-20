@@ -33,6 +33,7 @@ import { SettingsPage } from "@/components/SettingsPage";
 import { TrashPage } from "@/components/TrashPage";
 import { ResizablePanel } from "@/components/ui/resizable-panel";
 import { Toaster } from "@/components/ui/sonner";
+import { VersionGateModal } from "@/components/VersionGateModal";
 import { VideoExtractor } from "@/components/VideoExtractor";
 import { useAppUpdater } from "@/hooks/use-app-updater";
 import { usePersistedViewMode } from "@/hooks/use-persisted-view-mode";
@@ -125,9 +126,19 @@ export default function App() {
   } = useAppSettingsStore();
 
   useEffect(() => {
-    runMigrations();
-    loadStoredLicense();
-    loadSettings();
+    // App-data migration must finish first — it moves files from the old
+    // `pub.youtube.desktop` appdata dir to the current one. Reading the
+    // license/settings before it completes can show a freshly-installed user
+    // as unlicensed on upgrade from the rebranded build.
+    (async () => {
+      try {
+        await runMigrations();
+      } catch {
+        // best-effort migration; still load license/settings
+      }
+      loadStoredLicense();
+      loadSettings();
+    })();
   }, [loadStoredLicense, loadSettings]);
 
   useEffect(() => {
@@ -549,6 +560,7 @@ export default function App() {
         <BackgroundRemovalQueue />
         <AutoRenameQueue />
         <UpdateChecker />
+        <VersionGateModal />
         <WindowBoundsManager />
       </div>
     </TooltipProvider>

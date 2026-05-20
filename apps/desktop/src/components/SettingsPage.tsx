@@ -73,7 +73,12 @@ import {
   downloadAndInstall,
   useUpdateStore,
 } from "@/hooks/use-app-updater";
-import { closeDb, getDb } from "@/lib/db";
+import {
+  APP_DATA_DIRS,
+  APP_DATA_FILES,
+  DATA_SCHEMA_VERSIONS,
+} from "@/lib/data-versions";
+import { closeDb, getDb, getSqliteSchemaVersion } from "@/lib/db";
 import {
   getGeminiApiKey,
   removeGeminiApiKey,
@@ -1837,15 +1842,22 @@ function StorageSettings({
             emitToast(label);
           };
 
+          // Write manifest so future imports can check compatibility
+          const appVersion = await getVersion();
+          const sqliteVersion = await getSqliteSchemaVersion();
+          const manifest = {
+            schemaVersion: 1,
+            appVersion,
+            createdAt: new Date().toISOString(),
+            dataSchemaVersions: {
+              ...DATA_SCHEMA_VERSIONS,
+              sqlite: sqliteVersion,
+            },
+          };
+          zip.file("manifest.json", JSON.stringify(manifest, null, 2));
+
           setPhase("Backing up database…");
-          for (const fname of [
-            "gallery.db",
-            "embeddings.db",
-            "embeddings.db-wal",
-            "embeddings.db-shm",
-            "settings.json",
-            "license.json",
-          ]) {
+          for (const fname of APP_DATA_FILES) {
             try {
               zip.file(fname, await readFile(await join(appData, fname)));
             } catch {
@@ -1853,18 +1865,14 @@ function StorageSettings({
             }
           }
 
-          const dirLabels: Record<string, string> = {
+          const dirLabels: Record<(typeof APP_DATA_DIRS)[number], string> = {
             thumbnails: "Backing up projects…",
             trash: "Backing up trash…",
             revisions: "Backing up revision history…",
             recovery: "Backing up recovery files…",
+            "ai-projects": "Backing up AI projects…",
           };
-          for (const dir of [
-            "thumbnails",
-            "trash",
-            "revisions",
-            "recovery",
-          ] as const) {
+          for (const dir of APP_DATA_DIRS) {
             const dirPath = await join(appData, dir);
             if (await exists(dirPath)) {
               setPhase(dirLabels[dir]);
@@ -1964,6 +1972,48 @@ function StorageSettings({
     );
 
     try {
+      setPhase("Checking backup compatibility…");
+      // Read manifest from the ZIP to verify schema compatibility before touching the DB.
+      // - Missing manifest is OK (legacy backups from before manifest support).
+      // - Present but malformed → abort (don't risk corrupting current data).
+      // - Present and any data schema version exceeds what this app supports → abort.
+      const zipBytes = await readFile(zipPath);
+      const peekZip = await JSZip.loadAsync(zipBytes);
+      const manifestFile = peekZip.file("manifest.json");
+      if (manifestFile) {
+        let manifest: {
+          dataSchemaVersions?: Record<string, number>;
+        };
+        try {
+          manifest = JSON.parse(await manifestFile.async("string"));
+        } catch {
+          throw new Error(
+            "Backup manifest is corrupt. Refusing to restore — file an issue if this backup was produced by a recent version."
+          );
+        }
+        const backupVersions = manifest.dataSchemaVersions ?? {};
+        const currentSqliteVersion = await getSqliteSchemaVersion();
+        const currentVersions: Record<string, number> = {
+          ...DATA_SCHEMA_VERSIONS,
+          sqlite: currentSqliteVersion,
+        };
+        for (const [key, backupVer] of Object.entries(backupVersions)) {
+          const currentVer = currentVersions[key];
+          if (currentVer === undefined) {
+            // Backup carries a versioned surface this app doesn't know about
+            // → newer app made the backup. Refuse to restore.
+            throw new Error(
+              `This backup contains data type "${key}" (v${backupVer}) that this version of the app doesn't recognise. Please update the app before restoring this backup.`
+            );
+          }
+          if (backupVer > currentVer) {
+            throw new Error(
+              `This backup requires ${key} schema v${backupVer} but you are running v${currentVer}. Please update the app before restoring this backup.`
+            );
+          }
+        }
+      }
+
       setPhase("Extracting backup…");
       // Checkpoint the WAL into the main DB file before closing so no stale
       // WAL pages are left on disk to corrupt the restored database on reopen.
@@ -2040,15 +2090,12 @@ function StorageSettings({
     try {
       await closeDb();
       const appData = await appDataDir();
+      // gallery.db-wal/shm are write-ahead-log files SQLite recreates; include
+      // them in wipe so a stale WAL doesn't replay on the next launch.
       for (const fname of [
-        "gallery.db",
+        ...APP_DATA_FILES,
         "gallery.db-wal",
         "gallery.db-shm",
-        "embeddings.db",
-        "embeddings.db-wal",
-        "embeddings.db-shm",
-        "settings.json",
-        "license.json",
       ]) {
         try {
           await remove(await join(appData, fname));
@@ -2056,7 +2103,7 @@ function StorageSettings({
           /* may not exist */
         }
       }
-      for (const dir of ["thumbnails", "trash", "revisions", "recovery"]) {
+      for (const dir of APP_DATA_DIRS) {
         try {
           const dirPath = await join(appData, dir);
           if (await exists(dirPath)) {
@@ -2294,7 +2341,7 @@ function BillingSettings() {
               ? `${validatedData.customerEmail} · To transfer to another device, deactivate here first and reactivate via the portal.`
               : "To transfer to another device, deactivate here first and reactivate via the portal."
           }
-          title="Lifetime License"
+          title="License"
         >
           <Button
             onClick={() => {
