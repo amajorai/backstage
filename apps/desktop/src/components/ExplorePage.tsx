@@ -99,6 +99,17 @@ export function ExplorePage({
   const favouriteIds = useYtFavouritesStore((s) => s.favouriteIds);
   const favourites = useYtFavouritesStore((s) => s.favourites);
 
+  const [selectedCollectionId, setSelectedCollectionId] =
+    useState<string>(ALL_SAVED_ID);
+  const collectionsMembership = useYtCollectionsStore((s) => s.membership);
+
+  const visibleFavourites = useMemo(() => {
+    if (selectedCollectionId === ALL_SAVED_ID) return favourites;
+    return favourites.filter((f) =>
+      collectionsMembership.get(f.id)?.has(selectedCollectionId)
+    );
+  }, [favourites, collectionsMembership, selectedCollectionId]);
+
   // Autocomplete: first history item that starts with current input
   const suggestion = useMemo(() => {
     if (!(searchInput && saveSearchHistory)) return "";

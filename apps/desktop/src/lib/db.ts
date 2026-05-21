@@ -5,7 +5,7 @@ let db: Database | null = null;
 let dbInitPromise: Promise<Database> | null = null;
 
 // Bump this whenever you add a new migration below.
-const TARGET_SCHEMA_VERSION = 7;
+const TARGET_SCHEMA_VERSION = 8;
 
 type MigrationFn = (database: Database) => Promise<void>;
 
@@ -136,6 +136,29 @@ const migrations: Record<number, MigrationFn> = {
   7: async (_database) => {
     // Schema version tracking introduced — no structural changes needed.
     // Future migrations go here as version 8, 9, etc.
+  },
+  8: async (database) => {
+    await database.execute(`
+      CREATE TABLE IF NOT EXISTS yt_collections (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        color TEXT,
+        sortOrder INTEGER NOT NULL DEFAULT 0,
+        createdAt INTEGER NOT NULL,
+        updatedAt INTEGER NOT NULL
+      )
+    `);
+    await database.execute(`
+      CREATE TABLE IF NOT EXISTS yt_collection_items (
+        collectionId TEXT NOT NULL,
+        videoId TEXT NOT NULL,
+        addedAt INTEGER NOT NULL,
+        PRIMARY KEY (collectionId, videoId)
+      )
+    `);
+    await database.execute(
+      "CREATE INDEX IF NOT EXISTS idx_yt_collection_items_videoId ON yt_collection_items(videoId)"
+    );
   },
 };
 
