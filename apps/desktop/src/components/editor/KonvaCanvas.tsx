@@ -425,7 +425,14 @@ export function KonvaCanvas({
           "@/lib/bg-removal-pipeline"
         );
         const result = await runBgRemovalPipeline(
-          (layer as import("@/stores/use-editor-store").ImageLayer).dataUrl
+          (layer as import("@/stores/use-editor-store").ImageLayer).dataUrl,
+          (stage) =>
+            sileo.show({
+              title: stage,
+              type: "loading",
+              duration: null,
+              id: toastId,
+            } as any)
         );
         const img = new window.Image();
         img.onload = () => {

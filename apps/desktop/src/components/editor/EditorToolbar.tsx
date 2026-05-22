@@ -26,6 +26,7 @@ import {
   Type,
   Undo2,
   Wand2,
+  Zap,
 } from "lucide-react";
 import * as sounds from "@/lib/sounds";
 import { useEditorStore } from "@/stores/use-editor-store";
@@ -39,6 +40,7 @@ interface EditorToolbarProps {
   onAddColorBackground: () => void;
   onAddImage: () => void;
   onAiGenerate: () => void;
+  onQuickAiEdit: () => void;
   onSaveLayerAsImage: () => void;
   onGenerateCarousel: () => void;
   onAddIcon: (dataUrl: string) => void;
@@ -55,6 +57,7 @@ export function EditorToolbar({
   onAddColorBackground,
   onAddImage,
   onAiGenerate,
+  onQuickAiEdit,
   onSaveLayerAsImage,
   onGenerateCarousel,
   onAddIcon,
@@ -525,6 +528,33 @@ export function EditorToolbar({
           {!activeLayer || activeLayer.type !== "image"
             ? "Select an image layer to generate (A)"
             : "Generate Image (A)"}
+        </TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={
+              canRemoveBg ? undefined : "pointer-events-none opacity-40"
+            }
+          >
+            <Button
+              disabled={!canRemoveBg}
+              onClick={() => {
+                sounds.click();
+                onQuickAiEdit();
+              }}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <Zap className="size-4" />
+            </Button>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          {!activeLayer || activeLayer.type !== "image"
+            ? "Select an image layer to quick edit (Z)"
+            : "Quick AI Edit (Z)"}
         </TooltipContent>
       </Tooltip>
 

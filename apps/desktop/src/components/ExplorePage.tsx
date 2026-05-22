@@ -1,11 +1,13 @@
-﻿import { Button } from "@repo/ui/button";
+import { Button } from "@repo/ui/button";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   ArrowLeft,
+  Bot,
   ExternalLink,
   Eye,
   Heart,
   Loader2,
+  RotateCcw,
   Search,
   Settings,
   ThumbsUp,
@@ -15,6 +17,9 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { sileo } from "sileo";
 import type { ViewMode } from "@/App";
+import { MyChannelTab } from "@/components/explore/MyChannelTab";
+import { VideoAnalyticsPanel } from "@/components/explore/VideoAnalyticsPanel";
+import { YoutubeAnalystPanel } from "@/components/explore/YoutubeAnalystPanel";
 import { EmptyState } from "@/components/gallery/EmptyState";
 import { SearchHistoryDropdown } from "@/components/SearchHistoryDropdown";
 import { ScrollFadeEffect } from "@/components/scroll-fade-effect";
@@ -32,11 +37,17 @@ import {
 import { getYoutubeApiKey } from "@/lib/youtube-store";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import { useSearchHistoryStore } from "@/stores/use-search-history-store";
+import {
+  ALL_SAVED_ID,
+  useYtCollectionsStore,
+} from "@/stores/use-yt-collections-store";
 import { useYtFavouritesStore } from "@/stores/use-yt-favourites-store";
 
 const SAVED_CATEGORY_ID = "saved" as const;
+const MY_CHANNEL_CATEGORY_ID = "my-channel" as const;
 
 const CATEGORIES = [
+  { id: MY_CHANNEL_CATEGORY_ID, label: "My Channel" },
   { id: undefined, label: "Trending" },
   { id: SAVED_CATEGORY_ID, label: "Saved" },
   { id: "10", label: "Music" },
@@ -70,17 +81,20 @@ export function ExplorePage({
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
-  const [selectedCategory, setSelectedCategory] =
-    useState<CategoryId>(undefined);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId>(
+    MY_CHANNEL_CATEGORY_ID
+  );
   const [viewMode, setViewMode] = usePersistedViewMode(
     "view-mode:explore",
     "3"
   );
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
+  const [analystOpen, setAnalystOpen] = useState(false);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const apiKeyRef = useRef<string | null>(null);
   const activeQueryRef = useRef("");
-  const selectedCategoryRef = useRef<CategoryId>(undefined);
+  const selectedCategoryRef = useRef<CategoryId>(MY_CHANNEL_CATEGORY_ID);
   const nextPageTokenRef = useRef<string | undefined>(undefined);
   const categoryIndexRef = useRef(0);
   const seenIdsRef = useRef(new Set<string>());
@@ -137,7 +151,11 @@ export function ExplorePage({
   }, []);
 
   const fetchNextChunk = useCallback(async (append: boolean) => {
-    if (selectedCategoryRef.current === SAVED_CATEGORY_ID) return;
+    if (
+      selectedCategoryRef.current === SAVED_CATEGORY_ID ||
+      selectedCategoryRef.current === MY_CHANNEL_CATEGORY_ID
+    )
+      return;
     const key = apiKeyRef.current;
     if (!key) return;
     if (isLoadingRef.current || isLoadingMoreRef.current) return;
@@ -223,7 +241,7 @@ export function ExplorePage({
   useEffect(() => {
     if (!apiKey) return;
     activeQueryRef.current = "";
-    selectedCategoryRef.current = undefined;
+    selectedCategoryRef.current = MY_CHANNEL_CATEGORY_ID;
     resetAndFetch();
   }, [apiKey, resetAndFetch]);
 
@@ -249,7 +267,8 @@ export function ExplorePage({
       selectedCategoryRef.current = id;
       setSearchInput("");
       activeQueryRef.current = "";
-      if (id !== SAVED_CATEGORY_ID) resetAndFetch();
+      if (id !== SAVED_CATEGORY_ID && id !== MY_CHANNEL_CATEGORY_ID)
+        resetAndFetch();
     },
     [resetAndFetch]
   );
@@ -383,11 +402,24 @@ export function ExplorePage({
             )}
           </div>
         </div>
+
+        <Button
+          aria-label="AI Analyst"
+          onClick={() => {
+            sounds.click();
+            setAnalystOpen(true);
+          }}
+          size="icon-sm"
+          title="AI Analyst"
+          variant="ghost"
+        >
+          <Bot className="size-4" />
+        </Button>
       </div>
     </div>
   );
 
-  if (!apiKey) {
+  if (!apiKey && selectedCategory !== MY_CHANNEL_CATEGORY_ID) {
     return (
       <>
         <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
@@ -433,100 +465,118 @@ export function ExplorePage({
             ))}
           </div>
 
-          <ScrollFadeEffect
-            className="h-full p-4 pt-12"
-            onScroll={handleScroll}
-            ref={scrollContainerRef}
-          >
-            {isLoading && selectedCategory !== SAVED_CATEGORY_ID ? (
-              <div className="flex h-48 items-center justify-center">
-                <Loader2 className="size-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : error && selectedCategory !== SAVED_CATEGORY_ID ? (
-              <div className="flex h-48 flex-col items-center justify-center gap-4">
-                <div className="text-muted-foreground opacity-40">
-                  <X className="size-10" />
+          {selectedCategory === MY_CHANNEL_CATEGORY_ID ? (
+            <div className="h-full pt-12">
+              <MyChannelTab
+                onRemix={onRemix}
+                onSelectVideo={setSelectedVideoId}
+              />
+            </div>
+          ) : (
+            <ScrollFadeEffect
+              className="h-full p-4 pt-12"
+              onScroll={handleScroll}
+              ref={scrollContainerRef}
+            >
+              {isLoading && selectedCategory !== SAVED_CATEGORY_ID ? (
+                <div className="flex h-48 items-center justify-center">
+                  <Loader2 className="size-6 animate-spin text-muted-foreground" />
                 </div>
-                <div className="text-center">
-                  <p className="font-medium">Failed to load</p>
-                  <p className="mt-1 max-w-sm text-muted-foreground text-sm">
-                    {error}
-                  </p>
-                </div>
-                <Button
-                  onClick={() => {
-                    sounds.click();
-                    fetchNextChunk(false);
-                  }}
-                  variant="ghost"
-                >
-                  <RotateCcw className="size-4" />
-                  Retry
-                </Button>
-              </div>
-            ) : selectedCategory === SAVED_CATEGORY_ID ? (
-              favourites.length === 0 ? (
+              ) : error && selectedCategory !== SAVED_CATEGORY_ID ? (
                 <div className="flex h-48 flex-col items-center justify-center gap-4">
                   <div className="text-muted-foreground opacity-40">
-                    <Heart className="size-10" />
+                    <X className="size-10" />
                   </div>
                   <div className="text-center">
-                    <p className="font-medium">No saved videos yet</p>
+                    <p className="font-medium">Failed to load</p>
+                    <p className="mt-1 max-w-sm text-muted-foreground text-sm">
+                      {error}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      sounds.click();
+                      fetchNextChunk(false);
+                    }}
+                    variant="ghost"
+                  >
+                    <RotateCcw className="size-4" />
+                    Retry
+                  </Button>
+                </div>
+              ) : selectedCategory === SAVED_CATEGORY_ID ? (
+                visibleFavourites.length === 0 ? (
+                  <div className="flex h-48 flex-col items-center justify-center gap-4">
+                    <div className="text-muted-foreground opacity-40">
+                      <Heart className="size-10" />
+                    </div>
+                    <div className="text-center">
+                      <p className="font-medium">No saved videos yet</p>
+                      <p className="mt-1 text-muted-foreground text-sm">
+                        Save videos to access them here
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={`grid gap-4 ${gridColClass}`}>
+                    {visibleFavourites.map((video) => (
+                      <VideoCard
+                        isFavourite={true}
+                        key={video.id}
+                        onRemix={handleRemix}
+                        onToggleFavourite={toggleFavourite}
+                        video={video}
+                      />
+                    ))}
+                  </div>
+                )
+              ) : videos.length === 0 ? (
+                <div className="flex h-48 flex-col items-center justify-center gap-4">
+                  <div className="text-muted-foreground opacity-40">
+                    <Search className="size-10" />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-medium">No results</p>
                     <p className="mt-1 text-muted-foreground text-sm">
-                      Save videos to access them here
+                      Try a different search term
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className={`grid gap-4 ${gridColClass}`}>
-                  {favourites.map((video) => (
-                    <VideoCard
-                      isFavourite={true}
-                      key={video.id}
-                      onRemix={handleRemix}
-                      onToggleFavourite={toggleFavourite}
-                      video={video}
-                    />
-                  ))}
-                </div>
-              )
-            ) : videos.length === 0 ? (
-              <div className="flex h-48 flex-col items-center justify-center gap-4">
-                <div className="text-muted-foreground opacity-40">
-                  <Search className="size-10" />
-                </div>
-                <div className="text-center">
-                  <p className="font-medium">No results</p>
-                  <p className="mt-1 text-muted-foreground text-sm">
-                    Try a different search term
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className={`grid gap-4 ${gridColClass}`}>
-                  {videos.map((video) => (
-                    <VideoCard
-                      isFavourite={favouriteIds.has(video.id)}
-                      key={video.id}
-                      onRemix={handleRemix}
-                      onToggleFavourite={toggleFavourite}
-                      video={video}
-                    />
-                  ))}
-                </div>
-                {isLoadingMore && (
-                  <div className="flex justify-center py-6">
-                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                <>
+                  <div className={`grid gap-4 ${gridColClass}`}>
+                    {videos.map((video) => (
+                      <VideoCard
+                        isFavourite={favouriteIds.has(video.id)}
+                        key={video.id}
+                        onRemix={handleRemix}
+                        onToggleFavourite={toggleFavourite}
+                        video={video}
+                      />
+                    ))}
                   </div>
-                )}
-              </>
-            )}
-          </ScrollFadeEffect>
+                  {isLoadingMore && (
+                    <div className="flex justify-center py-6">
+                      <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                </>
+              )}
+            </ScrollFadeEffect>
+          )}
         </div>
       </div>
 
       {bottomToolbar}
+
+      <VideoAnalyticsPanel
+        onClose={() => setSelectedVideoId(null)}
+        videoId={selectedVideoId}
+      />
+      <YoutubeAnalystPanel
+        onClose={() => setAnalystOpen(false)}
+        open={analystOpen}
+      />
     </>
   );
 }

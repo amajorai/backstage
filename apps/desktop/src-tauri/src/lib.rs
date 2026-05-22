@@ -8,6 +8,7 @@ pub mod acp;
 pub mod embeddings;
 pub mod secure_storage;
 pub mod security;
+pub mod youtube_oauth;
 
 #[tauri::command]
 async fn migrate_app_data(app: tauri::AppHandle) -> Result<bool, String> {
@@ -196,10 +197,15 @@ pub fn run() {
             embeddings::get_embedded_project_ids,
             embeddings::get_failed_embedding_ids,
             embeddings::get_embedding_stats,
+            embeddings::get_failure_reasons,
+            embeddings::reset_failed_embeddings,
             fetch_as_base64,
             is_bria_available,
             import_backup,
             migrate_app_data,
+            youtube_oauth::youtube_oauth_initiate,
+            youtube_oauth::youtube_token_refresh,
+            youtube_oauth::youtube_oauth_revoke,
             #[cfg(feature = "bria")]
             background_removal::bria_model_status,
             #[cfg(feature = "bria")]

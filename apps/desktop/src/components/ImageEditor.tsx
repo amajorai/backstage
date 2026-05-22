@@ -31,6 +31,7 @@ import { KonvaCanvas } from "@/components/editor/KonvaCanvas";
 import { LayersPanel } from "@/components/editor/LayersPanel";
 import { PageCarousel } from "@/components/editor/PageCarousel";
 import { PropertiesPanel } from "@/components/editor/PropertiesPanel";
+import { QuickAiEditDialog } from "@/components/editor/QuickAiEditDialog";
 import { RevisionPanel } from "@/components/editor/RevisionPanel";
 import { VerticalScrollView } from "@/components/editor/VerticalScrollView";
 import { GalleryPicker } from "@/components/GalleryPicker";
@@ -123,6 +124,7 @@ export function ImageEditor({
   const [projectId, setProjectId] = useState<string | null>(thumbnail.id);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showColorBgDialog, setShowColorBgDialog] = useState(false);
+  const [showQuickAiEditDialog, setShowQuickAiEditDialog] = useState(false);
   const [showGalleryPicker, setShowGalleryPicker] = useState(false);
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [showLogoPicker, setShowLogoPicker] = useState(false);
@@ -752,7 +754,14 @@ export function ImageEditor({
         "@/lib/bg-removal-pipeline"
       );
       const result = await runBgRemovalPipeline(
-        (activeLayer as ImageLayer).dataUrl
+        (activeLayer as ImageLayer).dataUrl,
+        (stage) =>
+          sileo.show({
+            title: stage,
+            type: "loading",
+            duration: null,
+            id: toastId,
+          } as any)
       );
       const img = new window.Image();
       img.onload = () => addImageLayer(result.dataUrl, img.width, img.height);
@@ -886,6 +895,63 @@ export function ImageEditor({
         sileo.error({
           title:
             error instanceof Error ? error.message : "Failed to add background",
+          id: toastId,
+        } as any);
+      } finally {
+        activeToastIdsRef.current.delete(toastId);
+        setIsProcessing(false);
+      }
+    },
+    [activeLayerId, layers, addImageLayer]
+  );
+
+  const handleQuickAiEdit = useCallback(
+    async (prompt: string) => {
+      const activeLayer = layers.find((l) => l.id === activeLayerId);
+      if (!activeLayer || activeLayer.type !== "image") {
+        return;
+      }
+      setShowQuickAiEditDialog(false);
+      setIsProcessing(true);
+      const toastId = sileo.show({
+        title: "Applying AI edit...",
+        type: "loading",
+        duration: null,
+      }) as string;
+      activeToastIdsRef.current.add(toastId);
+      try {
+        const apiKey = await getGeminiApiKey();
+        if (!apiKey) {
+          throw new Error(
+            "Gemini API key not set. Add it in Settings → API Keys."
+          );
+        }
+        const { generateImageWithGemini, base64ToDataUrl } = await import(
+          "@/lib/gemini-image"
+        );
+        const { useAppSettingsStore } = await import(
+          "@/stores/use-app-settings-store"
+        );
+        const model = useAppSettingsStore.getState()
+          .bgRemovalGeminiModel as import("@/lib/gemini-image").GeminiImageModel;
+        const result = await generateImageWithGemini(apiKey, model, prompt, [
+          (activeLayer as ImageLayer).dataUrl,
+        ]);
+        const resultDataUrl = base64ToDataUrl(
+          result.imageBase64,
+          result.mimeType
+        );
+        const img = new window.Image();
+        img.onload = () => addImageLayer(resultDataUrl, img.width, img.height);
+        img.src = resultDataUrl;
+        sileo.success({
+          title: "AI edit applied as new layer",
+          id: toastId,
+        } as any);
+      } catch (error) {
+        sileo.error({
+          title:
+            error instanceof Error ? error.message : "Failed to apply AI edit",
           id: toastId,
         } as any);
       } finally {
@@ -1116,6 +1182,12 @@ export function ImageEditor({
           const { activeLayerIds: ids, layers: ls } = useEditorStore.getState();
           const al = ls.find((l) => l.id === ids[0]);
           if (al?.type === "image") setShowColorBgDialog(true);
+          else sileo.info({ title: "Select an image layer first" });
+        } else if (e.key.toLowerCase() === "z" && !e.metaKey && !e.ctrlKey) {
+          e.preventDefault();
+          const { activeLayerIds: ids, layers: ls } = useEditorStore.getState();
+          const al = ls.find((l) => l.id === ids[0]);
+          if (al?.type === "image") setShowQuickAiEditDialog(true);
           else sileo.info({ title: "Select an image layer first" });
         }
       }
@@ -1415,6 +1487,7 @@ export function ImageEditor({
           onAddImage={() => setShowGalleryPicker(true)}
           onAiGenerate={onAiGenerate}
           onGenerateCarousel={() => setShowCarouselGenerator(true)}
+          onQuickAiEdit={() => setShowQuickAiEditDialog(true)}
           onRemoveBackground={handleRemoveBackground}
           onSaveLayerAsImage={() => {
             const activeLayer = layers.find((l) => l.id === activeLayerId);
@@ -1645,8 +1718,8 @@ export function ImageEditor({
         </div>
 
         <ResizablePanel
-          defaultWidth={280}
-          maxWidth={400}
+          defaultWidth={340}
+          maxWidth={500}
           minWidth={200}
           side="right"
         >
@@ -1722,6 +1795,12 @@ export function ImageEditor({
         onConfirm={handleAddColorBackground}
         onOpenChange={setShowColorBgDialog}
         open={showColorBgDialog}
+      />
+
+      <QuickAiEditDialog
+        onConfirm={handleQuickAiEdit}
+        onOpenChange={setShowQuickAiEditDialog}
+        open={showQuickAiEditDialog}
       />
 
       <CarouselGeneratorDialog

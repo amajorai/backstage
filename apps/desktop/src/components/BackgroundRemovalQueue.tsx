@@ -108,7 +108,9 @@ export function BackgroundRemovalQueue() {
                     <span className="text-muted-foreground text-xs">
                       {item.operation === "add-color-bg"
                         ? `Add background${item.color ? ` (${item.color})` : ""}`
-                        : "Remove background"}
+                        : item.status === "processing" && item.stage
+                          ? item.stage
+                          : "Remove background"}
                     </span>
                   </div>
                 </div>

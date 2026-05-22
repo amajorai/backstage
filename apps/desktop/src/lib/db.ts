@@ -5,7 +5,7 @@ let db: Database | null = null;
 let dbInitPromise: Promise<Database> | null = null;
 
 // Bump this whenever you add a new migration below.
-const TARGET_SCHEMA_VERSION = 8;
+const TARGET_SCHEMA_VERSION = 9;
 
 type MigrationFn = (database: Database) => Promise<void>;
 
@@ -158,6 +158,21 @@ const migrations: Record<number, MigrationFn> = {
     `);
     await database.execute(
       "CREATE INDEX IF NOT EXISTS idx_yt_collection_items_videoId ON yt_collection_items(videoId)"
+    );
+  },
+  9: async (database) => {
+    await database.execute(`
+      CREATE TABLE IF NOT EXISTS yt_thumbnail_history (
+        id TEXT PRIMARY KEY,
+        videoId TEXT NOT NULL,
+        thumbnailUrl TEXT NOT NULL,
+        projectId TEXT,
+        note TEXT,
+        uploadedAt INTEGER NOT NULL
+      )
+    `);
+    await database.execute(
+      "CREATE INDEX IF NOT EXISTS idx_yt_thumbnail_history_videoId ON yt_thumbnail_history(videoId, uploadedAt)"
     );
   },
 };

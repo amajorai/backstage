@@ -279,3 +279,39 @@ pub fn get_embedding_stats(state: State<EmbeddingDb>) -> Result<serde_json::Valu
 
     Ok(serde_json::json!({ "embedded": total, "failed": failed }))
 }
+
+#[tauri::command]
+pub fn get_failure_reasons(
+    state: State<EmbeddingDb>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT failure_reason, COUNT(*) as cnt
+             FROM embedding_index
+             WHERE failed > 0 AND failure_reason IS NOT NULL
+             GROUP BY failure_reason
+             ORDER BY cnt DESC
+             LIMIT 3",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let reasons: Vec<serde_json::Value> = stmt
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .map(|(reason, count)| serde_json::json!({ "reason": reason, "count": count }))
+        .collect();
+
+    Ok(reasons)
+}
+
+#[tauri::command]
+pub fn reset_failed_embeddings(state: State<EmbeddingDb>) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM embedding_index WHERE failed > 0", [])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}

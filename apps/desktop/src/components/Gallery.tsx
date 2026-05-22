@@ -266,22 +266,46 @@ export function Gallery({
     async (e: React.MouseEvent, thumbnail: ThumbnailItem) => {
       e.stopPropagation();
       setProcessingId(thumbnail.id);
+      const toastId = sileo.show({
+        title: "Removing background...",
+        type: "loading",
+        duration: null,
+      }) as string;
       try {
         const fullImageUrl = await loadFullImageForId(thumbnail.id);
         if (!fullImageUrl) {
+          sileo.dismiss(toastId);
           return;
         }
         const { runBgRemovalPipeline } = await import(
           "@/lib/bg-removal-pipeline"
         );
-        const result = await runBgRemovalPipeline(fullImageUrl);
+        const result = await runBgRemovalPipeline(fullImageUrl, (stage) =>
+          sileo.show({
+            title: stage,
+            type: "loading",
+            duration: null,
+            id: toastId,
+          } as any)
+        );
         const outputName =
           result.kind === "gemini-only"
             ? `${thumbnail.name} (gemini bg)`
             : `${thumbnail.name} (no bg)`;
+        const message =
+          result.kind === "gemini-only"
+            ? "Background replaced with color"
+            : "Background removed";
         addThumbnail(result.dataUrl, outputName);
+        sileo.success({ title: message, id: toastId } as any);
       } catch (error) {
-        console.error("Background removal failed:", error);
+        sileo.error({
+          title:
+            error instanceof Error
+              ? error.message
+              : "Failed to remove background",
+          id: toastId,
+        } as any);
       } finally {
         setProcessingId(null);
       }

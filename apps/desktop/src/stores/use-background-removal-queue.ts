@@ -12,6 +12,7 @@ export interface QueueItem {
   operation: "remove-bg" | "add-color-bg";
   color?: string;
   error?: string;
+  stage?: string;
 }
 
 interface BackgroundRemovalQueueState {
@@ -121,7 +122,13 @@ export const useBackgroundRemovalQueue = create<BackgroundRemovalQueueState>()(
           const { runBgRemovalPipeline } = await import(
             "@/lib/bg-removal-pipeline"
           );
-          const result = await runBgRemovalPipeline(fullImageUrl);
+          const result = await runBgRemovalPipeline(fullImageUrl, (stage) => {
+            set((state) => ({
+              queue: state.queue.map((item) =>
+                item.id === pendingItem.id ? { ...item, stage } : item
+              ),
+            }));
+          });
           resultDataUrl = result.dataUrl;
           outputName =
             result.kind === "gemini-only"

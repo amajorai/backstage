@@ -79,19 +79,18 @@ import {
   DATA_SCHEMA_VERSIONS,
 } from "@/lib/data-versions";
 import { closeDb, getDb, getSqliteSchemaVersion } from "@/lib/db";
-import {
-  getGeminiApiKey,
-  removeGeminiApiKey,
-  setGeminiApiKey,
-} from "@/lib/gemini-store";
+import { removeGeminiApiKey, setGeminiApiKey } from "@/lib/gemini-store";
 import { getHfToken, removeHfToken, setHfToken } from "@/lib/hf-store";
 import { POLAR_CONFIG } from "@/lib/polar-config";
 import {
   deleteEmbeddingsBatch,
   getEmbeddedProjectIds,
   getEmbeddingStats,
+  getFailureReasons,
+  resetFailedEmbeddings,
 } from "@/lib/semantic-search";
 import * as sounds from "@/lib/sounds";
+import { getOAuthCredentials } from "@/lib/youtube-oauth";
 import {
   getYoutubeApiKey,
   removeYoutubeApiKey,
@@ -100,6 +99,7 @@ import {
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import { useGalleryStore } from "@/stores/use-gallery-store";
 import { useLicenseStore } from "@/stores/use-license-store";
+import { useYtOAuthStore } from "@/stores/use-yt-oauth-store";
 
 interface SettingsPageProps {
   onClose: () => void;
@@ -235,10 +235,13 @@ function SettingRow({ title, description, children }: SettingRowProps) {
   );
 }
 
-function GeminiKeySection() {
+interface GeminiKeySectionProps {
+  hasKey: boolean;
+  onKeyChange: (hasKey: boolean) => void;
+}
+
+function GeminiKeySection({ hasKey, onKeyChange }: GeminiKeySectionProps) {
   const [apiKey, setApiKey] = useState("");
-  const [hasKey, setHasKey] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [clearEmbeddings, setClearEmbeddings] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
@@ -250,15 +253,6 @@ function GeminiKeySection() {
     setSemanticSearchEnabled,
   } = useAppSettingsStore();
 
-  useEffect(() => {
-    getGeminiApiKey()
-      .then((key) => {
-        setHasKey(!!key);
-        setApiKey("");
-      })
-      .finally(() => setIsLoading(false));
-  }, []);
-
   const handleSave = useCallback(async () => {
     if (!apiKey.trim()) {
       sileo.error({ title: "Please enter an API key" });
@@ -266,19 +260,19 @@ function GeminiKeySection() {
     }
     try {
       await setGeminiApiKey(apiKey.trim());
-      setHasKey(true);
+      onKeyChange(true);
       setApiKey("");
       sileo.success({ title: "API key saved securely" });
     } catch {
       sileo.error({ title: "Failed to save API key" });
     }
-  }, [apiKey]);
+  }, [apiKey, onKeyChange]);
 
   const handleConfirmRemove = useCallback(async () => {
     setIsRemoving(true);
     try {
       await removeGeminiApiKey();
-      setHasKey(false);
+      onKeyChange(false);
       if (bgRemovalGeminiEnabled) await setBgRemovalGeminiEnabled(false);
       if (semanticSearchEnabled) {
         await setSemanticSearchEnabled(false);
@@ -295,6 +289,7 @@ function GeminiKeySection() {
       setIsRemoving(false);
     }
   }, [
+    onKeyChange,
     bgRemovalGeminiEnabled,
     setBgRemovalGeminiEnabled,
     semanticSearchEnabled,
@@ -303,14 +298,6 @@ function GeminiKeySection() {
   ]);
 
   const willDisableAnything = bgRemovalGeminiEnabled || semanticSearchEnabled;
-
-  if (isLoading) {
-    return (
-      <div className="py-4 text-center text-muted-foreground text-sm">
-        Loading…
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-4">
@@ -463,6 +450,19 @@ function ExploreSettings() {
   const [hasYoutubeKey, setHasYoutubeKey] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  const {
+    isConnected,
+    isConnecting,
+    channelName,
+    channelThumbnail,
+    connect,
+    disconnect,
+    load,
+  } = useYtOAuthStore();
+
+  const [oauthClientId, setOauthClientId] = useState("");
+  const [oauthClientSecret, setOauthClientSecret] = useState("");
+
   useEffect(() => {
     getYoutubeApiKey()
       .then((key) => {
@@ -470,7 +470,14 @@ function ExploreSettings() {
         setYoutubeKey("");
       })
       .finally(() => setIsLoading(false));
-  }, []);
+    getOAuthCredentials().then((creds) => {
+      if (creds) {
+        setOauthClientId(creds.clientId);
+        setOauthClientSecret(creds.clientSecret);
+      }
+    });
+    load();
+  }, [load]);
 
   const handleSave = useCallback(async () => {
     if (!youtubeKey.trim()) {
@@ -506,6 +513,92 @@ function ExploreSettings() {
   return (
     <div className="space-y-6">
       <h2 className="pl-2 font-semibold text-lg">Discovery</h2>
+      <div className="space-y-4">
+        <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
+          YouTube Account
+        </p>
+        <div>
+          <SettingRow
+            description={
+              isConnected
+                ? "Channel connected."
+                : "Required to upload thumbnails and view your channel analytics."
+            }
+            title="Google OAuth"
+          >
+            {isConnecting ? (
+              <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                <Loader2 className="size-4 animate-spin" />
+                Waiting for Google authorization…
+              </div>
+            ) : isConnected ? (
+              <div className="flex items-center gap-3">
+                {channelThumbnail && (
+                  <img
+                    alt={channelName ?? "Channel"}
+                    className="size-7 rounded-full"
+                    src={channelThumbnail}
+                  />
+                )}
+                {channelName && <span className="text-sm">{channelName}</span>}
+                <Button
+                  onClick={() => {
+                    sounds.click();
+                    disconnect();
+                  }}
+                  size="sm"
+                  variant="destructive"
+                >
+                  Disconnect
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Input
+                  className="w-48"
+                  onChange={(e) => setOauthClientId(e.target.value)}
+                  placeholder="OAuth Client ID"
+                  type="password"
+                  value={oauthClientId}
+                />
+                <Input
+                  className="w-48"
+                  onChange={(e) => setOauthClientSecret(e.target.value)}
+                  placeholder="OAuth Client Secret"
+                  type="password"
+                  value={oauthClientSecret}
+                />
+                <Button
+                  disabled={
+                    !(oauthClientId.trim() && oauthClientSecret.trim()) ||
+                    isConnecting
+                  }
+                  onClick={() => {
+                    sounds.click();
+                    connect(oauthClientId.trim(), oauthClientSecret.trim());
+                  }}
+                  size="sm"
+                >
+                  Connect
+                </Button>
+              </div>
+            )}
+          </SettingRow>
+          {!(isConnected || isConnecting) && (
+            <button
+              className="mt-1.5 inline-flex items-center gap-1 pl-4 text-muted-foreground text-xs hover:text-foreground hover:underline"
+              onClick={() => {
+                sounds.click();
+                openUrl("https://console.cloud.google.com/apis/credentials");
+              }}
+              type="button"
+            >
+              <ExternalLink className="size-3" />
+              Create Desktop app credentials in Google Cloud Console
+            </button>
+          )}
+        </div>
+      </div>
       <div className="space-y-4">
         <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
           API Keys
@@ -668,11 +761,9 @@ function GeneralSettings() {
   );
 }
 
-function EmbeddingSettings() {
+function EmbeddingSettings({ hasGeminiKey }: { hasGeminiKey: boolean }) {
   const { semanticSearchEnabled, setSemanticSearchEnabled } =
     useAppSettingsStore();
-  const [hasGeminiKey, setHasGeminiKey] = useState(false);
-  const [keyLoading, setKeyLoading] = useState(true);
   const [isBackfilling, setIsBackfilling] = useState(false);
   const [backfillProgress, setBackfillProgress] = useState<{
     current: number;
@@ -682,49 +773,67 @@ function EmbeddingSettings() {
   const [showClearPrompt, setShowClearPrompt] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [embeddedCount, setEmbeddedCount] = useState<number | null>(null);
+  const [failedCount, setFailedCount] = useState<number | null>(null);
+  const [failureReasons, setFailureReasons] = useState<
+    { reason: string; count: number }[] | null
+  >(null);
 
-  useEffect(() => {
-    getGeminiApiKey()
-      .then((k) => setHasGeminiKey(!!k))
-      .finally(() => setKeyLoading(false));
+  const loadStats = useCallback(async () => {
+    const stats = await getEmbeddingStats();
+    setEmbeddedCount(stats.embedded);
+    setFailedCount(stats.failed);
+    if (stats.failed > 0) {
+      const reasons = await getFailureReasons();
+      setFailureReasons(reasons);
+    } else {
+      setFailureReasons(null);
+    }
   }, []);
 
   useEffect(() => {
     if (semanticSearchEnabled) {
-      getEmbeddingStats()
-        .then((s) => setEmbeddedCount(s.embedded))
-        .catch(() => {});
+      loadStats().catch(() => {});
     }
-  }, [semanticSearchEnabled]);
+  }, [semanticSearchEnabled, loadStats]);
+
+  const runBackfill = useCallback(async () => {
+    setIsBackfilling(true);
+    setBackfillProgress({ current: 0, total: 0, failed: 0 });
+    try {
+      const { useEmbeddingStore } = await import(
+        "@/stores/use-embedding-store"
+      );
+      const allIds = useGalleryStore.getState().thumbnails.map((t) => t.id);
+      await useEmbeddingStore
+        .getState()
+        .checkAndEmbedMissing(allIds, (p) => setBackfillProgress(p));
+      await loadStats();
+    } finally {
+      setIsBackfilling(false);
+      setBackfillProgress(null);
+    }
+  }, [loadStats]);
 
   const handleToggle = useCallback(
     async (enabled: boolean) => {
       if (enabled) {
         await setSemanticSearchEnabled(true);
         setShowClearPrompt(false);
-        setIsBackfilling(true);
-        setBackfillProgress({ current: 0, total: 0, failed: 0 });
-        try {
-          const { useEmbeddingStore } = await import(
-            "@/stores/use-embedding-store"
-          );
-          const allIds = useGalleryStore.getState().thumbnails.map((t) => t.id);
-          await useEmbeddingStore
-            .getState()
-            .checkAndEmbedMissing(allIds, (p) => setBackfillProgress(p));
-          const stats = await getEmbeddingStats();
-          setEmbeddedCount(stats.embedded);
-        } finally {
-          setIsBackfilling(false);
-          setBackfillProgress(null);
-        }
+        await runBackfill();
       } else {
         await setSemanticSearchEnabled(false);
         setShowClearPrompt(true);
       }
     },
-    [setSemanticSearchEnabled]
+    [setSemanticSearchEnabled, runBackfill]
   );
+
+  const handleRetry = useCallback(async () => {
+    await resetFailedEmbeddings();
+    setFailedCount(0);
+    setFailureReasons(null);
+    await runBackfill();
+  }, [runBackfill]);
 
   const handleClear = useCallback(async () => {
     setIsClearing(true);
@@ -732,6 +841,8 @@ function EmbeddingSettings() {
       const ids = await getEmbeddedProjectIds();
       await deleteEmbeddingsBatch(ids);
       setEmbeddedCount(0);
+      setFailedCount(0);
+      setFailureReasons(null);
       setShowClearPrompt(false);
       sileo.success({ title: "Embeddings cleared" });
     } catch {
@@ -741,7 +852,7 @@ function EmbeddingSettings() {
     }
   }, []);
 
-  const disabled = keyLoading || !hasGeminiKey;
+  const disabled = !hasGeminiKey;
 
   return (
     <div className="space-y-4">
@@ -756,7 +867,7 @@ function EmbeddingSettings() {
       <div className="space-y-2">
         <SettingRow
           description={
-            hasGeminiKey || keyLoading
+            hasGeminiKey
               ? semanticSearchEnabled && embeddedCount !== null
                 ? `${embeddedCount} project${embeddedCount !== 1 ? "s" : ""} indexed`
                 : "Index project thumbnails for visual semantic search"
@@ -780,6 +891,32 @@ function EmbeddingSettings() {
             </p>
           </div>
         )}
+        {!isBackfilling &&
+          semanticSearchEnabled &&
+          failedCount !== null &&
+          failedCount > 0 && (
+            <div className="space-y-2 rounded-lg bg-destructive/10 px-4 py-3">
+              <p className="font-medium text-destructive text-xs">
+                {failedCount} project{failedCount !== 1 ? "s" : ""} failed to
+                index
+              </p>
+              {failureReasons && failureReasons.length > 0 && (
+                <p className="break-all font-mono text-muted-foreground text-xs">
+                  {failureReasons[0].reason}
+                </p>
+              )}
+              <Button
+                onClick={() => {
+                  sounds.click();
+                  handleRetry();
+                }}
+                size="sm"
+                variant="outline"
+              >
+                Retry failed
+              </Button>
+            </div>
+          )}
         {showClearPrompt && (
           <div className="space-y-3 rounded-lg bg-muted/50 px-4 py-3">
             <p className="font-medium text-sm">Clear embeddings?</p>
@@ -826,12 +963,31 @@ function AiSettings() {
   const experimentalFeaturesEnabled = useAppSettingsStore(
     (s) => s.experimentalFeaturesEnabled
   );
+  const [hasGeminiKey, setHasGeminiKey] = useState(false);
+  const [geminiKeyLoaded, setGeminiKeyLoaded] = useState(false);
+
+  useEffect(() => {
+    getGeminiApiKey()
+      .then((k) => setHasGeminiKey(!!k))
+      .finally(() => setGeminiKeyLoaded(true));
+  }, []);
+
+  if (!geminiKeyLoaded) {
+    return (
+      <div className="py-8 text-center text-muted-foreground text-sm">
+        Loading…
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <h2 className="pl-2 font-semibold text-lg">AI</h2>
-      <GeminiKeySection />
-      {experimentalFeaturesEnabled && <EmbeddingSettings />}
-      <ProcessingSettings />
+      <GeminiKeySection hasKey={hasGeminiKey} onKeyChange={setHasGeminiKey} />
+      {experimentalFeaturesEnabled && (
+        <EmbeddingSettings hasGeminiKey={hasGeminiKey} />
+      )}
+      <ProcessingSettings hasGeminiKey={hasGeminiKey} />
       {experimentalFeaturesEnabled && <AgentSettings />}
     </div>
   );
@@ -1196,7 +1352,7 @@ function BriaModelRow({
   );
 }
 
-function ProcessingSettings() {
+function ProcessingSettings({ hasGeminiKey }: { hasGeminiKey: boolean }) {
   const {
     bgRemovalQuality,
     setBgRemovalQuality,
@@ -1213,11 +1369,6 @@ function ProcessingSettings() {
   } = useAppSettingsStore();
 
   const [isBriaAvailable, setIsBriaAvailable] = useState(false);
-  const [hasGeminiKey, setHasGeminiKey] = useState(false);
-
-  useEffect(() => {
-    getGeminiApiKey().then((k) => setHasGeminiKey(!!k));
-  }, []);
 
   // HuggingFace token (for gated models like RMBG-2.0)
   const [hfToken, setHfTokenState] = useState("");

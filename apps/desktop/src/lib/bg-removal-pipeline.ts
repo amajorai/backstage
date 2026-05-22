@@ -8,7 +8,8 @@ export type BgRemovalPipelineResult =
   | { kind: "gemini-only"; dataUrl: string };
 
 export async function runBgRemovalPipeline(
-  imageDataUrl: string
+  imageDataUrl: string,
+  onProgress?: (stage: string) => void
 ): Promise<BgRemovalPipelineResult> {
   const {
     bgRemovalProvider,
@@ -25,6 +26,7 @@ export async function runBgRemovalPipeline(
     const { getGeminiApiKey } = await import("@/lib/gemini-store");
     const apiKey = await getGeminiApiKey();
     if (apiKey) {
+      onProgress?.("Pre-processing with Gemini...");
       const { generateImageWithGemini, base64ToDataUrl } = await import(
         "@/lib/gemini-image"
       );
@@ -48,6 +50,7 @@ export async function runBgRemovalPipeline(
     }
   }
 
+  onProgress?.("Removing background...");
   let resultDataUrl: string;
   if (bgRemovalProvider === "briaai" || bgRemovalProvider === "briaai2") {
     const { invoke } = await import("@tauri-apps/api/core");

@@ -52,3 +52,15 @@ export async function getEmbeddingStats(): Promise<{
     "get_embedding_stats"
   );
 }
+
+export async function getFailureReasons(): Promise<
+  { reason: string; count: number }[]
+> {
+  return await invoke<{ reason: string; count: number }[]>(
+    "get_failure_reasons"
+  );
+}
+
+export async function resetFailedEmbeddings(): Promise<void> {
+  await invoke("reset_failed_embeddings");
+}
