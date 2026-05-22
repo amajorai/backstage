@@ -170,7 +170,10 @@ export function ExportDialog({
   const [customWidth, setCustomWidth] = useState(1920);
   const [customHeight, setCustomHeight] = useState(1080);
   const [quality, setQuality] = useState(90);
-  const [fps, setFps] = useState(15); // For animated export
+  const [fps, setFps] = useState(15);
+  const [upscaleEnabled, setUpscaleEnabled] = useState(false);
+  const [upscaleScale, setUpscaleScale] = useState<2 | 4>(2);
+  const [upscaleModel, setUpscaleModel] = useState("realesrgan-x4plus");
   const [isExporting, setIsExporting] = useState(false);
   const [hasAnimatedLayers, setHasAnimatedLayers] = useState(false);
 
@@ -360,6 +363,7 @@ export function ExportDialog({
     const isSingleFile = indicesToExport.length === 1;
 
     setIsExporting(true);
+    let exportToastId: string | number | undefined;
     try {
       let exportPath = "";
       let dirPath = "";
@@ -404,6 +408,7 @@ export function ExportDialog({
             type: "loading",
             duration: null,
           });
+      exportToastId = toastId;
 
       // Prepare canvas context once
       const ctx = canvas.getContext("2d")!;
@@ -447,15 +452,74 @@ export function ExportDialog({
           ctx.restore();
         }
 
-        const blob = await new Promise<Blob>((resolve) => {
-          canvas.toBlob(
-            (b) => resolve(b!),
-            formatInfo.mime,
-            format === "png" ? undefined : quality / 100
-          );
-        });
+        let exportBytes: Uint8Array;
+        if (upscaleEnabled && format !== "gif" && format !== "mp4") {
+          sileo.show({
+            title: `Upscaling ${upscaleScale}×…`,
+            type: "loading",
+            duration: null,
+            id: toastId,
+          } as any);
+          const { getUpscalerStatus, downloadUpscaler, upscaleImage } =
+            await import("@/lib/upscale");
+          const status = await getUpscalerStatus();
+          if (!status.available) {
+            sileo.show({
+              title: "Downloading upscaler (first run only)…",
+              type: "loading",
+              duration: null,
+              id: toastId,
+            } as any);
+            await downloadUpscaler();
+          }
+          const dataUrl = canvas.toDataURL("image/png");
+          // x4plus models only run at 4×; pass 4 always and resize to 2× if needed
+          const upscaledDataUrl = await upscaleImage(dataUrl, 4, upscaleModel);
 
-        const arrayBuffer = await blob.arrayBuffer();
+          // Load the 4× PNG result
+          const upscaledImg = new Image();
+          await new Promise<void>((resolve, reject) => {
+            upscaledImg.onload = () => resolve();
+            upscaledImg.onerror = reject;
+            upscaledImg.src = upscaledDataUrl;
+          });
+
+          // Determine final dimensions (4× or downscale to 2×)
+          const outW =
+            upscaleScale === 2
+              ? Math.round(upscaledImg.naturalWidth / 2)
+              : upscaledImg.naturalWidth;
+          const outH =
+            upscaleScale === 2
+              ? Math.round(upscaledImg.naturalHeight / 2)
+              : upscaledImg.naturalHeight;
+
+          const upscaledCanvas = document.createElement("canvas");
+          upscaledCanvas.width = outW;
+          upscaledCanvas.height = outH;
+          upscaledCanvas
+            .getContext("2d")!
+            .drawImage(upscaledImg, 0, 0, outW, outH);
+
+          // Encode to target format
+          const reencoded = await new Promise<Blob>((resolve) => {
+            upscaledCanvas.toBlob(
+              (b) => resolve(b!),
+              formatInfo.mime,
+              format === "png" ? undefined : quality / 100
+            );
+          });
+          exportBytes = new Uint8Array(await reencoded.arrayBuffer());
+        } else {
+          const blob = await new Promise<Blob>((resolve) => {
+            canvas.toBlob(
+              (b) => resolve(b!),
+              formatInfo.mime,
+              format === "png" ? undefined : quality / 100
+            );
+          });
+          exportBytes = new Uint8Array(await blob.arrayBuffer());
+        }
 
         let filePath = exportPath;
         if (!isSingleFile) {
@@ -463,7 +527,7 @@ export function ExportDialog({
           filePath = `${dirPath.replace(/[\\/]$/, "")}/${fileName}`;
         }
 
-        await writeFile(filePath, new Uint8Array(arrayBuffer));
+        await writeFile(filePath, exportBytes);
       }
 
       sileo.success({
@@ -475,7 +539,10 @@ export function ExportDialog({
       onClose();
     } catch (error) {
       console.error("Export failed:", error);
-      sileo.error({ title: "Export failed. Check console." });
+      sileo.error({
+        title: "Export failed. Check console.",
+        id: exportToastId,
+      } as any);
     } finally {
       setIsExporting(false);
     }
@@ -492,6 +559,9 @@ export function ExportDialog({
     layerScope,
     selectedLayerIndex,
     selectedLayerIndices,
+    upscaleEnabled,
+    upscaleScale,
+    upscaleModel,
   ]);
 
   // Animated export handler for GIF/MP4
@@ -1260,6 +1330,84 @@ export function ExportDialog({
                 step={5}
                 value={[fps]}
               />
+            </div>
+          )}
+
+          {/* Upscale (static formats only, not batch animated) */}
+          {!isBatchMode && format !== "gif" && format !== "mp4" && (
+            <div className="space-y-3 rounded-lg bg-muted/40 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium text-sm">AI Upscale</h3>
+                  <p className="text-muted-foreground text-xs">
+                    Real-ESRGAN — applied after rendering
+                  </p>
+                </div>
+                <button
+                  className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => setUpscaleEnabled((v) => !v)}
+                  style={{
+                    backgroundColor: upscaleEnabled
+                      ? "hsl(var(--primary))"
+                      : "hsl(var(--input))",
+                  }}
+                  type="button"
+                >
+                  <span
+                    className="pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-lg transition-transform"
+                    style={{
+                      transform: upscaleEnabled
+                        ? "translateX(18px)"
+                        : "translateX(2px)",
+                    }}
+                  />
+                </button>
+              </div>
+              {upscaleEnabled && (
+                <div className="flex gap-2">
+                  <div className="flex-1 space-y-1">
+                    <label className="text-muted-foreground text-xs">
+                      Scale
+                    </label>
+                    <div className="flex gap-1">
+                      {([2, 4] as const).map((s) => (
+                        <Button
+                          className={
+                            upscaleScale === s ? "flex-1" : "flex-1 border-0"
+                          }
+                          key={s}
+                          onClick={() => setUpscaleScale(s)}
+                          size="sm"
+                          variant={upscaleScale === s ? "secondary" : "outline"}
+                        >
+                          {s}×
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex-[2] space-y-1">
+                    <label className="text-muted-foreground text-xs">
+                      Model
+                    </label>
+                    <Select
+                      onValueChange={(v) => v && setUpscaleModel(v)}
+                      value={upscaleModel}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="realesrgan-x4plus">
+                          Photo (General)
+                        </SelectItem>
+                        <SelectItem value="realesrgan-x4plus-anime">
+                          Anime / Illustration
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

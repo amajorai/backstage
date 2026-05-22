@@ -14,6 +14,7 @@ import {
   ImageDown,
   ImagePlus,
   Lasso,
+  Maximize2,
   MousePointer,
   PaintBucket,
   Paintbrush,
@@ -48,6 +49,7 @@ interface EditorToolbarProps {
   onShowIconPickerChange: (open: boolean) => void;
   showLogoPicker: boolean;
   onShowLogoPickerChange: (open: boolean) => void;
+  onUpscaleLayer: (scale: 2 | 4, model: string) => void;
 }
 
 export function EditorToolbar({
@@ -65,6 +67,7 @@ export function EditorToolbar({
   onShowIconPickerChange,
   showLogoPicker,
   onShowLogoPickerChange,
+  onUpscaleLayer,
 }: EditorToolbarProps) {
   const {
     activeTool,
@@ -555,6 +558,68 @@ export function EditorToolbar({
           {!activeLayer || activeLayer.type !== "image"
             ? "Select an image layer to quick edit (Z)"
             : "Quick AI Edit (Z)"}
+        </TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={
+              canRemoveBg ? undefined : "pointer-events-none opacity-40"
+            }
+          >
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label="Upscale Layer"
+                className={buttonVariants({
+                  size: "icon-sm",
+                  variant: "ghost",
+                })}
+                disabled={!canRemoveBg}
+              >
+                <Maximize2 className="size-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" side="right">
+                <DropdownMenuItem
+                  onClick={() => {
+                    sounds.click();
+                    onUpscaleLayer(2, "realesrgan-x4plus");
+                  }}
+                >
+                  2× Photo
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    sounds.click();
+                    onUpscaleLayer(4, "realesrgan-x4plus");
+                  }}
+                >
+                  4× Photo
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    sounds.click();
+                    onUpscaleLayer(2, "realesrgan-x4plus-anime");
+                  }}
+                >
+                  2× Anime
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    sounds.click();
+                    onUpscaleLayer(4, "realesrgan-x4plus-anime");
+                  }}
+                >
+                  4× Anime
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          {!activeLayer || activeLayer.type !== "image"
+            ? "Select an image layer to upscale"
+            : "Upscale Layer (AI)"}
         </TooltipContent>
       </Tooltip>
 

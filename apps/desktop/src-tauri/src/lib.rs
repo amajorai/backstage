@@ -8,6 +8,7 @@ pub mod acp;
 pub mod embeddings;
 pub mod secure_storage;
 pub mod security;
+pub mod upscale;
 pub mod youtube_oauth;
 
 #[tauri::command]
@@ -203,6 +204,9 @@ pub fn run() {
             is_bria_available,
             import_backup,
             migrate_app_data,
+            upscale::upscaler_status,
+            upscale::download_upscaler,
+            upscale::upscale_image,
             youtube_oauth::youtube_oauth_initiate,
             youtube_oauth::youtube_token_refresh,
             youtube_oauth::youtube_oauth_revoke,

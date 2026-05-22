@@ -737,6 +737,73 @@ export function ImageEditor({
     [addImageLayer, addThumbnail, canvasSize]
   );
 
+  const handleUpscaleLayer = useCallback(
+    async (scale: 2 | 4, model: string) => {
+      const activeLayer = layers.find((l) => l.id === activeLayerId);
+      if (!activeLayer || activeLayer.type !== "image") return;
+      setIsProcessing(true);
+      const toastId = sileo.show({
+        title: `Upscaling ${scale}×… this may take a moment`,
+        type: "loading",
+        duration: null,
+      }) as string;
+      activeToastIdsRef.current.add(toastId);
+      try {
+        const { getUpscalerStatus, downloadUpscaler, upscaleImage } =
+          await import("@/lib/upscale");
+        const status = await getUpscalerStatus();
+        if (!status.available) {
+          sileo.show({
+            title: "Downloading upscaler (first run only)…",
+            type: "loading",
+            duration: null,
+            id: toastId,
+          } as any);
+          await downloadUpscaler();
+        }
+        // x4plus models only run at 4×; handle 2× by resizing the output
+        const result = await upscaleImage(
+          (activeLayer as import("@/stores/use-editor-store").ImageLayer)
+            .dataUrl,
+          4,
+          model
+        );
+        const img = new window.Image();
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = reject;
+          img.src = result;
+        });
+        let finalDataUrl = result;
+        let finalW = img.naturalWidth;
+        let finalH = img.naturalHeight;
+        if (scale === 2) {
+          finalW = Math.round(img.naturalWidth / 2);
+          finalH = Math.round(img.naturalHeight / 2);
+          const resizeCanvas = document.createElement("canvas");
+          resizeCanvas.width = finalW;
+          resizeCanvas.height = finalH;
+          resizeCanvas.getContext("2d")!.drawImage(img, 0, 0, finalW, finalH);
+          finalDataUrl = resizeCanvas.toDataURL("image/png");
+        }
+        addImageLayer(finalDataUrl, finalW, finalH);
+        sileo.success({
+          title: `Upscaled ${scale}× — new layer added`,
+          id: toastId,
+        } as any);
+      } catch (error) {
+        sileo.error({
+          title: error instanceof Error ? error.message : "Upscaling failed",
+          id: toastId,
+        } as any);
+      } finally {
+        activeToastIdsRef.current.delete(toastId);
+        setIsProcessing(false);
+      }
+    },
+    [activeLayerId, layers, addImageLayer]
+  );
+
   const handleRemoveBackground = useCallback(async () => {
     const activeLayer = layers.find((l) => l.id === activeLayerId);
     if (!activeLayer || activeLayer.type !== "image") {
@@ -1500,6 +1567,7 @@ export function ImageEditor({
           onShowIconPickerChange={setShowIconPicker}
           onShowLogoPickerChange={setShowLogoPicker}
           onSmartCrop={handleSmartCrop}
+          onUpscaleLayer={handleUpscaleLayer}
           showIconPicker={showIconPicker}
           showLogoPicker={showLogoPicker}
         />
