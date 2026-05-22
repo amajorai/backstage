@@ -79,7 +79,11 @@ import {
   DATA_SCHEMA_VERSIONS,
 } from "@/lib/data-versions";
 import { closeDb, getDb, getSqliteSchemaVersion } from "@/lib/db";
-import { removeGeminiApiKey, setGeminiApiKey } from "@/lib/gemini-store";
+import {
+  getGeminiApiKey,
+  removeGeminiApiKey,
+  setGeminiApiKey,
+} from "@/lib/gemini-store";
 import { getHfToken, removeHfToken, setHfToken } from "@/lib/hf-store";
 import { POLAR_CONFIG } from "@/lib/polar-config";
 import {

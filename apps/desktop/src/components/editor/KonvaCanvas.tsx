@@ -530,6 +530,19 @@ export function KonvaCanvas({
 
   const handleSmartPaste = useCallback(
     async (offsetX?: number, offsetY?: number) => {
+      // Check OS clipboard first — if it has content, it was the most recent copy action.
+      // Only fall back to the internal layer clipboard when the OS clipboard is empty.
+      let osClipboardHasContent = false;
+      try {
+        const items = await navigator.clipboard.read();
+        osClipboardHasContent = items.length > 0;
+      } catch {}
+
+      if (osClipboardHasContent) {
+        await pasteFromOsClipboard(offsetX, offsetY);
+        return;
+      }
+
       const state = useEditorStore.getState();
       let hasLayerClipboard =
         state.clipboard != null && state.clipboard.length > 0;
@@ -543,9 +556,7 @@ export function KonvaCanvas({
       }
       if (hasLayerClipboard) {
         pasteLayers();
-        return;
       }
-      await pasteFromOsClipboard(offsetX, offsetY);
     },
     [pasteLayers, pasteFromOsClipboard]
   );
