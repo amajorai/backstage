@@ -4,7 +4,7 @@
       <img src="apps/desktop/app-icon.png" alt="Logo" width="100" style="border-radius: 20%;"/>
     </td>
     <td align="right">
-      <h1>Backstage</h1>
+      <h1>🎭 Backstage</h1>
       <h3 style="margin-top: -10px;">The open-source YouTube thumbnail studio</h3>
     </td>
   </tr>
