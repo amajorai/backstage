@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const EMBEDDING_MODEL = "text-embedding-004";
-const DESCRIPTION_MODEL = "gemini-2.0-flash-lite";
+const DESCRIPTION_MODEL = "gemini-flash-lite-latest";
 
 export async function generateImageEmbedding(
   apiKey: string,

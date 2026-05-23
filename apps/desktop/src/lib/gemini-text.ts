@@ -156,7 +156,7 @@ export async function generateCarouselKonvaFull(
   canvasHeight: number
 ): Promise<CarouselSlideKonva[]> {
   const ai = new GoogleGenerativeAI(apiKey);
-  const model = "gemini-flash-latest";
+  const model = "gemini-flash-lite-latest";
 
   const toneString =
     config.tones.length > 0 ? config.tones.join(", ") : "Professional";
@@ -247,7 +247,7 @@ export async function generateCarouselKonvaTemplate(
   pageCount: number
 ): Promise<CarouselSlideKonva[]> {
   const ai = new GoogleGenerativeAI(apiKey);
-  const model = "gemini-flash-latest";
+  const model = "gemini-flash-lite-latest";
 
   const existingLayersDescription = canvasContext.layers
     .map((l) => `- ${l.name} (${l.type}): pos (${l.x},${l.y})`)

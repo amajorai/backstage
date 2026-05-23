@@ -972,7 +972,20 @@ function AiSettings() {
 
   useEffect(() => {
     getGeminiApiKey()
-      .then((k) => setHasGeminiKey(!!k))
+      .then((k) => {
+        const hasKey = !!k;
+        setHasGeminiKey(hasKey);
+        if (!hasKey) {
+          const {
+            bgRemovalGeminiEnabled,
+            setBgRemovalGeminiEnabled,
+            semanticSearchEnabled,
+            setSemanticSearchEnabled,
+          } = useAppSettingsStore.getState();
+          if (bgRemovalGeminiEnabled) setBgRemovalGeminiEnabled(false);
+          if (semanticSearchEnabled) setSemanticSearchEnabled(false);
+        }
+      })
       .finally(() => setGeminiKeyLoaded(true));
   }, []);
 

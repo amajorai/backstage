@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const MODEL = "gemini-3.1-flash-lite-preview";
+const MODEL = "gemini-flash-lite-latest";
 const QUOTE_TRIM_REGEX = /^["']|["']$/g;
 
 export async function generateThumbnailName(
