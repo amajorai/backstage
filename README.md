@@ -12,6 +12,12 @@
 
 **Backstage** is a free, open-source desktop app for making YouTube thumbnails that actually get clicks. Everything runs on your machine.
 
+[![Stars](https://shieldcn.dev/github/stars/amajorai/backstage.svg)](https://github.com/amajorai/backstage)
+[![Forks](https://shieldcn.dev/github/forks/amajorai/backstage.svg)](https://github.com/amajorai/backstage)
+[![License](https://shieldcn.dev/github/license/amajorai/backstage.svg)](https://github.com/amajorai/backstage)
+[![Issues](https://shieldcn.dev/github/issues/amajorai/backstage.svg)](https://github.com/amajorai/backstage/issues)
+[![Release](https://shieldcn.dev/github/release/amajorai/backstage.svg)](https://github.com/amajorai/backstage/releases)
+
 [![Windows](https://img.shields.io/badge/Windows-Download-blue?logo=windows)](https://github.com/amajorai/backstage/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-Download-white?logo=apple)](https://github.com/amajorai/backstage/releases/latest)
 [![Linux](https://img.shields.io/badge/Linux-Download-orange?logo=linux)](https://github.com/amajorai/backstage/releases/latest)
@@ -60,3 +66,13 @@ bunx tauri build -- --features bria
 ## License
 
 Source code is open source. The BRIA model is restricted to non-commercial use.
+
+## Star History
+
+<a href="https://www.star-history.com/#amajorai/backstage&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=amajorai/backstage&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=amajorai/backstage&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=amajorai/backstage&type=Date" />
+ </picture>
+</a>
