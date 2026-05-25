@@ -18,7 +18,7 @@
 [![Issues](https://shieldcn.dev/github/issues/amajorai/backstage.svg)](https://github.com/amajorai/backstage/issues)
 [![Release](https://shieldcn.dev/github/release/amajorai/backstage.svg)](https://github.com/amajorai/backstage/releases)
 
-[![CI](https://shieldcn.dev/github/ci/amajorai/backstage.svg?variant=secondary)](https://github.com/amajorai/backstage/actions)
+[![CI](https://shieldcn.dev/github/ci/amajorai/backstage.svg)](https://github.com/amajorai/backstage/actions)
 [![Windows](https://shieldcn.dev/badge/Windows-Download-black.svg?logo=ri:FaWindows)](https://github.com/amajorai/backstage/releases/latest)
 [![macOS](https://shieldcn.dev/badge/macOS-Download-black.svg?logo=apple)](https://github.com/amajorai/backstage/releases/latest)
 [![Linux](https://shieldcn.dev/badge/Linux-Download-black.svg?logo=linux)](https://github.com/amajorai/backstage/releases/latest)
