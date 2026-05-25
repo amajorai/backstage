@@ -3,7 +3,9 @@ import { env } from "@backstage/env/server";
 import { Hono } from "hono";
 
 const POLAR_BASE =
-  (process.env.POLAR_API_URL as string | undefined) ?? "https://api.polar.sh";
+  process.env.POLAR_ENV === "sandbox"
+    ? "https://sandbox-api.polar.sh"
+    : "https://api.polar.sh";
 
 export const polarRouter = new Hono();
 

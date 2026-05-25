@@ -1,6 +1,7 @@
 import { Button } from "@repo/ui/button";
 import { Input } from "@repo/ui/input";
 import { Toaster } from "@repo/ui/sonner";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   ArrowLeft,
   Check,
@@ -17,6 +18,7 @@ import {
   POLAR_EMBED_CHECKOUT_URL,
   usePolarCheckout,
 } from "@/hooks/use-polar-checkout";
+import { POLAR_CONFIG } from "@/lib/polar-config";
 import * as sounds from "@/lib/sounds";
 import { useLicenseStore } from "@/stores/use-license-store";
 
@@ -38,7 +40,6 @@ const BENEFITS = [
 export function LicenseActivation({ onBack }: { onBack?: () => void }) {
   const [view, setView] = useState<"pricing" | "activation">("pricing");
   const [licenseKey, setLicenseKey] = useState("");
-  const [retrieveDialogOpen, setRetrieveDialogOpen] = useState(false);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
   const [conflictKey, setConflictKey] = useState("");
   const { isValidating, validateLicense } = useLicenseStore();
@@ -262,7 +263,7 @@ export function LicenseActivation({ onBack }: { onBack?: () => void }) {
                     className="cursor-pointer bg-transparent p-0 text-foreground hover:underline"
                     onClick={() => {
                       sounds.click();
-                      setRetrieveDialogOpen(true);
+                      openUrl(POLAR_CONFIG.customerPortalUrl);
                     }}
                     type="button"
                   >
@@ -324,13 +325,6 @@ export function LicenseActivation({ onBack }: { onBack?: () => void }) {
           </div>
         </div>
       </div>
-
-      {/* Retrieve license key dialog */}
-      <CustomerPortalDialog
-        mode="retrieve"
-        onOpenChange={setRetrieveDialogOpen}
-        open={retrieveDialogOpen}
-      />
 
       {/* Already-activated conflict dialog */}
       <CustomerPortalDialog
