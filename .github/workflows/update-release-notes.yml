@@ -143,7 +143,7 @@ jobs:
 
           # Determine if prerelease
           PRERELEASE_FLAG=""
-          if [[ "$TAG" == *beta* ]] || [[ "$TAG" == *alpha* ]] || [[ "$TAG" == *nightly* ]] || [[ "$TAG" == *rc* ]]; then
+          if [[ "$TAG" == *experimental* ]] || [[ "$TAG" == *alpha* ]] || [[ "$TAG" == *nightly* ]] || [[ "$TAG" == *rc* ]]; then
             PRERELEASE_FLAG="--prerelease"
           fi
 

@@ -367,7 +367,7 @@ export function TabBar({
               {PAGE_LABELS[activePage]}
               {EXPERIMENTAL_PAGES.has(activePage) && (
                 <span className="rounded bg-amber-500/20 px-1 py-0.5 font-medium text-[9px] text-amber-500">
-                  Beta
+                  Experimental
                 </span>
               )}
             </button>
@@ -406,7 +406,7 @@ export function TabBar({
                   {PAGE_LABELS[p]}
                   {EXPERIMENTAL_PAGES.has(p) && (
                     <span className="ml-1 rounded bg-amber-500/20 px-1 py-0.5 font-medium text-[9px] text-amber-500">
-                      Beta
+                      Experimental
                     </span>
                   )}
                 </DropdownMenuItem>

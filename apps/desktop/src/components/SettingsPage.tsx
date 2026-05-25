@@ -534,7 +534,7 @@ function ExploreSettings() {
             YouTube Account
           </p>
           <span className="rounded bg-amber-500/20 px-1 py-0.5 font-medium text-[9px] text-amber-500">
-            Beta
+            Experimental
           </span>
         </div>
         <div>

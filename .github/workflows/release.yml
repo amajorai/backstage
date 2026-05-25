@@ -210,7 +210,7 @@ jobs:
           releaseName: "${{ steps.version.outputs.tag }}${{ steps.tag_message.outputs.message && format(' - {0}', steps.tag_message.outputs.message) || '' }}"
           releaseBody: ${{ steps.changelog.outputs.body }}
           releaseDraft: false
-          prerelease: ${{ contains(steps.version.outputs.tag, 'beta') || contains(steps.version.outputs.tag, 'alpha') || contains(steps.version.outputs.tag, 'nightly') || contains(steps.version.outputs.tag, 'rc') }}
+          prerelease: ${{ contains(steps.version.outputs.tag, 'experimental') || contains(steps.version.outputs.tag, 'alpha') || contains(steps.version.outputs.tag, 'nightly') || contains(steps.version.outputs.tag, 'rc') }}
           includeUpdaterJson: true
           args: ${{ matrix.args }}
 

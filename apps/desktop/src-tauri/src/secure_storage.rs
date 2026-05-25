@@ -10,7 +10,6 @@ use aes_gcm::{
 use base64::{engine::general_purpose, Engine as _};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::error::Error;
 use std::fmt;
 use std::fs;
@@ -69,24 +68,14 @@ pub struct SecureStorageManager {
 }
 
 impl SecureStorageManager {
-    /// Initialize secure storage with app-specific key derivation
-    ///
-    /// # Arguments
-    /// * `app_name` - Application name for key derivation
-    /// * `app_data_dir` - Application data directory
-    ///
-    /// # Returns
-    /// * `Ok(SecureStorageManager)` if initialization succeeds
-    /// * `Err(SecureStorageError)` if initialization fails
-    pub fn new(app_name: &str, app_data_dir: &PathBuf) -> SecureStorageResult<Self> {
-        // Ensure storage directory exists
+    /// Initialize secure storage with a persistent random master key.
+    pub fn new(_app_name: &str, app_data_dir: &PathBuf) -> SecureStorageResult<Self> {
         let storage_dir = app_data_dir.join("secure_storage");
         if let Err(e) = fs::create_dir_all(&storage_dir) {
             return Err(SecureStorageError::IoError(e));
         }
 
-        // Generate master key from system information
-        let master_key = Self::derive_master_key(app_name)?;
+        let master_key = Self::load_or_create_master_key(&storage_dir)?;
 
         Ok(Self {
             master_key,
@@ -94,62 +83,29 @@ impl SecureStorageManager {
         })
     }
 
-    /// Derive a master key from system-specific information
+    /// Load the persisted master key, or generate and save a new one on first run.
     ///
-    /// This creates a deterministic but unique key for each installation
-    fn derive_master_key(app_name: &str) -> SecureStorageResult<Key<Aes256Gcm>> {
-        // Collect system entropy
-        let mut entropy_source = String::new();
+    /// Using a randomly-generated key stored on disk is stable across restarts and
+    /// avoids the previous approach of deriving the key from system info (computer
+    /// name, hostname) which could fail silently in sandboxed builds and produce a
+    /// different key between runs, causing all stored secrets to be silently wiped.
+    fn load_or_create_master_key(storage_dir: &PathBuf) -> SecureStorageResult<Key<Aes256Gcm>> {
+        let key_file = storage_dir.join(".mk");
 
-        // Add app name
-        entropy_source.push_str(app_name);
-
-        // Try to get system-specific identifiers
-        #[cfg(target_os = "windows")]
-        {
-            if let Ok(computer_name) = std::env::var("COMPUTERNAME") {
-                entropy_source.push_str(&computer_name);
+        if key_file.exists() {
+            let key_bytes = fs::read(&key_file)?;
+            if key_bytes.len() == 32 {
+                let mut arr = [0u8; 32];
+                arr.copy_from_slice(&key_bytes);
+                #[allow(deprecated)]
+                return Ok(*Key::<Aes256Gcm>::from_slice(&arr));
             }
-            if let Ok(username) = std::env::var("USERNAME") {
-                entropy_source.push_str(&username);
-            }
+            // File is corrupt — fall through to regenerate
         }
 
-        #[cfg(target_os = "macos")]
-        {
-            if let Ok(computer_name) = std::process::Command::new("scutil")
-                .arg("--get")
-                .arg("ComputerName")
-                .output()
-            {
-                if let Ok(name) = String::from_utf8(computer_name.stdout) {
-                    entropy_source.push_str(&name.trim());
-                }
-            }
-            if let Ok(username) = std::env::var("USER") {
-                entropy_source.push_str(&username);
-            }
-        }
-
-        #[cfg(target_os = "linux")]
-        {
-            if let Ok(hostname) = std::process::Command::new("hostname").output() {
-                if let Ok(name) = String::from_utf8(hostname.stdout) {
-                    entropy_source.push_str(&name.trim());
-                }
-            }
-            if let Ok(username) = std::env::var("USER") {
-                entropy_source.push_str(&username);
-            }
-        }
-
-        // Add some app-specific data
-        entropy_source.push_str("ryu_secure_storage_v1");
-
-        // Use SHA-256 to derive a deterministic key from system entropy
-        let hash = Sha256::digest(entropy_source.as_bytes());
         let mut key_bytes = [0u8; 32];
-        key_bytes.copy_from_slice(&hash);
+        OsRng.fill_bytes(&mut key_bytes);
+        fs::write(&key_file, &key_bytes)?;
 
         #[allow(deprecated)]
         Ok(*Key::<Aes256Gcm>::from_slice(&key_bytes))
