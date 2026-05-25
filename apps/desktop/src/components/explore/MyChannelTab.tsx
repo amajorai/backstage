@@ -19,9 +19,14 @@ import { ThumbnailUploadModal } from "./ThumbnailUploadModal";
 interface MyChannelTabProps {
   onRemix: (thumbnailUrl: string, title: string) => void;
   onSelectVideo: (videoId: string) => void;
+  onSettings?: () => void;
 }
 
-export function MyChannelTab({ onRemix, onSelectVideo }: MyChannelTabProps) {
+export function MyChannelTab({
+  onRemix,
+  onSelectVideo,
+  onSettings,
+}: MyChannelTabProps) {
   const isConnected = useYtOAuthStore((s) => s.isConnected);
   const isConnecting = useYtOAuthStore((s) => s.isConnecting);
   const channelName = useYtOAuthStore((s) => s.channelName);
@@ -101,9 +106,14 @@ export function MyChannelTab({ onRemix, onSelectVideo }: MyChannelTabProps) {
           <button
             className="rounded-md bg-primary px-4 py-2 text-primary-foreground text-sm transition-colors hover:bg-primary/90"
             onClick={() => {
-              sileo.info({
-                title: "Open Settings → Discovery tab to connect your channel",
-              });
+              if (onSettings) {
+                onSettings();
+              } else {
+                sileo.info({
+                  title:
+                    "Open Settings → Discovery tab to connect your channel",
+                });
+              }
             }}
             type="button"
           >

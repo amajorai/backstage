@@ -33,6 +33,7 @@ import {
   Settings,
   Sparkles,
   Trash2,
+  Tv2,
   X,
   XSquare,
 } from "lucide-react";
@@ -56,7 +57,8 @@ type ActivePage =
   | "trash"
   | "archive"
   | "settings"
-  | "explore";
+  | "explore"
+  | "my-channel";
 
 const PAGE_LABELS: Record<ActivePage, string> = {
   gallery: "Home",
@@ -66,7 +68,10 @@ const PAGE_LABELS: Record<ActivePage, string> = {
   archive: "Archive",
   settings: "Settings",
   explore: "Discovery",
+  "my-channel": "My Channel",
 };
+
+const EXPERIMENTAL_PAGES = new Set<ActivePage>(["ai-projects", "my-channel"]);
 
 const PAGE_ICONS: Record<ActivePage, React.ReactNode> = {
   gallery: <GalleryHorizontal className="size-3 shrink-0" />,
@@ -76,6 +81,7 @@ const PAGE_ICONS: Record<ActivePage, React.ReactNode> = {
   archive: <File className="size-3 shrink-0" />,
   settings: <Settings className="size-3 shrink-0" />,
   explore: <Compass className="size-3 shrink-0" />,
+  "my-channel": <Tv2 className="size-3 shrink-0" />,
 };
 
 const noDrag = { WebkitAppRegion: "no-drag" } as React.CSSProperties;
@@ -359,6 +365,11 @@ export function TabBar({
             >
               {PAGE_ICONS[activePage]}
               {PAGE_LABELS[activePage]}
+              {EXPERIMENTAL_PAGES.has(activePage) && (
+                <span className="rounded bg-amber-500/20 px-1 py-0.5 font-medium text-[9px] text-amber-500">
+                  Beta
+                </span>
+              )}
             </button>
             {/* Chevron — opens page switcher dropdown */}
             <DropdownMenuTrigger
@@ -374,6 +385,7 @@ export function TabBar({
                 "gallery",
                 "ai-generate",
                 "ai-projects",
+                "my-channel",
                 "explore",
                 "archive",
                 "trash",
@@ -392,6 +404,11 @@ export function TabBar({
                 >
                   {PAGE_ICONS[p]}
                   {PAGE_LABELS[p]}
+                  {EXPERIMENTAL_PAGES.has(p) && (
+                    <span className="ml-1 rounded bg-amber-500/20 px-1 py-0.5 font-medium text-[9px] text-amber-500">
+                      Beta
+                    </span>
+                  )}
                 </DropdownMenuItem>
               ))}
           </DropdownMenuContent>

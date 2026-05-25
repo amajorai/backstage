@@ -61,6 +61,7 @@ export type Page =
   | "trash"
   | "settings"
   | "explore"
+  | "my-channel"
   | "archive";
 
 function UpdateChecker() {
@@ -421,6 +422,15 @@ export default function App() {
         {/* Explore */}
         {page === "explore" && !editorVisible && (
           <ExplorePage
+            onClose={() => setPage("gallery")}
+            onRemix={handleRemix}
+            onSettings={() => setPage("settings")}
+          />
+        )}
+
+        {/* My Channel */}
+        {page === "my-channel" && !editorVisible && (
+          <MyChannelPage
             onClose={() => setPage("gallery")}
             onRemix={handleRemix}
             onSettings={() => setPage("settings")}

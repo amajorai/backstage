@@ -133,14 +133,69 @@ async fn handle_oauth_callback(
         .ok_or_else(|| "Could not extract authorization code from callback".to_string())?;
 
     // Send success page to browser
-    let html_response = "HTTP/1.1 200 OK\r\n\
-                         Content-Type: text/html\r\n\
-                         Connection: close\r\n\
-                         \r\n\
-                         <html><body>\
-                         <h2>Connected to Backstage!</h2>\
-                         <p>You can close this tab and return to the app.</p>\
-                         </body></html>";
+    let html_body = r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Connected — Backstage</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: #09090b;
+    color: #fafafa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 16px;
+    padding: 48px 56px;
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 24px 48px rgba(0,0,0,0.5);
+  }
+  .icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: rgba(34,197,94,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .icon svg { width: 26px; height: 26px; stroke: #22c55e; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+  h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; color: #fafafa; }
+  p { font-size: 14px; color: #71717a; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">
+    <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+  </div>
+  <div>
+    <h1>Connected to Backstage!</h1>
+    <p style="margin-top:6px">You can close this tab and return to the app.</p>
+  </div>
+</div>
+</body>
+</html>"#;
+    let html_response = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n{}",
+        html_body
+    );
     let _ = stream.write_all(html_response.as_bytes()).await;
     drop(stream);
 

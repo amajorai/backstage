@@ -32,6 +32,7 @@ interface YtOAuthState {
   channelThumbnail: string | null;
   load: () => Promise<void>;
   connect: (clientId: string, clientSecret: string) => Promise<void>;
+  cancel: () => void;
   disconnect: () => Promise<void>;
 }
 
@@ -113,6 +114,10 @@ export const useYtOAuthStore = create<YtOAuthState>()((set) => ({
         "[YtOAuthStore] Failed to register OAuth complete listener"
       );
     }
+  },
+
+  cancel: () => {
+    set({ isConnecting: false });
   },
 
   connect: async (clientId, clientSecret) => {

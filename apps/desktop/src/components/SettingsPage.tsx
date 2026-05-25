@@ -460,12 +460,23 @@ function ExploreSettings() {
     channelName,
     channelThumbnail,
     connect,
+    cancel,
     disconnect,
     load,
   } = useYtOAuthStore();
 
   const [oauthClientId, setOauthClientId] = useState("");
   const [oauthClientSecret, setOauthClientSecret] = useState("");
+  const [showCancelAuth, setShowCancelAuth] = useState(false);
+
+  useEffect(() => {
+    if (!isConnecting) {
+      setShowCancelAuth(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowCancelAuth(true), 3000);
+    return () => clearTimeout(timer);
+  }, [isConnecting]);
 
   useEffect(() => {
     getYoutubeApiKey()
@@ -518,9 +529,14 @@ function ExploreSettings() {
     <div className="space-y-6">
       <h2 className="pl-2 font-semibold text-lg">Discovery</h2>
       <div className="space-y-4">
-        <p className="mb-3 pl-2 font-medium text-muted-foreground text-xs">
-          YouTube Account
-        </p>
+        <div className="mb-3 flex items-center gap-2 pl-2">
+          <p className="font-medium text-muted-foreground text-xs">
+            YouTube Account
+          </p>
+          <span className="rounded bg-amber-500/20 px-1 py-0.5 font-medium text-[9px] text-amber-500">
+            Beta
+          </span>
+        </div>
         <div>
           <SettingRow
             description={
@@ -531,9 +547,21 @@ function ExploreSettings() {
             title="Google OAuth"
           >
             {isConnecting ? (
-              <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                <Loader2 className="size-4 animate-spin" />
-                Waiting for Google authorization…
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Loader2 className="size-4 animate-spin" />
+                  Waiting for Google authorization…
+                </div>
+                <button
+                  className={`text-muted-foreground/50 text-xs transition-opacity duration-700 hover:text-muted-foreground ${showCancelAuth ? "opacity-100" : "opacity-0"}`}
+                  onClick={() => {
+                    sounds.click();
+                    cancel();
+                  }}
+                  type="button"
+                >
+                  Cancel
+                </button>
               </div>
             ) : isConnected ? (
               <div className="flex items-center gap-3">
