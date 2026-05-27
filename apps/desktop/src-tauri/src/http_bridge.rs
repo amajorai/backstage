@@ -100,7 +100,10 @@ async fn handle_tool_call(
             Json(ToolCallResponse {
                 content: vec![ToolContent {
                     content_type: "text".to_string(),
-                    text: value.to_string(),
+                    text: match &value {
+                        serde_json::Value::String(s) => s.clone(),
+                        other => other.to_string(),
+                    },
                 }],
                 is_error: false,
             }),

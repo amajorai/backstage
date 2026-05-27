@@ -190,7 +190,7 @@ pub fn run() {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(37842);
-            tokio::spawn(async move {
+            tauri::async_runtime::spawn(async move {
                 http_bridge::start(pending, app_handle, port).await;
             });
 
