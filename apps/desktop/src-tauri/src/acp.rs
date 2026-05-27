@@ -179,6 +179,45 @@ pub fn tool_definitions() -> serde_json::Value {
                 },
                 "required": ["page"]
             }
+        },
+        {
+            "name": "backstage_save_project",
+            "description": "Save the currently active project to disk, updating its preview thumbnail.",
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "backstage_create_project",
+            "description": "Create a new blank project with the given name and optional canvas dimensions, then open it in the editor.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string" },
+                    "width": { "type": "number" },
+                    "height": { "type": "number" }
+                },
+                "required": ["name"]
+            }
+        },
+        {
+            "name": "backstage_export_canvas",
+            "description": "Render the current canvas to a PNG image and return it as a base64-encoded string.",
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "backstage_set_background_color",
+            "description": "Set the canvas background color. Finds the bottom-most shape layer and updates its fill, or creates a new full-canvas rectangle if none exists.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "color": { "type": "string" }
+                },
+                "required": ["color"]
+            }
+        },
+        {
+            "name": "backstage_get_active_project",
+            "description": "Get metadata about the currently open project: id, name, and canvas dimensions. Returns null if no project is open.",
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
         }
     ])
 }
