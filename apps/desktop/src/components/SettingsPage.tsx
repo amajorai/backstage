@@ -219,7 +219,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
 }
 
 interface SettingRowProps {
-  title: string;
+  title: React.ReactNode;
   description?: React.ReactNode;
   children: React.ReactNode;
 }
@@ -2806,7 +2806,8 @@ function McpServerSettings() {
           signal: controller.signal,
         });
         setBridgeRunning(res.ok);
-      } catch {
+      } catch (err) {
+        if ((err as Error)?.name === "AbortError") return;
         setBridgeRunning(false);
       }
     };
@@ -2826,6 +2827,7 @@ function McpServerSettings() {
         backstage: {
           command: "node",
           args: ["/path/to/backstage-mcp/dist/index.js"],
+          env: { BACKSTAGE_API_URL: `http://localhost:${mcpPort}` },
         },
       },
     },
