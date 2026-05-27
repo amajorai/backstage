@@ -174,7 +174,7 @@ pub fn tool_definitions() -> serde_json::Value {
                 "properties": {
                     "page": {
                         "type": "string",
-                        "enum": ["gallery", "ai-generate", "ai-projects", "trash", "settings", "explore", "archive"]
+                        "enum": ["gallery", "ai-generate", "ai-projects", "trash", "settings", "explore", "my-channel", "archive"]
                     }
                 },
                 "required": ["page"]
