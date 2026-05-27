@@ -155,6 +155,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
+        .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
             let main_window = app.get_webview_window("main").unwrap();
             main_window.create_overlay_titlebar().unwrap();
@@ -178,10 +179,14 @@ pub fn run() {
                 embedding_conn,
             )));
 
+            // Initialize ACP tool-call state
+            app.manage(acp::AcpState::new());
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             acp::acp_prompt,
+            acp::acp_tool_result,
             secure_storage::secure_storage_store,
             secure_storage::secure_storage_retrieve,
             secure_storage::secure_storage_remove_encrypted,
