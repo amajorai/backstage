@@ -260,7 +260,11 @@ pub fn acp_tool_result(
     let mut pending = state.pending.lock().map_err(|e| e.to_string())?;
     if let Some(sender) = pending.remove(&call_id) {
         let payload = if is_error {
-            Err(result.as_str().unwrap_or("Tool error").to_string())
+            let msg = match &result {
+                serde_json::Value::String(s) => s.clone(),
+                other => other.to_string(),
+            };
+            Err(msg)
         } else {
             Ok(result)
         };
