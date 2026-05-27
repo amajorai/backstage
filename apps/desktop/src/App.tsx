@@ -35,6 +35,7 @@ import { ResizablePanel } from "@/components/ui/resizable-panel";
 import { Toaster } from "@/components/ui/sonner";
 import { VersionGateModal } from "@/components/VersionGateModal";
 import { VideoExtractor } from "@/components/VideoExtractor";
+import { useAcpToolRunner } from "@/hooks/use-acp-tool-runner";
 import { useAppUpdater } from "@/hooks/use-app-updater";
 import { usePersistedViewMode } from "@/hooks/use-persisted-view-mode";
 import { useWindowBounds } from "@/hooks/use-window-bounds";
@@ -50,6 +51,7 @@ import {
   useGalleryStore,
 } from "@/stores/use-gallery-store";
 import { useLicenseStore } from "@/stores/use-license-store";
+import { useNavigationStore } from "@/stores/use-navigation-store";
 import { useSelectionStore } from "@/stores/use-selection-store";
 import { useTabsStore } from "@/stores/use-tabs-store";
 
@@ -157,6 +159,16 @@ export default function App() {
     if (!(isInitialLoadDone && isValidated && isGalleryLoaded)) return;
     void useTabsStore.getState().restorePersistedTabs();
   }, [isInitialLoadDone, isValidated, isGalleryLoaded]);
+
+  // ACP tool runner: handle tool calls from AI agents
+  useAcpToolRunner();
+
+  const { pendingPage, clearPending } = useNavigationStore();
+  useEffect(() => {
+    if (!pendingPage) return;
+    setPage(pendingPage);
+    clearPending();
+  }, [pendingPage, clearPending]);
 
   if (!isInitialLoadDone || (isValidating && !isValidated)) {
     return (

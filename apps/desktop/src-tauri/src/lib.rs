@@ -6,6 +6,7 @@ use tauri_plugin_decorum::WebviewWindowExt;
 pub mod background_removal;
 pub mod acp;
 pub mod embeddings;
+pub mod http_bridge;
 pub mod secure_storage;
 pub mod security;
 pub mod upscale;
@@ -155,6 +156,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
+        .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
             let main_window = app.get_webview_window("main").unwrap();
             main_window.create_overlay_titlebar().unwrap();
@@ -178,10 +180,33 @@ pub fn run() {
                 embedding_conn,
             )));
 
+            // Initialize ACP tool-call state
+            app.manage(acp::AcpState::new());
+
+            // Start local HTTP bridge for MCP clients
+            let pending = app.state::<acp::AcpState>().pending.clone();
+            let app_handle = app.handle().clone();
+            let port: u16 = std::env::var("BACKSTAGE_HTTP_PORT")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .or_else(|| {
+                    use tauri_plugin_store::StoreExt;
+                    let store = app.store("settings.json").ok()?;
+                    store
+                        .get("mcp_port")
+                        .and_then(|v| v.as_u64())
+                        .and_then(|n| u16::try_from(n).ok())
+                })
+                .unwrap_or(37842);
+            tauri::async_runtime::spawn(async move {
+                http_bridge::start(pending, app_handle, port).await;
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             acp::acp_prompt,
+            acp::acp_tool_result,
             secure_storage::secure_storage_store,
             secure_storage::secure_storage_retrieve,
             secure_storage::secure_storage_remove_encrypted,
