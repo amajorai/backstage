@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { renderLayersToCanvas } from "@/lib/canvas-renderer";
 import type {
   ImageLayer,
   ShapeLayer,
@@ -256,9 +257,161 @@ function handleNavigate(args: Record<string, unknown>): ToolResult {
   return { success: true };
 }
 
+async function handleSaveProject(): Promise<ToolResult> {
+  const { activeTabId, tabs } = useTabsStore.getState();
+  if (!activeTabId) {
+    return { success: false, error: "No active project" };
+  }
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  if (!activeTab) {
+    return { success: false, error: "Active tab not found" };
+  }
+  const thumbnail = useGalleryStore
+    .getState()
+    .thumbnails.find((t) => t.id === activeTab.thumbnailId);
+  const { layers, canvasWidth, canvasHeight, pages } =
+    useEditorStore.getState();
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+    await renderLayersToCanvas(layers, canvasWidth, canvasHeight, canvas);
+    const previewDataUrl = canvas.toDataURL("image/jpeg", 0.8);
+    const projectName = thumbnail?.name ?? activeTab.name;
+    const savedId = await useGalleryStore
+      .getState()
+      .saveProject(
+        activeTab.thumbnailId,
+        projectName,
+        previewDataUrl,
+        [],
+        canvasWidth,
+        canvasHeight,
+        { pages }
+      );
+    useTabsStore
+      .getState()
+      .markTabSaved(activeTabId, useEditorStore.getState().historyIndex);
+    return { success: true, projectId: savedId };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+async function handleCreateProject(
+  args: Record<string, unknown>
+): Promise<ToolResult> {
+  const name = String(args.name ?? "New Project");
+  const width = args.width !== undefined ? Number(args.width) : 1280;
+  const height = args.height !== undefined ? Number(args.height) : 720;
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, width, height);
+    }
+    const previewDataUrl = canvas.toDataURL("image/jpeg", 0.8);
+    const projectId = await useGalleryStore
+      .getState()
+      .saveProject(null, name, previewDataUrl, [], width, height, {
+        pages: [],
+      });
+    const newThumbnail = useGalleryStore
+      .getState()
+      .thumbnails.find((t) => t.id === projectId);
+    if (newThumbnail) {
+      useTabsStore.getState().openTab(newThumbnail);
+    }
+    return { success: true, projectId };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+async function handleExportCanvas(): Promise<ToolResult> {
+  const { layers, canvasWidth, canvasHeight } = useEditorStore.getState();
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+    await renderLayersToCanvas(layers, canvasWidth, canvasHeight, canvas);
+    const dataUrl = canvas.toDataURL("image/png");
+    const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
+    return {
+      success: true,
+      base64,
+      mimeType: "image/png",
+      width: canvasWidth,
+      height: canvasHeight,
+    };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+function handleSetBackgroundColor(args: Record<string, unknown>): ToolResult {
+  const color = String(args.color ?? "#000000");
+  const { layers, canvasWidth, canvasHeight } = useEditorStore.getState();
+  const bottomShapeLayer = layers.find((l) => l.type === "shape");
+  if (bottomShapeLayer) {
+    // biome-ignore lint/suspicious/noExplicitAny: partial layer update from external tool call
+    useEditorStore
+      .getState()
+      .updateLayer(bottomShapeLayer.id, { fill: color } as any);
+  } else {
+    const layerCountBefore = layers.length;
+    useEditorStore.getState().addShapeLayer("rect");
+    const newLayer = useEditorStore.getState().layers.at(-1);
+    if (newLayer) {
+      // biome-ignore lint/suspicious/noExplicitAny: partial layer update from external tool call
+      useEditorStore.getState().updateLayer(newLayer.id, {
+        x: 0,
+        y: 0,
+        width: canvasWidth,
+        height: canvasHeight,
+        fill: color,
+        stroke: "transparent",
+        strokeWidth: 0,
+        cornerRadius: 0,
+      } as any);
+      for (let i = 0; i < layerCountBefore; i++) {
+        useEditorStore.getState().moveLayer(newLayer.id, "down");
+      }
+    }
+  }
+  return { success: true };
+}
+
+function handleGetActiveProject(): ToolResult {
+  const { activeTabId, tabs } = useTabsStore.getState();
+  if (!activeTabId) {
+    return { success: true, project: null };
+  }
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  if (!activeTab) {
+    return { success: true, project: null };
+  }
+  const thumbnail = useGalleryStore
+    .getState()
+    .thumbnails.find((t) => t.id === activeTab.thumbnailId);
+  const { canvasWidth, canvasHeight } = useEditorStore.getState();
+  return {
+    success: true,
+    project: {
+      id: activeTab.thumbnailId,
+      name: thumbnail?.name ?? activeTab.name,
+      canvasWidth: thumbnail?.canvasWidth ?? canvasWidth,
+      canvasHeight: thumbnail?.canvasHeight ?? canvasHeight,
+    },
+  };
+}
+
 const TOOL_HANDLERS: Record<
   string,
-  (args: Record<string, unknown>) => ToolResult
+  (args: Record<string, unknown>) => ToolResult | Promise<ToolResult>
 > = {
   backstage_get_projects: () => handleGetProjects(),
   backstage_get_editor_state: () => handleGetEditorState(),
@@ -274,6 +427,11 @@ const TOOL_HANDLERS: Record<
   backstage_move_layer: handleMoveLayer,
   backstage_duplicate_layer: handleDuplicateLayer,
   backstage_navigate: handleNavigate,
+  backstage_save_project: () => handleSaveProject(),
+  backstage_create_project: handleCreateProject,
+  backstage_export_canvas: () => handleExportCanvas(),
+  backstage_set_background_color: handleSetBackgroundColor,
+  backstage_get_active_project: () => handleGetActiveProject(),
 };
 
 export async function dispatchAcpToolCall(call: AcpToolCall): Promise<void> {
@@ -289,7 +447,7 @@ export async function dispatchAcpToolCall(call: AcpToolCall): Promise<void> {
   }
 
   try {
-    const result = handler(call.arguments);
+    const result = await Promise.resolve(handler(call.arguments));
     await invoke("acp_tool_result", {
       callId: call.callId,
       result: JSON.stringify(result),

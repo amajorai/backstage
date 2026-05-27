@@ -166,9 +166,10 @@ export default function App() {
   const { pendingPage, clearPending } = useNavigationStore();
   useEffect(() => {
     if (!pendingPage) return;
+    setEditorVisible(false);
     setPage(pendingPage);
     clearPending();
-  }, [pendingPage, clearPending]);
+  }, [pendingPage, clearPending, setEditorVisible]);
 
   if (!isInitialLoadDone || (isValidating && !isValidated)) {
     return (
