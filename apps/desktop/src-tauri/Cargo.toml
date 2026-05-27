@@ -39,7 +39,8 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 futures-util = { version = "0.3", optional = true }
 ort = { version = "2.0.0-rc.12", features = ["download-binaries"], optional = true }
 image = { version = "0.25", optional = true }
-tokio = { version = "1", features = ["rt", "net", "time", "io-util", "process"] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "net", "time", "io-util", "process"] }
+axum = { version = "0.8" }
 
 [features]
 bria = ["dep:futures-util", "dep:ort", "dep:image"]

@@ -6,6 +6,7 @@ use tauri_plugin_decorum::WebviewWindowExt;
 pub mod background_removal;
 pub mod acp;
 pub mod embeddings;
+pub mod http_bridge;
 pub mod secure_storage;
 pub mod security;
 pub mod upscale;
@@ -181,6 +182,17 @@ pub fn run() {
 
             // Initialize ACP tool-call state
             app.manage(acp::AcpState::new());
+
+            // Start local HTTP bridge for MCP clients
+            let pending = app.state::<acp::AcpState>().pending.clone();
+            let app_handle = app.handle().clone();
+            let port: u16 = std::env::var("BACKSTAGE_HTTP_PORT")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(37842);
+            tokio::spawn(async move {
+                http_bridge::start(pending, app_handle, port).await;
+            });
 
             Ok(())
         })

@@ -28,7 +28,7 @@ fn generate_call_id() -> String {
     format!("call_{nanos}")
 }
 
-fn tool_definitions() -> serde_json::Value {
+pub fn tool_definitions() -> serde_json::Value {
     serde_json::json!([
         {
             "name": "backstage_get_projects",
