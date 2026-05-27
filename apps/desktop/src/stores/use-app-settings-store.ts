@@ -24,6 +24,7 @@ const SHOW_FOLDER_BADGES_FIELD = "show_folder_badges";
 const ONBOARDING_COMPLETED_FIELD = "onboarding_completed";
 const EXPERIMENTAL_FEATURES_FIELD = "experimental_features_enabled";
 const SOUNDS_ENABLED_FIELD = "sounds_enabled";
+const MCP_PORT_FIELD = "mcp_port";
 
 export type AppTheme = "light" | "dark" | "system";
 export type BgRemovalQuality = "fast" | "balanced" | "best";
@@ -71,6 +72,7 @@ interface AppSettingsState {
   onboardingCompleted: boolean;
   experimentalFeaturesEnabled: boolean;
   soundsEnabled: boolean;
+  mcpPort: number;
   isInitialLoadDone: boolean;
 
   // Actions
@@ -98,6 +100,7 @@ interface AppSettingsState {
   setOnboardingCompleted: (completed: boolean) => Promise<void>;
   setExperimentalFeaturesEnabled: (enabled: boolean) => Promise<void>;
   setSoundsEnabled: (enabled: boolean) => Promise<void>;
+  setMcpPort: (port: number) => Promise<void>;
   loadSettings: () => Promise<void>;
 }
 
@@ -124,6 +127,7 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
   onboardingCompleted: false,
   experimentalFeaturesEnabled: false,
   soundsEnabled: true,
+  mcpPort: 37_842,
   isInitialLoadDone: false,
 
   setPreviewSeasonTheme: (theme) => set({ previewSeasonTheme: theme }),
@@ -490,6 +494,23 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
     }
   },
 
+  setMcpPort: async (port: number) => {
+    try {
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
+      await store.set(MCP_PORT_FIELD, port);
+      await store.save();
+      set({ mcpPort: port });
+    } catch (error) {
+      logger.error(
+        { err: error },
+        "[Settings] Failed to save setting: mcpPort"
+      );
+    }
+  },
+
   loadSettings: async () => {
     try {
       logger.info("[Settings] Loading app settings...");
@@ -550,6 +571,7 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
         EXPERIMENTAL_FEATURES_FIELD
       );
       const soundsEnabled = await store.get<boolean>(SOUNDS_ENABLED_FIELD);
+      const mcpPort = await store.get<number>(MCP_PORT_FIELD);
 
       const finalTheme = theme ?? "dark";
 
@@ -575,6 +597,7 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
         onboardingCompleted: onboardingCompleted ?? false,
         experimentalFeaturesEnabled: experimentalFeaturesEnabled ?? false,
         soundsEnabled: soundsEnabled ?? true,
+        mcpPort: mcpPort ?? 37_842,
         isInitialLoadDone: true,
       });
 

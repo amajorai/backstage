@@ -38,6 +38,7 @@ import JSZip from "jszip";
 import {
   ArrowLeft,
   Check,
+  Copy,
   Download,
   ExternalLink,
   Loader2,
@@ -218,7 +219,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
 }
 
 interface SettingRowProps {
-  title: string;
+  title: React.ReactNode;
   description?: React.ReactNode;
   children: React.ReactNode;
 }
@@ -1034,6 +1035,7 @@ function AiSettings() {
       )}
       <ProcessingSettings hasGeminiKey={hasGeminiKey} />
       {experimentalFeaturesEnabled && <AgentSettings />}
+      {experimentalFeaturesEnabled && <McpServerSettings />}
     </div>
   );
 }
@@ -2786,6 +2788,156 @@ async function addDirToZip(
       zip.file(zipPath, readFile(fullPath));
     }
   }
+}
+
+const DEFAULT_MCP_PORT = 37_842;
+
+function McpServerSettings() {
+  const { mcpPort, setMcpPort } = useAppSettingsStore();
+  const [bridgeRunning, setBridgeRunning] = useState<boolean | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`http://localhost:${mcpPort}/api/tools`, {
+          signal: controller.signal,
+        });
+        setBridgeRunning(res.ok);
+      } catch (err) {
+        if ((err as Error)?.name === "AbortError") return;
+        setBridgeRunning(false);
+      }
+    };
+
+    poll();
+    const id = setInterval(poll, 5000);
+
+    return () => {
+      controller.abort();
+      clearInterval(id);
+    };
+  }, [mcpPort]);
+
+  const claudeConfig = JSON.stringify(
+    {
+      mcpServers: {
+        backstage: {
+          command: "node",
+          args: ["/path/to/backstage-mcp/dist/index.js"],
+          env: { BACKSTAGE_API_URL: `http://localhost:${mcpPort}` },
+        },
+      },
+    },
+    null,
+    2
+  );
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(claudeConfig);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handlePortChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const port = Number.parseInt(e.target.value, 10);
+    if (!Number.isNaN(port) && port >= 1025 && port <= 65_534) {
+      setMcpPort(port);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="mb-3 flex items-center justify-between pr-2 pl-2">
+        <p className="font-medium text-muted-foreground text-xs">MCP Server</p>
+        <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-medium text-amber-600 text-xs dark:text-amber-400">
+          Experimental
+        </span>
+      </div>
+      <div className="space-y-2">
+        <SettingRow
+          description={
+            bridgeRunning === null
+              ? "Checking status..."
+              : bridgeRunning
+                ? "Running"
+                : "Stopped"
+          }
+          title={
+            <span className="flex items-center gap-2">
+              MCP Bridge
+              <span
+                aria-label={
+                  bridgeRunning === null
+                    ? "Checking"
+                    : bridgeRunning
+                      ? "Running"
+                      : "Stopped"
+                }
+                className={`inline-block size-2 rounded-full ${
+                  bridgeRunning === null
+                    ? "bg-muted-foreground"
+                    : bridgeRunning
+                      ? "bg-green-500"
+                      : "bg-red-500"
+                }`}
+                role="status"
+              />
+            </span>
+          }
+        >
+          <div className="flex items-center gap-2">
+            <label
+              className="text-muted-foreground text-xs"
+              htmlFor="mcp-port-input"
+            >
+              Port
+            </label>
+            <Input
+              className="w-24"
+              id="mcp-port-input"
+              max={65_534}
+              min={1025}
+              onChange={handlePortChange}
+              type="number"
+              value={mcpPort}
+            />
+          </div>
+        </SettingRow>
+        <p className="pl-4 text-muted-foreground text-xs">
+          Port changes require app restart
+        </p>
+      </div>
+      <div className="space-y-2">
+        <p className="pl-2 font-medium text-muted-foreground text-xs">
+          Claude Desktop config
+        </p>
+        <div className="relative rounded-lg bg-muted/50">
+          <pre className="overflow-x-auto px-4 py-3 font-mono text-xs">
+            {claudeConfig}
+          </pre>
+          <button
+            aria-label="Copy config to clipboard"
+            className="absolute top-2 right-2 flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground text-xs transition-colors hover:bg-muted hover:text-foreground"
+            onClick={() => {
+              sounds.click();
+              handleCopy();
+            }}
+            type="button"
+          >
+            {copied ? (
+              <Check className="size-3.5" />
+            ) : (
+              <Copy className="size-3.5" />
+            )}
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const AGENT_PRESETS: Pick<AcpAgent, "name" | "command" | "args" | "envVars">[] =
