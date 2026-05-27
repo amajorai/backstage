@@ -189,6 +189,14 @@ pub fn run() {
             let port: u16 = std::env::var("BACKSTAGE_HTTP_PORT")
                 .ok()
                 .and_then(|v| v.parse().ok())
+                .or_else(|| {
+                    use tauri_plugin_store::StoreExt;
+                    let store = app.store("settings.json").ok()?;
+                    store
+                        .get("mcp_port")
+                        .and_then(|v| v.as_u64())
+                        .and_then(|n| u16::try_from(n).ok())
+                })
                 .unwrap_or(37842);
             tauri::async_runtime::spawn(async move {
                 http_bridge::start(pending, app_handle, port).await;
