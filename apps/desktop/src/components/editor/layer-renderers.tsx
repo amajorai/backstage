@@ -39,6 +39,7 @@ interface LayerRenderProps {
   onDragMove: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onDragEnd: (e: Konva.KonvaEventObject<DragEvent>, layerId: string) => void;
   onTransformStart: () => void;
+  onTransform?: (e: Konva.KonvaEventObject<Event>) => void;
   onTransformEnd: (
     e: Konva.KonvaEventObject<Event>,
     layer: EditorLayer
@@ -319,6 +320,7 @@ function TextLayerComponent(
     onDragMove,
     onDragEnd,
     onTransformStart,
+    onTransform,
     onTransformEnd,
   } = props;
 
@@ -341,6 +343,9 @@ function TextLayerComponent(
     layer.letterSpacing,
     layer.backgroundColor,
     layer.textTransform,
+    // width affects how text wraps, which changes the measured height the
+    // background rect must cover — so a resize/reflow must recompute bgSize.
+    layer.width,
   ]);
 
   const displayText = applyTextTransform(layer.text, layer.textTransform);
@@ -371,6 +376,7 @@ function TextLayerComponent(
       onDragEnd={(e) => onDragEnd(e, layer.id)}
       onDragMove={onDragMove}
       onDragStart={onDragStart}
+      onTransform={onTransform}
       onTransformEnd={(e) => onTransformEnd(e, layer)}
       onTransformStart={onTransformStart}
       opacity={layer.opacity}
@@ -405,6 +411,7 @@ function TextLayerComponent(
       onDragEnd={(e) => onDragEnd(e, layer.id)}
       onDragMove={onDragMove}
       onDragStart={onDragStart}
+      onTransform={onTransform}
       onTransformEnd={(e) => onTransformEnd(e, layer)}
       onTransformStart={onTransformStart}
       opacity={layer.opacity}

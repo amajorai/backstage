@@ -325,6 +325,7 @@ export function ArtboardView({
                 >
                   {isActive ? (
                     <KonvaCanvas
+                      cssZoom={zoom}
                       height={canvasHeight}
                       isDark={isDark}
                       onExportRef={exportRef}

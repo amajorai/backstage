@@ -41,7 +41,11 @@ async function getSystemFonts(): Promise<string[]> {
           >;
         }
       ).queryLocalFonts();
-      const fontNames = [...new Set(fonts.map((f) => f.fullName))].sort();
+      // Use the CSS `family` name (e.g. "Arial"), not `fullName` (e.g.
+      // "Arial Bold"). Only the family name is valid for font-family /
+      // canvas ctx.font; fullName silently falls back to a default font.
+      // Weight/style are applied separately via the Bold/Italic toggles.
+      const fontNames = [...new Set(fonts.map((f) => f.family))].sort();
       return fontNames.length > 0 ? fontNames : FALLBACK_FONTS;
     }
   } catch (error) {

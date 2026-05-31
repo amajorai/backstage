@@ -19,6 +19,7 @@ import { GeminiImagePage } from "@/components/GeminiImagePage";
 import type { AiGenerationNode } from "@/lib/ai-project-storage";
 import * as sounds from "@/lib/sounds";
 import { useAiProjectStore } from "@/stores/use-ai-project-store";
+import { useGalleryStore } from "@/stores/use-gallery-store";
 
 interface GenerationNodeData {
   node: AiGenerationNode;
@@ -175,6 +176,10 @@ export function AiProjectPage({
     [addGeneration, openGraph]
   );
 
+  const handleSaveToGallery = useCallback(async (dataUrl: string) => {
+    await useGalleryStore.getState().addThumbnail(dataUrl, "AI Generated");
+  }, []);
+
   const startRename = () => {
     setRenameValue(project?.name ?? "");
     setIsRenaming(true);
@@ -295,7 +300,7 @@ export function AiProjectPage({
             fullPage={false}
             onClose={onClose}
             onGenerationComplete={handleGenerationComplete}
-            onSaveAsImage={() => {}}
+            onSaveAsImage={handleSaveToGallery}
             onSettings={onSettings}
           />
         </div>

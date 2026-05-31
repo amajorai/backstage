@@ -64,10 +64,21 @@ interface KonvaCanvasProps {
   showGrid?: boolean;
   panOffset?: { x: number; y: number };
   isDark?: boolean;
+  /**
+   * Extra zoom applied outside the Konva stage (e.g. a CSS `transform: scale()`
+   * on a wrapping element). The stage renders at `scale`, then the browser
+   * magnifies the result by `cssZoom`, so the true on-screen scale is
+   * `scale * cssZoom`. Snap thresholds and guide widths must divide by it to
+   * stay constant in screen pixels. Defaults to 1 (no external zoom).
+   */
+  cssZoom?: number;
 }
 
 const SNAP_THRESHOLD = 20;
 const UI_COLOR = "oklch(0.685 0.169 237.323)";
+// Canva-style alignment cue: a vivid magenta line drawn only across the span
+// shared by the dragged element and whatever it is snapping to.
+const SNAP_GUIDE_COLOR = "#ff2d6f";
 const ROTATION_SNAPS_15 = Array.from({ length: 24 }, (_, i) => i * 15);
 
 /** Returns the effective width/height of a layer. */
@@ -110,9 +121,29 @@ function resolveClickedLayerId(target: Konva.Node): string {
   return "";
 }
 
+interface SnapGuideLine {
+  /** Position on the snap axis (x for a vertical line, y for a horizontal one). */
+  pos: number;
+  /** Start of the drawn segment on the perpendicular axis. */
+  start: number;
+  /** End of the drawn segment on the perpendicular axis. */
+  end: number;
+}
+
 interface SnapGuides {
-  vertical: number[];
-  horizontal: number[];
+  vertical: SnapGuideLine[];
+  horizontal: SnapGuideLine[];
+}
+
+/**
+ * A potential snap target. `pos` is the coordinate aligned to; `rangeStart`
+ * and `rangeEnd` are the perpendicular extent of the source element so the
+ * rendered guide can span just the dragged element and the thing it snaps to.
+ */
+interface SnapCandidate {
+  pos: number;
+  rangeStart: number;
+  rangeEnd: number;
 }
 
 interface SelectionBox {
@@ -144,10 +175,15 @@ export function KonvaCanvas({
   showGrid = false,
   panOffset,
   isDark = true,
+  cssZoom = 1,
 }: KonvaCanvasProps) {
   const workspaceBg = isDark ? "#171717" : "#e5e5e5";
   const canvasBg = isDark ? "#262626" : "#d4d4d4";
   const inv = 1 / scale;
+  // Canvas units per on-screen pixel, accounting for any external CSS zoom.
+  // Use this (not `inv`) for anything that should stay a fixed screen size,
+  // such as snap thresholds and guide stroke widths.
+  const screenInv = inv / cssZoom;
   const offsetX = (workspaceWidth - width * scale) / 2 + (panOffset?.x ?? 0);
   const offsetY = (workspaceHeight - height * scale) / 2 + (panOffset?.y ?? 0);
   const toCanvasPos = (p: { x: number; y: number }) => ({
@@ -724,7 +760,7 @@ export function KonvaCanvas({
     };
 
     const snapToNearest = (canvasPos: number, points: number[]): number => {
-      const threshold = SNAP_THRESHOLD * inv;
+      const threshold = SNAP_THRESHOLD * screenInv;
       let best = threshold;
       let snapped = canvasPos;
       for (const p of points) {
@@ -808,7 +844,7 @@ export function KonvaCanvas({
     offsetX,
     offsetY,
     scale,
-    inv,
+    screenInv,
     layers,
     activeLayerIds,
     userGuides,
@@ -1103,8 +1139,10 @@ export function KonvaCanvas({
       let h = workBox.height;
 
       // boundBoxFunc receives absolute stage-pixel coords, so convert canvas
-      // snap points (canvas units) → stage pixels before comparing
-      const threshold = SNAP_THRESHOLD;
+      // snap points (canvas units) → stage pixels before comparing. The
+      // threshold is in stage pixels; divide by cssZoom so the snap zone stays
+      // a fixed size on screen when an external CSS zoom is applied.
+      const threshold = SNAP_THRESHOLD / cssZoom;
       const activeSet = new Set(activeLayerIds);
       const layerVCanvas: number[] = [];
       const layerHCanvas: number[] = [];
@@ -1203,57 +1241,119 @@ export function KonvaCanvas({
       if (w < 10 || h < 10) return oldBox;
       return { x, y, width: w, height: h, rotation };
     },
-    [width, height, userGuides, scale, offsetX, offsetY, layers, activeLayerIds]
+    [
+      width,
+      height,
+      userGuides,
+      scale,
+      offsetX,
+      offsetY,
+      cssZoom,
+      layers,
+      activeLayerIds,
+    ]
   );
 
   const handleTransformerTransform = useCallback(() => {
     const tr = transformerRef.current;
     if (!tr) return;
+    // getClientRect() returns absolute stage-pixel coords, but the snap points
+    // below (0, width, layer positions, …) are in canvas units. Convert the box
+    // to canvas units so the comparison is meaningful at any zoom/pan — without
+    // this the guides only lined up at scale=1 with no pan.
     const box = tr.getClientRect();
-    const left = box.x;
-    const right = box.x + box.width;
-    const top = box.y;
-    const bottom = box.y + box.height;
-    const cx = box.x + box.width / 2;
-    const cy = box.y + box.height / 2;
+    const left = (box.x - offsetX) / scale;
+    const right = (box.x + box.width - offsetX) / scale;
+    const top = (box.y - offsetY) / scale;
+    const bottom = (box.y + box.height - offsetY) / scale;
+    const cx = (left + right) / 2;
+    const cy = (top + bottom) / 2;
 
-    const threshold = SNAP_THRESHOLD * inv;
+    const threshold = SNAP_THRESHOLD * screenInv;
     const guides: SnapGuides = { vertical: [], horizontal: [] };
     const activeSet = new Set(activeLayerIds);
-    const layerVPoints: number[] = [];
-    const layerHPoints: number[] = [];
+    const vCandidates: SnapCandidate[] = [
+      { pos: 0, rangeStart: 0, rangeEnd: height },
+      { pos: width, rangeStart: 0, rangeEnd: height },
+      { pos: width / 2, rangeStart: 0, rangeEnd: height },
+      ...userGuides.v.map((g) => ({ pos: g, rangeStart: 0, rangeEnd: height })),
+    ];
+    const hCandidates: SnapCandidate[] = [
+      { pos: 0, rangeStart: 0, rangeEnd: width },
+      { pos: height, rangeStart: 0, rangeEnd: width },
+      { pos: height / 2, rangeStart: 0, rangeEnd: width },
+      ...userGuides.h.map((g) => ({ pos: g, rangeStart: 0, rangeEnd: width })),
+    ];
     for (const l of layers) {
       if (activeSet.has(l.id) || !l.visible) continue;
       const { w: lw, h: lh } = getLayerDimensions(l);
-      const scaledLw = lw * l.scaleX;
-      const scaledLh = lh * l.scaleY;
-      layerVPoints.push(l.x, l.x + scaledLw, l.x + scaledLw / 2);
-      layerHPoints.push(l.y, l.y + scaledLh, l.y + scaledLh / 2);
+      const lLeft = l.x;
+      const lRight = l.x + lw * l.scaleX;
+      const lTop = l.y;
+      const lBottom = l.y + lh * l.scaleY;
+      vCandidates.push(
+        { pos: lLeft, rangeStart: lTop, rangeEnd: lBottom },
+        { pos: lRight, rangeStart: lTop, rangeEnd: lBottom },
+        { pos: (lLeft + lRight) / 2, rangeStart: lTop, rangeEnd: lBottom }
+      );
+      hCandidates.push(
+        { pos: lTop, rangeStart: lLeft, rangeEnd: lRight },
+        { pos: lBottom, rangeStart: lLeft, rangeEnd: lRight },
+        { pos: (lTop + lBottom) / 2, rangeStart: lLeft, rangeEnd: lRight }
+      );
     }
-    const vPoints = [0, width, width / 2, ...userGuides.v, ...layerVPoints];
     let bestX = threshold;
-    for (const p of vPoints) {
+    let bestV: SnapCandidate | null = null;
+    for (const c of vCandidates) {
       for (const edge of [left, right, cx]) {
-        const d = Math.abs(edge - p);
+        const d = Math.abs(edge - c.pos);
         if (d < bestX) {
           bestX = d;
-          guides.vertical = [p];
+          bestV = c;
         }
       }
     }
-    const hPoints = [0, height, height / 2, ...userGuides.h, ...layerHPoints];
+    if (bestV) {
+      guides.vertical = [
+        {
+          pos: bestV.pos,
+          start: Math.min(top, bestV.rangeStart),
+          end: Math.max(bottom, bestV.rangeEnd),
+        },
+      ];
+    }
     let bestY = threshold;
-    for (const p of hPoints) {
+    let bestH: SnapCandidate | null = null;
+    for (const c of hCandidates) {
       for (const edge of [top, bottom, cy]) {
-        const d = Math.abs(edge - p);
+        const d = Math.abs(edge - c.pos);
         if (d < bestY) {
           bestY = d;
-          guides.horizontal = [p];
+          bestH = c;
         }
       }
     }
+    if (bestH) {
+      guides.horizontal = [
+        {
+          pos: bestH.pos,
+          start: Math.min(left, bestH.rangeStart),
+          end: Math.max(right, bestH.rangeEnd),
+        },
+      ];
+    }
     setSnapGuides(guides);
-  }, [width, height, userGuides, inv, layers, activeLayerIds]);
+  }, [
+    width,
+    height,
+    userGuides,
+    scale,
+    offsetX,
+    offsetY,
+    screenInv,
+    layers,
+    activeLayerIds,
+  ]);
 
   const calculateSnap = useCallback(
     (node: Konva.Node) => {
@@ -1272,55 +1372,102 @@ export function KonvaCanvas({
       let snapDeltaX = 0;
       let snapDeltaY = 0;
 
-      const threshold = SNAP_THRESHOLD * inv;
+      const threshold = SNAP_THRESHOLD * screenInv;
       const activeSet = new Set(activeLayerIds);
-      const layerVPoints: number[] = [];
-      const layerHPoints: number[] = [];
+      const vCandidates: SnapCandidate[] = [
+        { pos: 0, rangeStart: 0, rangeEnd: height },
+        { pos: width, rangeStart: 0, rangeEnd: height },
+        { pos: width / 2, rangeStart: 0, rangeEnd: height },
+        ...userGuides.v.map((g) => ({
+          pos: g,
+          rangeStart: 0,
+          rangeEnd: height,
+        })),
+      ];
+      const hCandidates: SnapCandidate[] = [
+        { pos: 0, rangeStart: 0, rangeEnd: width },
+        { pos: height, rangeStart: 0, rangeEnd: width },
+        { pos: height / 2, rangeStart: 0, rangeEnd: width },
+        ...userGuides.h.map((g) => ({
+          pos: g,
+          rangeStart: 0,
+          rangeEnd: width,
+        })),
+      ];
       for (const l of layers) {
         if (activeSet.has(l.id) || !l.visible) continue;
         const { w: lw, h: lh } = getLayerDimensions(l);
-        const scaledLw = lw * l.scaleX;
-        const scaledLh = lh * l.scaleY;
-        layerVPoints.push(l.x, l.x + scaledLw, l.x + scaledLw / 2);
-        layerHPoints.push(l.y, l.y + scaledLh, l.y + scaledLh / 2);
+        const lLeft = l.x;
+        const lRight = l.x + lw * l.scaleX;
+        const lTop = l.y;
+        const lBottom = l.y + lh * l.scaleY;
+        vCandidates.push(
+          { pos: lLeft, rangeStart: lTop, rangeEnd: lBottom },
+          { pos: lRight, rangeStart: lTop, rangeEnd: lBottom },
+          { pos: (lLeft + lRight) / 2, rangeStart: lTop, rangeEnd: lBottom }
+        );
+        hCandidates.push(
+          { pos: lTop, rangeStart: lLeft, rangeEnd: lRight },
+          { pos: lBottom, rangeStart: lLeft, rangeEnd: lRight },
+          { pos: (lTop + lBottom) / 2, rangeStart: lLeft, rangeEnd: lRight }
+        );
       }
-      const vPoints = [0, width, width / 2, ...userGuides.v, ...layerVPoints];
+
       let bestX = threshold;
-      for (const p of vPoints) {
+      let bestV: SnapCandidate | null = null;
+      for (const c of vCandidates) {
         for (const [edge, delta] of [
-          [left, p - left],
-          [right, p - right],
-          [cx, p - cx],
+          [left, c.pos - left],
+          [right, c.pos - right],
+          [cx, c.pos - cx],
         ] as [number, number][]) {
-          const d = Math.abs(edge - p);
+          const d = Math.abs(edge - c.pos);
           if (d < bestX) {
             bestX = d;
             snapDeltaX = delta;
-            guides.vertical = [p];
+            bestV = c;
           }
         }
       }
+      if (bestV) {
+        guides.vertical = [
+          {
+            pos: bestV.pos,
+            start: Math.min(top, bestV.rangeStart),
+            end: Math.max(bottom, bestV.rangeEnd),
+          },
+        ];
+      }
 
-      const hPoints = [0, height, height / 2, ...userGuides.h, ...layerHPoints];
       let bestY = threshold;
-      for (const p of hPoints) {
+      let bestH: SnapCandidate | null = null;
+      for (const c of hCandidates) {
         for (const [edge, delta] of [
-          [top, p - top],
-          [bottom, p - bottom],
-          [cy, p - cy],
+          [top, c.pos - top],
+          [bottom, c.pos - bottom],
+          [cy, c.pos - cy],
         ] as [number, number][]) {
-          const d = Math.abs(edge - p);
+          const d = Math.abs(edge - c.pos);
           if (d < bestY) {
             bestY = d;
             snapDeltaY = delta;
-            guides.horizontal = [p];
+            bestH = c;
           }
         }
+      }
+      if (bestH) {
+        guides.horizontal = [
+          {
+            pos: bestH.pos,
+            start: Math.min(left, bestH.rangeStart),
+            end: Math.max(right, bestH.rangeEnd),
+          },
+        ];
       }
 
       return { snapDeltaX, snapDeltaY, guides };
     },
-    [width, height, userGuides, inv, layers, activeLayerIds]
+    [width, height, userGuides, screenInv, layers, activeLayerIds]
   );
 
   // ── Brush helpers ──────────────────────────────────────────────────────────
@@ -2135,11 +2282,89 @@ export function KonvaCanvas({
     [updateLayer]
   );
 
+  // Live reflow while a single text layer's transformer handle is dragged.
+  // Canva-style: corner handles (aspect locked via keepRatio) scale font + box
+  // together; middle-left/right handles change only the wrap width so the text
+  // reflows onto new rows. We fold the node's scale into width/fontSize every
+  // frame and reset scale to 1 — that's what stops the glyphs from stretching
+  // mid-drag. handleTransformEnd then commits the node's current metrics.
+  const handleTextTransform = useCallback(
+    (e: Konva.KonvaEventObject<Event>) => {
+      if (activeLayerIds.length !== 1) {
+        return;
+      }
+      const node = e.target;
+      const className = node.getClassName();
+      // Plain text renders as a bare Text node; text with a background box
+      // renders as a Group(Rect, Text). Handle both so neither stretches.
+      const textNode =
+        className === "Text"
+          ? (node as Konva.Text)
+          : ((node as Konva.Group).findOne("Text") as Konva.Text | undefined);
+      if (!textNode) {
+        return;
+      }
+      const scaleX = node.scaleX();
+      const scaleY = node.scaleY();
+      // Middle anchors ignore keepRatio, so a width-only drag keeps scaleY at 1.
+      // Any change in scaleY means a corner drag → scale the font too.
+      const isCornerDrag = Math.abs(scaleY - 1) > 0.001;
+      textNode.width(Math.max(10, textNode.width() * scaleX));
+      if (isCornerDrag) {
+        textNode.fontSize(Math.max(1, textNode.fontSize() * scaleX));
+      }
+      // Re-fit the background rect to the reflowed text. rect.x() is -padding
+      // (see the Group renderer), so padding = -rect.x().
+      if (className === "Group") {
+        const rectNode = (node as Konva.Group).findOne("Rect") as
+          | Konva.Rect
+          | undefined;
+        if (rectNode) {
+          const pad = -rectNode.x();
+          rectNode.width(textNode.width() + pad * 2);
+          rectNode.height(textNode.height() + pad * 2);
+        }
+      }
+      node.scaleX(1);
+      node.scaleY(1);
+    },
+    [activeLayerIds]
+  );
+
   const handleTransformEnd = useCallback(
     (e: Konva.KonvaEventObject<Event>, layer: EditorLayer) => {
       const node = e.target;
 
       if (layer.type === "text") {
+        // Single text layer: live onTransform already folded scale into the
+        // text node's width/fontSize and reset the dragged node's scale to ~1,
+        // so commit the text node's current metrics directly. Covers both the
+        // bare Text node and the Group(Rect, Text) background variant.
+        // (Multi-select falls through to the legacy scale-multiply path below,
+        // where scale is still != 1.)
+        const className = node.getClassName();
+        const isSingleFolded =
+          (className === "Text" || className === "Group") &&
+          Math.abs(node.scaleX() - 1) < 0.001 &&
+          Math.abs(node.scaleY() - 1) < 0.001;
+        if (isSingleFolded) {
+          const t =
+            className === "Text"
+              ? (node as Konva.Text)
+              : ((node as Konva.Group).findOne("Text") as
+                  | Konva.Text
+                  | undefined);
+          if (t) {
+            updateLayer(layer.id, {
+              x: node.x(),
+              y: node.y(),
+              rotation: node.rotation(),
+              width: Math.max(10, Math.round(t.width())),
+              fontSize: Math.max(1, Math.round(t.fontSize())),
+            });
+            return;
+          }
+        }
         const scaleX = node.scaleX();
         const scaleY = node.scaleY();
         node.scaleX(1);
@@ -2269,6 +2494,7 @@ export function KonvaCanvas({
       onDragMove: handleDragMove,
       onDragEnd: handleDragEnd,
       onTransformStart: () => pushHistory("Transform"),
+      onTransform: handleTextTransform,
       onTransformEnd: handleTransformEnd,
       onSelect: (id: string) => {
         setActiveLayers([id]);
@@ -2418,7 +2644,7 @@ export function KonvaCanvas({
                       listening={false}
                       points={[x, 0, x, height]}
                       stroke="rgba(255,255,255,0.08)"
-                      strokeWidth={inv}
+                      strokeWidth={screenInv}
                     />
                   );
                 }
@@ -2429,7 +2655,7 @@ export function KonvaCanvas({
                       listening={false}
                       points={[0, y, width, y]}
                       stroke="rgba(255,255,255,0.08)"
-                      strokeWidth={inv}
+                      strokeWidth={screenInv}
                     />
                   );
                 }
@@ -2473,7 +2699,11 @@ export function KonvaCanvas({
                   scaleY={layer.scaleY}
                   stroke={UI_COLOR}
                   strokeScaleEnabled={false}
-                  strokeWidth={inv * 1.5}
+                  // strokeScaleEnabled=false already cancels the Konva stage
+                  // scale, so it must NOT be divided by zoom (inv) — that makes
+                  // it grow thick when zoomed out. An external CSS zoom is a
+                  // separate factor Konva can't see, so still divide by cssZoom.
+                  strokeWidth={1.5 / cssZoom}
                   width={"width" in layer ? layer.width : 0}
                   x={layer.x}
                   y={layer.y}
@@ -2486,7 +2716,7 @@ export function KonvaCanvas({
             <Line
               dragBoundFunc={(pos) => ({ x: offsetX, y: pos.y })}
               draggable={activeTool === "select"}
-              hitStrokeWidth={8 * inv}
+              hitStrokeWidth={8 * screenInv}
               key={`user-guide-h-${i}`}
               listening={activeTool === "select"}
               onDragEnd={(e) => {
@@ -2513,7 +2743,7 @@ export function KonvaCanvas({
               }
               points={[0, 0, width, 0]}
               stroke={UI_COLOR}
-              strokeWidth={inv}
+              strokeWidth={screenInv}
               x={0}
               y={y}
             />
@@ -2522,7 +2752,7 @@ export function KonvaCanvas({
             <Line
               dragBoundFunc={(pos) => ({ x: pos.x, y: offsetY })}
               draggable={activeTool === "select"}
-              hitStrokeWidth={8 * inv}
+              hitStrokeWidth={8 * screenInv}
               key={`user-guide-v-${i}`}
               listening={activeTool === "select"}
               onDragEnd={(e) => {
@@ -2549,7 +2779,7 @@ export function KonvaCanvas({
               }
               points={[0, 0, 0, height]}
               stroke={UI_COLOR}
-              strokeWidth={inv}
+              strokeWidth={screenInv}
               x={x}
               y={0}
             />
@@ -2575,36 +2805,58 @@ export function KonvaCanvas({
             />
           )}
 
-          {snapGuides.vertical.map((x) => (
-            <Line
-              key={`snap-v-${x}`}
-              listening={false}
-              opacity={0.9}
-              points={[
-                x,
-                -offsetY / scale,
-                x,
-                (workspaceHeight - offsetY) / scale,
-              ]}
-              stroke={UI_COLOR}
-              strokeWidth={1.5 * inv}
-            />
-          ))}
-          {snapGuides.horizontal.map((y) => (
-            <Line
-              key={`snap-h-${y}`}
-              listening={false}
-              opacity={0.9}
-              points={[
-                -offsetX / scale,
-                y,
-                (workspaceWidth - offsetX) / scale,
-                y,
-              ]}
-              stroke={UI_COLOR}
-              strokeWidth={1.5 * inv}
-            />
-          ))}
+          {snapGuides.vertical.map((g) => {
+            const tick = 5 * screenInv;
+            const w = 1.5 * screenInv;
+            return (
+              <Group
+                key={`snap-v-${g.pos}-${g.start}-${g.end}`}
+                listening={false}
+              >
+                <Line
+                  points={[g.pos, g.start, g.pos, g.end]}
+                  stroke={SNAP_GUIDE_COLOR}
+                  strokeWidth={w}
+                />
+                <Line
+                  points={[g.pos - tick, g.start, g.pos + tick, g.start]}
+                  stroke={SNAP_GUIDE_COLOR}
+                  strokeWidth={w}
+                />
+                <Line
+                  points={[g.pos - tick, g.end, g.pos + tick, g.end]}
+                  stroke={SNAP_GUIDE_COLOR}
+                  strokeWidth={w}
+                />
+              </Group>
+            );
+          })}
+          {snapGuides.horizontal.map((g) => {
+            const tick = 5 * screenInv;
+            const w = 1.5 * screenInv;
+            return (
+              <Group
+                key={`snap-h-${g.pos}-${g.start}-${g.end}`}
+                listening={false}
+              >
+                <Line
+                  points={[g.start, g.pos, g.end, g.pos]}
+                  stroke={SNAP_GUIDE_COLOR}
+                  strokeWidth={w}
+                />
+                <Line
+                  points={[g.start, g.pos - tick, g.start, g.pos + tick]}
+                  stroke={SNAP_GUIDE_COLOR}
+                  strokeWidth={w}
+                />
+                <Line
+                  points={[g.end, g.pos - tick, g.end, g.pos + tick]}
+                  stroke={SNAP_GUIDE_COLOR}
+                  strokeWidth={w}
+                />
+              </Group>
+            );
+          })}
 
           {/* Crop tool overlay */}
           {cropRect && (
@@ -2665,7 +2917,7 @@ export function KonvaCanvas({
                 }}
                 ref={cropRectNodeRef}
                 stroke={UI_COLOR}
-                strokeWidth={1.5 * inv}
+                strokeWidth={1.5 * screenInv}
                 width={cropRect.width}
                 x={cropRect.x}
                 y={cropRect.y}
@@ -2673,11 +2925,11 @@ export function KonvaCanvas({
               <Transformer
                 anchorCornerRadius={2}
                 anchorFill="#fff"
-                anchorSize={10}
+                anchorSize={10 / cssZoom}
                 anchorStroke={UI_COLOR}
-                anchorStrokeWidth={1.5}
+                anchorStrokeWidth={1.5 / cssZoom}
                 borderStroke={UI_COLOR}
-                borderStrokeWidth={1.5}
+                borderStrokeWidth={1.5 / cssZoom}
                 boundBoxFunc={(oldBox, newBox) =>
                   newBox.width < 10 || newBox.height < 10 ? oldBox : newBox
                 }
@@ -2729,10 +2981,18 @@ export function KonvaCanvas({
                 ? [cr, cr, cr, cr]
                 : cr;
               const maxR = Math.min(handleLayer.width, handleLayer.height) / 2;
-              const handleRadius = 5 / scale;
+              // The handle Group is synced to inherit the layer node's
+              // scaleX/scaleY, so geometry inside it is multiplied by the stage
+              // zoom (scale), any external CSS zoom (cssZoom), and the layer's
+              // own scale. Divide by all three to keep the handles a constant
+              // size on screen regardless of any of them.
+              const nodeScale =
+                Math.sqrt(Math.abs(handleLayer.scaleX * handleLayer.scaleY)) ||
+                1;
+              const handleRadius = 5 / (scale * cssZoom * nodeScale);
               // Always keep handles MIN_OFFSET local-units inside the corner so
               // they're visible even when cornerRadius === 0.
-              const MIN_OFFSET = 14 / scale;
+              const MIN_OFFSET = 14 / (scale * cssZoom * nodeScale);
               const cornerCursors = [
                 "nwse-resize",
                 "nesw-resize",
@@ -2818,7 +3078,7 @@ export function KonvaCanvas({
                         radius={handleRadius}
                         stroke={UI_COLOR}
                         strokeScaleEnabled={false}
-                        strokeWidth={1.5}
+                        strokeWidth={1.5 / cssZoom}
                         x={cx[idx](r)}
                         y={cy[idx](r)}
                       />
@@ -2831,12 +3091,12 @@ export function KonvaCanvas({
           <Transformer
             anchorCornerRadius={2}
             anchorFill="#fff"
-            anchorSize={10}
+            anchorSize={10 / cssZoom}
             anchorStroke={UI_COLOR}
-            anchorStrokeWidth={1.5}
+            anchorStrokeWidth={1.5 / cssZoom}
             borderEnabled={activeLayerIds.length <= 1}
             borderStroke={UI_COLOR}
-            borderStrokeWidth={1.5}
+            borderStrokeWidth={1.5 / cssZoom}
             boundBoxFunc={snapBoundBoxFunc}
             enabledAnchors={
               activeLayerIds.length > 0 &&

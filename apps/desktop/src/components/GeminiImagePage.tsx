@@ -67,7 +67,7 @@ interface GeminiImagePageProps {
   onClose: () => void;
   onSettings: () => void;
   onSaveAsLayer?: (dataUrl: string) => void;
-  onSaveAsImage: (dataUrl: string) => void;
+  onSaveAsImage: (dataUrl: string) => void | Promise<void>;
   remixSourceUrl?: string;
   remixTitle?: string;
   fullPage?: boolean;
@@ -534,15 +534,20 @@ export function GeminiImagePage({
     onClose();
   }, [generatedImages, selectedIndices, onSaveAsLayer, onClose]);
 
-  const handleSaveSelectedAsImages = useCallback(() => {
+  const handleSaveSelectedAsImages = useCallback(async () => {
     const selected = generatedImages.filter((_, idx) =>
       selectedIndices.has(idx)
     );
-    for (const img of selected) onSaveAsImage(img.url);
-    sileo.success({
-      title: `Saved ${selected.length} image${selected.length > 1 ? "s" : ""} to gallery`,
-    });
-    onClose();
+    try {
+      await Promise.all(selected.map((img) => onSaveAsImage(img.url)));
+      sileo.success({
+        title: `Saved ${selected.length} image${selected.length > 1 ? "s" : ""} to gallery`,
+      });
+      onClose();
+    } catch (err) {
+      console.error("Failed to save images to gallery:", err);
+      sileo.error({ title: "Failed to save images to gallery" });
+    }
   }, [generatedImages, selectedIndices, onSaveAsImage, onClose]);
 
   const handleSaveAllAsLayers = useCallback(() => {
@@ -554,12 +559,17 @@ export function GeminiImagePage({
     onClose();
   }, [generatedImages, onSaveAsLayer, onClose]);
 
-  const handleSaveAllAsImages = useCallback(() => {
-    for (const img of generatedImages) onSaveAsImage(img.url);
-    sileo.success({
-      title: `Saved ${generatedImages.length} images to gallery`,
-    });
-    onClose();
+  const handleSaveAllAsImages = useCallback(async () => {
+    try {
+      await Promise.all(generatedImages.map((img) => onSaveAsImage(img.url)));
+      sileo.success({
+        title: `Saved ${generatedImages.length} images to gallery`,
+      });
+      onClose();
+    } catch (err) {
+      console.error("Failed to save images to gallery:", err);
+      sileo.error({ title: "Failed to save images to gallery" });
+    }
   }, [generatedImages, onSaveAsImage, onClose]);
 
   const hasApiKey = apiKey !== null && apiKey.length > 0;
