@@ -1,19 +1,11 @@
 import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-} from "@repo/ui/drawer";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/select";
-import { Bot, MessageCircle, Send, X } from "lucide-react";
+import { Bot, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { acpPrompt } from "@/lib/acp-client";
 import { cn } from "@/lib/utils";
@@ -32,13 +24,12 @@ const SYSTEM_PREAMBLE =
   "in the app, take the action with the tools rather than only describing it. Keep replies concise.";
 
 /**
- * Global floating assistant. A chat button is available on every page; the
- * drawer lets the user talk to the configured ACP agent (Claude/Gemini/Codex/…),
- * which can drive the app UI via the registered ACP tools. The agent/model is
- * whatever is selected here, sourced from the agents configured in Settings.
+ * Chat panel content for the global assistant. Rendered inside a resizable
+ * right panel (like the editor's AI/settings panels). Talks to the selected
+ * ACP agent (Claude/Gemini/Codex/…), which can drive the app UI via the
+ * registered ACP tools. The agent/model is sourced from Settings.
  */
-export function GlobalChat() {
-  const [open, setOpen] = useState(false);
+export function ChatPanel({ onClose }: { onClose: () => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -125,158 +116,139 @@ export function GlobalChat() {
   };
 
   return (
-    <>
-      <button
-        aria-label="Open assistant"
-        className="fixed right-4 bottom-4 z-40 flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 active:scale-95"
-        onClick={() => setOpen(true)}
-        type="button"
-      >
-        <MessageCircle className="size-5" />
-      </button>
+    <div className="flex h-full flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 border-border border-b px-4 py-3">
+        <div className="flex items-center gap-2">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
+            <Bot className="size-4 text-primary" />
+          </div>
+          <div>
+            <p className="font-medium text-sm">Assistant</p>
+            <p className="text-muted-foreground text-xs">
+              Chat to control the app and get help.
+            </p>
+          </div>
+        </div>
+        <button
+          aria-label="Close assistant"
+          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          onClick={onClose}
+          type="button"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
 
-      <Drawer direction="right" onClose={() => setOpen(false)} open={open}>
-        <DrawerContent className="flex w-[420px] max-w-full flex-col">
-          <DrawerHeader className="flex flex-row items-center justify-between border-border border-b pb-4">
-            <div className="flex items-center gap-2">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
-                <Bot className="size-4 text-primary" />
-              </div>
-              <div>
-                <DrawerTitle>Assistant</DrawerTitle>
-                <DrawerDescription className="mt-0.5">
-                  Chat to control the app and get help.
-                </DrawerDescription>
-              </div>
+      {/* Agent / model selector */}
+      <div className="flex items-center gap-2 border-border border-b px-4 py-2">
+        <span className="shrink-0 text-muted-foreground text-xs">Agent</span>
+        <Select
+          onValueChange={(v) => setAcpTextGenAgentId(v === "none" ? null : v)}
+          value={acpTextGenAgentId ?? "none"}
+        >
+          <SelectTrigger className="w-full" size="sm">
+            <SelectValue>
+              {selectedAgent?.name ?? "Select an agent"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {acpAgents.length === 0 ? (
+              <SelectItem disabled value="none">
+                No agents configured — add one in Settings
+              </SelectItem>
+            ) : (
+              acpAgents.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.name}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Messages */}
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
+        {messages.length === 0 && !isLoading && (
+          <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10">
+              <Bot className="size-6 text-primary" />
             </div>
-            <DrawerClose asChild>
-              <button
-                aria-label="Close panel"
-                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                type="button"
-              >
-                <X className="size-4" />
-              </button>
-            </DrawerClose>
-          </DrawerHeader>
+            <div>
+              <p className="font-medium text-foreground text-sm">
+                How can I help?
+              </p>
+              <p className="mt-1 max-w-xs text-muted-foreground text-xs">
+                Ask me to navigate, create a project, add layers, or anything
+                else — I can act on the app for you.
+              </p>
+            </div>
+          </div>
+        )}
 
-          {/* Agent / model selector */}
-          <div className="flex items-center gap-2 border-border border-b px-4 py-2">
-            <span className="shrink-0 text-muted-foreground text-xs">
-              Agent
-            </span>
-            <Select
-              onValueChange={(v) =>
-                setAcpTextGenAgentId(v === "none" ? null : v)
-              }
-              value={acpTextGenAgentId ?? "none"}
+        {messages.map((msg) => (
+          <div
+            className={cn(
+              "flex",
+              msg.role === "user" ? "justify-end" : "justify-start"
+            )}
+            key={msg.id}
+          >
+            <div
+              className={cn(
+                "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
+                msg.role === "user"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-foreground"
+              )}
             >
-              <SelectTrigger className="w-full" size="sm">
-                <SelectValue>
-                  {selectedAgent?.name ?? "Select an agent"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {acpAgents.length === 0 ? (
-                  <SelectItem disabled value="none">
-                    No agents configured — add one in Settings
-                  </SelectItem>
-                ) : (
-                  acpAgents.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Chat area */}
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
-              {messages.length === 0 && !isLoading && (
-                <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-                  <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10">
-                    <Bot className="size-6 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground text-sm">
-                      How can I help?
-                    </p>
-                    <p className="mt-1 max-w-xs text-muted-foreground text-xs">
-                      Ask me to navigate, create a project, add layers, or
-                      anything else — I can act on the app for you.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {messages.map((msg) => (
-                <div
-                  className={cn(
-                    "flex",
-                    msg.role === "user" ? "justify-end" : "justify-start"
-                  )}
-                  key={msg.id}
-                >
-                  <div
-                    className={cn(
-                      "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground"
-                    )}
-                  >
-                    {msg.content}
-                  </div>
-                </div>
-              ))}
-
-              {isLoading && (
-                <div className="flex justify-start">
-                  <div className="flex items-center gap-1.5 rounded-2xl bg-muted px-3.5 py-2.5">
-                    <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
-                    <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
-                    <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
-                  </div>
-                </div>
-              )}
-
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input area */}
-            <div className="border-border border-t p-4">
-              <div className="flex items-end gap-2">
-                <textarea
-                  className="flex-1 resize-none rounded-xl border border-border bg-muted px-3.5 py-2.5 text-foreground text-sm outline-none placeholder:text-muted-foreground focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
-                  disabled={isLoading}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask me anything…"
-                  rows={2}
-                  value={input}
-                />
-                <button
-                  aria-label="Send message"
-                  className={cn(
-                    "flex size-10 shrink-0 items-center justify-center rounded-xl transition-colors",
-                    input.trim() && !isLoading
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                      : "cursor-not-allowed bg-muted text-muted-foreground"
-                  )}
-                  disabled={!input.trim() || isLoading}
-                  onClick={handleSend}
-                  type="button"
-                >
-                  <Send className="size-4" />
-                </button>
-              </div>
+              {msg.content}
             </div>
           </div>
-        </DrawerContent>
-      </Drawer>
-    </>
+        ))}
+
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="flex items-center gap-1.5 rounded-2xl bg-muted px-3.5 py-2.5">
+              <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
+              <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
+              <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="border-border border-t p-4">
+        <div className="flex items-end gap-2">
+          <textarea
+            className="flex-1 resize-none rounded-xl border border-border bg-muted px-3.5 py-2.5 text-foreground text-sm outline-none placeholder:text-muted-foreground focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+            disabled={isLoading}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask me anything…"
+            rows={2}
+            value={input}
+          />
+          <button
+            aria-label="Send message"
+            className={cn(
+              "flex size-10 shrink-0 items-center justify-center rounded-xl transition-colors",
+              input.trim() && !isLoading
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "cursor-not-allowed bg-muted text-muted-foreground"
+            )}
+            disabled={!input.trim() || isLoading}
+            onClick={handleSend}
+            type="button"
+          >
+            <Send className="size-4" />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
