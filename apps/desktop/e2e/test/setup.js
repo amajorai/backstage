@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from "child_process";
 import os from "os";
 import path from "path";
-import { Builder, Capabilities } from "selenium-webdriver";
+import { Builder, By, Capabilities, until } from "selenium-webdriver";
 import { fileURLToPath } from "url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
@@ -137,12 +137,62 @@ export async function cleanup() {
 }
 
 /**
+ * Click through the first-run onboarding so tests reach the gallery.
+ * The app shows a multi-step onboarding on a fresh profile; completing it once
+ * persists `onboardingCompleted`, so this no-ops on subsequent app launches.
+ */
+export async function dismissOnboarding() {
+  // Wait for either the onboarding controls or the gallery to render.
+  try {
+    await driver.wait(
+      until.elementLocated(
+        By.xpath(
+          "//button[contains(normalize-space(.), 'Next')] | //button[contains(normalize-space(.), 'Get Started')] | //header"
+        )
+      ),
+      20_000
+    );
+  } catch {
+    return;
+  }
+
+  // Advance through the steps (Next x N), then finish on the last step.
+  for (let i = 0; i < 25; i++) {
+    const nextButtons = await driver.findElements(
+      By.xpath("//button[contains(normalize-space(.), 'Next')]")
+    );
+    if (nextButtons.length === 0) {
+      break;
+    }
+    try {
+      await nextButtons[0].click();
+    } catch {
+      break;
+    }
+    await driver.sleep(350);
+  }
+
+  const startButtons = await driver.findElements(
+    By.xpath("//button[contains(normalize-space(.), 'Get Started')]")
+  );
+  if (startButtons.length > 0) {
+    try {
+      await startButtons[0].click();
+      await driver.sleep(800);
+    } catch {
+      // Already past onboarding; ignore.
+    }
+  }
+}
+
+/**
  * Initialize everything for testing
  */
 export async function initialize() {
   buildApp();
   await startTauriDriver();
   await createDriver();
+  await dismissOnboarding();
 }
 
 // Handle process shutdown gracefully

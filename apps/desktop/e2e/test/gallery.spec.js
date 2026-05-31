@@ -57,12 +57,12 @@ describe("Gallery Page", function () {
 
   it("should have view mode toggle buttons and switch modes", async () => {
     const driver = getDriver();
-    // Buttons are identifed by title in ViewModeButtons.tsx: "3x3 Grid", "4x4 Grid", etc.
+    // Buttons are identified by title in view-mode-buttons.tsx: "3 columns", "4 columns", etc.
     const mode3Btn = await driver.findElement(
-      By.css('button[title="3x3 Grid"]')
+      By.css('button[title="3 columns"]')
     );
     const mode4Btn = await driver.findElement(
-      By.css('button[title="4x4 Grid"]')
+      By.css('button[title="4 columns"]')
     );
 
     expect(mode3Btn).to.exist;
@@ -84,7 +84,7 @@ describe("Gallery Page", function () {
   it("should allow typing in the search bar", async () => {
     const driver = getDriver();
     const searchInput = await driver.findElement(
-      By.css('input[placeholder="Search"]')
+      By.css('input[placeholder="Search projects"]')
     );
     await searchInput.sendKeys("Test Search");
     const value = await searchInput.getAttribute("value");
@@ -101,9 +101,9 @@ describe("Gallery Page", function () {
     // Right click on the grid background
     await driver.actions().contextClick(gridContainer).perform();
 
-    // Check for context menu items (e.g., "Upload Photo")
+    // Check for context menu items (e.g., "New Project")
     const menuItem = await driver.wait(
-      until.elementLocated(By.xpath("//*[contains(text(), 'Upload Photo')]")),
+      until.elementLocated(By.xpath("//*[contains(text(), 'New Project')]")),
       2000
     );
     expect(menuItem).to.exist;
