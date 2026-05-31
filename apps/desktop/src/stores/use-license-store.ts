@@ -43,10 +43,18 @@ interface LicenseState {
   licenseKey: string | null;
   validatedData: ValidatedLicenseData | null;
   error: string | null;
+  /**
+   * Whether the license activation page is currently shown as an overlay. The
+   * app is fully usable without a license; activation is surfaced at the point
+   * of conversion (export) and from the settings billing section.
+   */
+  gateOpen: boolean;
 
   validateLicense: (key: string) => Promise<boolean>;
   loadStoredLicense: () => Promise<void>;
   clearLicense: () => Promise<void>;
+  openLicenseGate: () => void;
+  closeLicenseGate: () => void;
 }
 
 /** Returns true when the update window is set and has passed. */
@@ -215,7 +223,12 @@ async function deactivateLicenseKey(
  */
 const UNLICENSED_STATE: Omit<
   LicenseState,
-  "validateLicense" | "loadStoredLicense" | "clearLicense"
+  | "validateLicense"
+  | "loadStoredLicense"
+  | "clearLicense"
+  | "openLicenseGate"
+  | "closeLicenseGate"
+  | "gateOpen"
 > = {
   isValidated: false,
   isValidating: false,
@@ -227,6 +240,10 @@ const UNLICENSED_STATE: Omit<
 
 export const useLicenseStore = create<LicenseState>()((set, get) => ({
   ...UNLICENSED_STATE,
+  gateOpen: false,
+
+  openLicenseGate: () => set({ gateOpen: true }),
+  closeLicenseGate: () => set({ gateOpen: false }),
 
   validateLicense: async (key: string): Promise<boolean> => {
     set({ isValidating: true, error: null });

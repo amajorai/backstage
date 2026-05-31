@@ -1514,8 +1514,18 @@ export function OnboardingPage({
             ))}
           </div>
 
-          {isLicenseInfoStep ? (
-            <div className="ml-auto">
+          {isLicenseInfoStep && (
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                className="rounded-md px-3 py-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground"
+                onClick={() => {
+                  sounds.click();
+                  onComplete();
+                }}
+                type="button"
+              >
+                Maybe later
+              </button>
               <Button
                 onClick={() => {
                   sounds.click();
@@ -1527,22 +1537,35 @@ export function OnboardingPage({
                 Buy Now
               </Button>
             </div>
-          ) : (
-            !isLicenseStep && (
-              <div className="ml-auto">
-                <button
-                  className="flex items-center gap-1 rounded-md px-3 py-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground"
-                  onClick={() => {
-                    sounds.click();
-                    handleNext();
-                  }}
-                  type="button"
-                >
-                  Next
-                  <ChevronRight className="size-4" />
-                </button>
-              </div>
-            )
+          )}
+          {isLicenseStep && !isLicenseActive && (
+            <div className="ml-auto">
+              <button
+                className="rounded-md px-3 py-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground"
+                onClick={() => {
+                  sounds.click();
+                  onComplete();
+                }}
+                type="button"
+              >
+                Maybe later
+              </button>
+            </div>
+          )}
+          {!(isLicenseInfoStep || isLicenseStep) && (
+            <div className="ml-auto">
+              <button
+                className="flex items-center gap-1 rounded-md px-3 py-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground"
+                onClick={() => {
+                  sounds.click();
+                  handleNext();
+                }}
+                type="button"
+              >
+                Next
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
           )}
         </div>
       </div>

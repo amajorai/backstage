@@ -2518,7 +2518,8 @@ function StorageSettings({
 }
 
 function BillingSettings() {
-  const { validatedData, clearLicense } = useLicenseStore();
+  const { isValidated, validatedData, clearLicense, openLicenseGate } =
+    useLicenseStore();
 
   const handleManageLicense = useCallback(() => {
     openUrl(POLAR_CONFIG.customerPortalUrl);
@@ -2535,33 +2536,64 @@ function BillingSettings() {
       <div>
         <SettingRow
           description={
-            validatedData?.customerEmail
-              ? `${validatedData.customerEmail} · To transfer to another device, deactivate here first and reactivate via the portal.`
-              : "To transfer to another device, deactivate here first and reactivate via the portal."
+            isValidated
+              ? validatedData?.customerEmail
+                ? `${validatedData.customerEmail} · To transfer to another device, deactivate here first and reactivate via the portal.`
+                : "To transfer to another device, deactivate here first and reactivate via the portal."
+              : "Not activated. The app is free to use — activate a license to export your thumbnails."
           }
           title="License"
         >
-          <Button
-            onClick={() => {
-              sounds.click();
-              handleManageLicense();
-            }}
-            size="sm"
-            variant="ghost"
+          <span
+            className={`mr-1 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium text-xs ${
+              isValidated
+                ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                : "bg-muted text-muted-foreground"
+            }`}
           >
-            <ExternalLink className="mr-2 size-4" />
-            Manage
-          </Button>
-          <Button
-            onClick={() => {
-              sounds.delete_();
-              handleDeactivate();
-            }}
-            size="sm"
-            variant="destructive"
-          >
-            Deactivate
-          </Button>
+            <span
+              className={`size-1.5 rounded-full ${
+                isValidated ? "bg-green-500" : "bg-muted-foreground"
+              }`}
+            />
+            {isValidated ? "Activated" : "Not activated"}
+          </span>
+          {isValidated ? (
+            <>
+              <Button
+                onClick={() => {
+                  sounds.click();
+                  handleManageLicense();
+                }}
+                size="sm"
+                variant="ghost"
+              >
+                <ExternalLink className="mr-2 size-4" />
+                Manage
+              </Button>
+              <Button
+                onClick={() => {
+                  sounds.delete_();
+                  handleDeactivate();
+                }}
+                size="sm"
+                variant="destructive"
+              >
+                Deactivate
+              </Button>
+            </>
+          ) : (
+            <Button
+              onClick={() => {
+                sounds.click();
+                openLicenseGate();
+              }}
+              size="sm"
+              variant="contrast"
+            >
+              Activate
+            </Button>
+          )}
         </SettingRow>
       </div>
     </div>

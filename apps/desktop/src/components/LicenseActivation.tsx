@@ -1,6 +1,5 @@
 import { Button } from "@repo/ui/button";
 import { Input } from "@repo/ui/input";
-import { Toaster } from "@repo/ui/sonner";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   ArrowLeft,
@@ -70,8 +69,6 @@ export function LicenseActivation({ onBack }: { onBack?: () => void }) {
 
   return (
     <div className="flex h-screen flex-col bg-muted">
-      <Toaster />
-
       {/* Hidden Polar embed checkout anchor */}
       <a
         className="hidden"

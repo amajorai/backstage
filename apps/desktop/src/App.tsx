@@ -118,7 +118,21 @@ export default function App() {
 
   const mainContentRef = useRef<HTMLDivElement>(null);
 
-  const { isValidated, isValidating, loadStoredLicense } = useLicenseStore();
+  const {
+    isValidated,
+    isValidating,
+    loadStoredLicense,
+    gateOpen: licenseGateOpen,
+    openLicenseGate,
+    closeLicenseGate,
+  } = useLicenseStore();
+  // Export the user intended before hitting the license gate. Replayed once the
+  // license activates so they land straight in the export dialog they wanted.
+  const pendingExportRef = useRef<
+    | { kind: "single"; thumbnail: ThumbnailItem }
+    | { kind: "multi"; thumbnails: ThumbnailItem[] }
+    | null
+  >(null);
   const {
     loadSettings,
     isInitialLoadDone,
@@ -156,9 +170,23 @@ export default function App() {
 
   // Restore persisted tabs once gallery and settings are ready
   useEffect(() => {
-    if (!(isInitialLoadDone && isValidated && isGalleryLoaded)) return;
+    if (!(isInitialLoadDone && isGalleryLoaded)) return;
     void useTabsStore.getState().restorePersistedTabs();
-  }, [isInitialLoadDone, isValidated, isGalleryLoaded]);
+  }, [isInitialLoadDone, isGalleryLoaded]);
+
+  // Once the license activates while the gate is open, close it and replay the
+  // export the user was reaching for.
+  useEffect(() => {
+    if (!(isValidated && licenseGateOpen)) return;
+    closeLicenseGate();
+    const pending = pendingExportRef.current;
+    pendingExportRef.current = null;
+    if (pending?.kind === "single") {
+      setExportingThumbnail(pending.thumbnail);
+    } else if (pending?.kind === "multi") {
+      setExportingThumbnails(pending.thumbnails);
+    }
+  }, [isValidated, licenseGateOpen, closeLicenseGate]);
 
   // ACP tool runner: handle tool calls from AI agents
   useAcpToolRunner();
@@ -191,18 +219,35 @@ export default function App() {
     );
   }
 
-  if (!isValidated) {
-    return <LicenseActivation onBack={() => setOnboardingCompleted(false)} />;
-  }
+  // Route an export request through the license gate. Activated users go
+  // straight to the export dialog; everyone else sees the activation page and
+  // their export is replayed once they activate.
+  const requestExportThumbnail = (thumbnail: ThumbnailItem) => {
+    if (isValidated) {
+      setExportingThumbnail(thumbnail);
+      return;
+    }
+    pendingExportRef.current = { kind: "single", thumbnail };
+    openLicenseGate();
+  };
+
+  const requestExportThumbnails = (items: ThumbnailItem[]) => {
+    if (isValidated) {
+      setExportingThumbnails(items);
+      return;
+    }
+    pendingExportRef.current = { kind: "multi", thumbnails: items };
+    openLicenseGate();
+  };
 
   const handleExportSelected = () => {
     const { selectedIds } = useSelectionStore.getState();
     const { thumbnails: allThumbnails } = useGalleryStore.getState();
     const selected = allThumbnails.filter((t) => selectedIds.has(t.id));
     if (selected.length === 1) {
-      setExportingThumbnail(selected[0]);
+      requestExportThumbnail(selected[0]);
     } else if (selected.length > 1) {
-      setExportingThumbnails(selected);
+      requestExportThumbnails(selected);
     }
   };
 
@@ -342,7 +387,7 @@ export default function App() {
         >
           <Gallery
             onAddVideoClick={() => setShowExtractor(true)}
-            onExportClick={setExportingThumbnail}
+            onExportClick={requestExportThumbnail}
             onNewFolderClick={() => setNewFolderOpen(true)}
             onNewProjectClick={() => setNewProjectOpen(true)}
             onThumbnailClick={handleEditThumbnail}
@@ -360,7 +405,7 @@ export default function App() {
               <ImageEditor
                 onAiGenerate={handleOpenAiGenerate}
                 onClose={() => setEditorVisible(false)}
-                onExport={() => setExportingThumbnail(activeThumbnail)}
+                onExport={() => requestExportThumbnail(activeThumbnail)}
                 onOpenSettings={() => setEditorRightPanel("settings")}
                 snapshot={activeTab.snapshot}
                 tabId={activeTabId!}
@@ -496,6 +541,16 @@ export default function App() {
             onClose={() => setExportingThumbnails([])}
             thumbnails={exportingThumbnails}
           />
+        )}
+        {licenseGateOpen && !isValidated && (
+          <div className="fixed inset-0 z-50">
+            <LicenseActivation
+              onBack={() => {
+                pendingExportRef.current = null;
+                closeLicenseGate();
+              }}
+            />
+          </div>
         )}
         <NewProjectDialog
           onCreate={handleCreateProject}
