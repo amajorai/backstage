@@ -14,7 +14,7 @@ const application = path.resolve(
   "src-tauri",
   "target",
   "debug",
-  "youtube-pub.exe"
+  "backstage.exe"
 );
 
 // WebDriver instance
