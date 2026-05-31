@@ -51,10 +51,10 @@ describe("Video Extractor Dialog", function () {
       if (menuItems.length > 0) {
         await menuItems[0].click();
 
-        // Wait for dialog
-        // VideoExtractor renders a Dialog
+        // Wait for dialog — VideoExtractor renders a full-screen overlay
+        // (fixed inset-0 z-[1100]).
         const dialog = await driver.wait(
-          until.elementLocated(By.css('[role="dialog"], .fixed.z-50')),
+          until.elementLocated(By.css(".fixed.inset-0")),
           5000
         );
         expect(dialog).to.exist;

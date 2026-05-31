@@ -35,13 +35,13 @@ describe("Trash Page", function () {
       await trashButtons[0].click();
       await driver.sleep(500);
 
-      // We should now be on the trash page
-      // Look for trash page indicators (header with "Trash" text)
-      const header = await driver.wait(
-        until.elementLocated(By.xpath("//header[contains(., 'Trash')]")),
+      // We should now be on the trash page — the trash toolbar has a
+      // "Back to Gallery" button that the gallery toolbar does not.
+      const backBtn = await driver.wait(
+        until.elementLocated(By.css('button[aria-label="Back to Gallery"]')),
         10_000
       );
-      expect(header).to.exist;
+      expect(backBtn).to.exist;
     } else {
       // Try finding by icon (Trash2 from lucide-react renders as an SVG)
       console.log(
