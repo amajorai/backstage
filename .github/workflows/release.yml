@@ -19,19 +19,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: blacksmith-6vcpu-macos-latest
+          - platform: macos-latest
             target: aarch64-apple-darwin
             args: --target aarch64-apple-darwin
             name: macOS (Apple Silicon)
-          - platform: blacksmith-6vcpu-macos-latest
+          - platform: macos-latest
             target: x86_64-apple-darwin
             args: --target x86_64-apple-darwin
             name: macOS (Intel)
-          - platform: blacksmith-4vcpu-ubuntu-2404
+          - platform: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             args: ""
             name: Linux
-          - platform: blacksmith-2vcpu-windows-2025
+          - platform: windows-latest
             target: x86_64-pc-windows-msvc
             args: ""
             name: Windows

@@ -9,7 +9,7 @@ on:
 
 jobs:
     e2e-test:
-        runs-on: blacksmith-4vcpu-windows-2025
+        runs-on: windows-latest
 
         steps:
             - uses: actions/checkout@v4
