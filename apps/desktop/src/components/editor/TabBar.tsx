@@ -8,6 +8,7 @@
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@repo/ui/alert-dialog";
+import { Badge } from "@repo/ui/badge";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -63,7 +64,7 @@ type ActivePage =
 const PAGE_LABELS: Record<ActivePage, string> = {
   gallery: "Home",
   "ai-generate": "Generate",
-  "ai-projects": "AI Sessions",
+  "ai-projects": "Sessions",
   trash: "Trash",
   archive: "Archive",
   settings: "Settings",
@@ -366,9 +367,7 @@ export function TabBar({
               {PAGE_ICONS[activePage]}
               {PAGE_LABELS[activePage]}
               {EXPERIMENTAL_PAGES.has(activePage) && (
-                <span className="rounded bg-amber-500/20 px-1 py-0.5 font-medium text-[9px] text-amber-500">
-                  Experimental
-                </span>
+                <Badge variant="destructive">Experimental</Badge>
               )}
             </button>
             {/* Chevron — opens page switcher dropdown */}
@@ -379,7 +378,7 @@ export function TabBar({
               <ChevronDown className="size-3 opacity-50" />
             </DropdownMenuTrigger>
           </div>
-          <DropdownMenuContent align="start" side="bottom">
+          <DropdownMenuContent align="start" className="w-56" side="bottom">
             {(
               [
                 "gallery",
@@ -405,9 +404,9 @@ export function TabBar({
                   {PAGE_ICONS[p]}
                   {PAGE_LABELS[p]}
                   {EXPERIMENTAL_PAGES.has(p) && (
-                    <span className="ml-1 rounded bg-amber-500/20 px-1 py-0.5 font-medium text-[9px] text-amber-500">
+                    <Badge className="ml-auto" variant="destructive">
                       Experimental
-                    </span>
+                    </Badge>
                   )}
                 </DropdownMenuItem>
               ))}

@@ -18,7 +18,7 @@ export function SearchHistoryDropdown({
   if (items.length === 0) return null;
 
   return (
-    <div className="absolute right-0 bottom-full left-0 mb-1.5 rounded-lg border border-border bg-popover shadow-lg">
+    <div className="absolute right-0 bottom-full left-0 z-50 mb-1.5 rounded-lg border border-border bg-popover shadow-lg">
       <div className="flex items-center justify-between px-3 py-2">
         <span className="font-medium text-[10px] text-muted-foreground uppercase tracking-wide">
           Recent

@@ -24,9 +24,11 @@ import { TabBar } from "@/components/editor/TabBar";
 import { FolderColorPicker } from "@/components/FolderColorPicker";
 import { Gallery } from "@/components/Gallery";
 import { GeminiImagePage } from "@/components/GeminiImagePage";
+import { GlobalChat } from "@/components/GlobalChat";
 import { NewProjectDialog } from "@/components/gallery/NewProjectDialog";
 import { ImageEditor } from "@/components/ImageEditor";
 import { LicenseActivation } from "@/components/LicenseActivation";
+import { MyChannelPage } from "@/components/MyChannelPage";
 // biome-ignore lint/correctness/noUnusedImports: used in JSX below
 import { OnboardingPage } from "@/components/OnboardingPage";
 import { SettingsPage } from "@/components/SettingsPage";
@@ -538,7 +540,7 @@ export default function App() {
           />
         )}
         {licenseGateOpen && !isValidated && (
-          <div className="fixed inset-0 z-50">
+          <div className="fixed inset-0 z-[1100]">
             <LicenseActivation
               onBack={() => {
                 pendingExportRef.current = null;
@@ -630,6 +632,7 @@ export default function App() {
           open={commandOpen}
         />
         <Toaster />
+        <GlobalChat />
         <BackgroundRemovalQueue />
         <AutoRenameQueue />
         <UpdateChecker />

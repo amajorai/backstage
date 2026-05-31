@@ -152,10 +152,12 @@ export function CommandPalette({
     (value: string, q: string, keywords?: string[]) => {
       if (!q) return 1;
       if (value.startsWith("yt-video-")) return 1;
-      const needle = q.toLowerCase();
-      if (value.toLowerCase().includes(needle)) return 1;
-      if (keywords?.some((k) => k.toLowerCase().includes(needle))) return 1;
-      return 0;
+      // Match every word in the query against the combined value + keywords
+      // (which include the item's visible label), so multi-word queries like
+      // "check for updates" match even though no single token holds the phrase.
+      const haystack = `${value} ${(keywords ?? []).join(" ")}`.toLowerCase();
+      const tokens = q.toLowerCase().split(/\s+/).filter(Boolean);
+      return tokens.every((t) => haystack.includes(t)) ? 1 : 0;
     },
     []
   );
@@ -648,10 +650,17 @@ function Item({
   shortcut?: string;
   suffix?: React.ReactNode;
 }) {
+  // Include the visible label in the searchable keywords so the filter can
+  // match what the user actually reads (e.g. "Check for Updates").
+  const labelKeyword = typeof children === "string" ? [children] : [];
+  const searchKeywords = keywords
+    ? [...keywords, ...labelKeyword]
+    : labelKeyword;
+
   return (
     <Command.Item
       className="flex cursor-default select-none items-center gap-2.5 rounded-lg px-2 py-2.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground data-[selected=true]:[&_svg]:text-accent-foreground"
-      keywords={keywords}
+      keywords={searchKeywords.length > 0 ? searchKeywords : undefined}
       onSelect={onSelect}
       value={value}
     >

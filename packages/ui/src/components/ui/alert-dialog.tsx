@@ -43,7 +43,7 @@ function AlertDialogOverlay({
   return (
     <AlertDialogPrimitive.Backdrop
       className={cn(
-        "data-open:fade-in-0 data-closed:fade-out-0 inset-0 isolate z-50 bg-black/30 duration-100 data-closed:animate-out data-open:animate-in supports-backdrop-filter:backdrop-blur-sm",
+        "data-open:fade-in-0 data-closed:fade-out-0 top-[var(--titlebar-height,0px)] right-0 bottom-0 left-0 isolate z-50 bg-black/30 duration-100 data-closed:animate-out data-open:animate-in supports-backdrop-filter:backdrop-blur-sm",
         containerRef ? "absolute" : "fixed",
         className
       )}

@@ -26,6 +26,8 @@
   --ring: oklch(0.685 0.169 237.323);
   --spacing: 0.23rem;
   --radius: 0.8rem;
+  /* Height of the custom window titlebar; dialog/sheet overlays start below it. */
+  --titlebar-height: 2.5rem;
 }
 
 .dark {

@@ -1,4 +1,5 @@
-﻿import { Button } from "@repo/ui/button";
+﻿import { Badge } from "@repo/ui/badge";
+import { Button } from "@repo/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -530,13 +531,11 @@ function ExploreSettings() {
     <div className="space-y-6">
       <h2 className="pl-2 font-semibold text-lg">Discovery</h2>
       <div className="space-y-4">
-        <div className="mb-3 flex items-center gap-2 pl-2">
+        <div className="mb-3 flex items-center justify-between pr-2 pl-2">
           <p className="font-medium text-muted-foreground text-xs">
             YouTube Account
           </p>
-          <span className="rounded bg-amber-500/20 px-1 py-0.5 font-medium text-[9px] text-amber-500">
-            Experimental
-          </span>
+          <Badge variant="destructive">Experimental</Badge>
         </div>
         <div>
           <SettingRow
@@ -893,9 +892,7 @@ function EmbeddingSettings({ hasGeminiKey }: { hasGeminiKey: boolean }) {
         <p className="font-medium text-muted-foreground text-xs">
           Semantic Search
         </p>
-        <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-medium text-amber-600 text-xs dark:text-amber-400">
-          Experimental
-        </span>
+        <Badge variant="destructive">Experimental</Badge>
       </div>
       <div className="space-y-2">
         <SettingRow
@@ -2575,7 +2572,6 @@ function BillingSettings() {
                 openLicenseGate();
               }}
               size="sm"
-              variant="contrast"
             >
               Activate
             </Button>
@@ -2964,9 +2960,7 @@ function McpServerSettings() {
     <div className="space-y-4">
       <div className="mb-3 flex items-center justify-between pr-2 pl-2">
         <p className="font-medium text-muted-foreground text-xs">MCP Server</p>
-        <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-medium text-amber-600 text-xs dark:text-amber-400">
-          Experimental
-        </span>
+        <Badge variant="destructive">Experimental</Badge>
       </div>
       <div className="space-y-2">
         <SettingRow
@@ -3187,9 +3181,7 @@ function AgentSettings() {
     <div className="space-y-4">
       <div className="mb-3 flex items-center justify-between pr-2 pl-2">
         <p className="font-medium text-muted-foreground text-xs">Agents</p>
-        <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-medium text-amber-600 text-xs dark:text-amber-400">
-          Experimental
-        </span>
+        <Badge variant="destructive">Experimental</Badge>
       </div>
 
       <Dialog
