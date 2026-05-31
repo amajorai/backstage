@@ -2540,24 +2540,10 @@ function BillingSettings() {
               ? validatedData?.customerEmail
                 ? `${validatedData.customerEmail} · To transfer to another device, deactivate here first and reactivate via the portal.`
                 : "To transfer to another device, deactivate here first and reactivate via the portal."
-              : "Not activated. The app is free to use — activate a license to export your thumbnails."
+              : "Not activated. The app is free to use. Activate a license to export your thumbnails."
           }
           title="License"
         >
-          <span
-            className={`mr-1 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium text-xs ${
-              isValidated
-                ? "bg-green-500/10 text-green-600 dark:text-green-400"
-                : "bg-muted text-muted-foreground"
-            }`}
-          >
-            <span
-              className={`size-1.5 rounded-full ${
-                isValidated ? "bg-green-500" : "bg-muted-foreground"
-              }`}
-            />
-            {isValidated ? "Activated" : "Not activated"}
-          </span>
           {isValidated ? (
             <>
               <Button
@@ -2667,6 +2653,99 @@ function PrivacySettings() {
   );
 }
 
+// Strip a trailing commit reference like " ([8d12463](https://…/commit/…))".
+const COMMIT_REF_RE = /\s*\(\[[0-9a-f]{6,40}\]\([^)]*\)\)\s*$/i;
+// Reduce a markdown link "[text](url)" down to just its text.
+const MD_LINK_RE = /\[([^\]]+)\]\([^)]*\)/g;
+const HEADING_PREFIX_RE = /^#+\s*/;
+const META_LINE_RE = /^\*\*(Full Changelog|All Commits)\*\*/i;
+const DOWNLOADS_HEADING_RE = /^##\s+Downloads/i;
+
+function cleanReleaseLine(text: string): string {
+  return text
+    .replace(COMMIT_REF_RE, "")
+    .replace(MD_LINK_RE, "$1")
+    .replaceAll("**", "")
+    .trim();
+}
+
+interface ReleaseLine {
+  kind: "h2" | "h3" | "li" | "p";
+  text: string;
+}
+
+function parseReleaseNotes(body: string): ReleaseLine[] {
+  const lines: ReleaseLine[] = [];
+  for (const raw of body.split("\n")) {
+    const trimmed = raw.trim();
+    // The generated changelog ends with a Downloads table that is noise in-app.
+    if (DOWNLOADS_HEADING_RE.test(trimmed)) {
+      break;
+    }
+    if (!trimmed || META_LINE_RE.test(trimmed)) {
+      continue;
+    }
+    if (trimmed.startsWith("### ")) {
+      lines.push({ kind: "h3", text: cleanReleaseLine(trimmed.slice(4)) });
+    } else if (trimmed.startsWith("## ")) {
+      lines.push({ kind: "h2", text: cleanReleaseLine(trimmed.slice(3)) });
+    } else if (trimmed.startsWith("#")) {
+      lines.push({
+        kind: "h2",
+        text: cleanReleaseLine(trimmed.replace(HEADING_PREFIX_RE, "")),
+      });
+    } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+      lines.push({ kind: "li", text: cleanReleaseLine(trimmed.slice(2)) });
+    } else {
+      lines.push({ kind: "p", text: cleanReleaseLine(trimmed) });
+    }
+  }
+  return lines.filter((l) => l.text.length > 0);
+}
+
+function ReleaseNotes({ body }: { body: string }) {
+  const lines = parseReleaseNotes(body);
+  if (lines.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 max-h-56 space-y-1.5 overflow-y-auto rounded-md bg-background/60 p-3 text-xs">
+      {lines.map((line, i) => {
+        // Notes are static once rendered, so index keys are safe here.
+        const key = `${i}-${line.kind}`;
+        if (line.kind === "h2") {
+          return (
+            <p className="font-semibold text-sm" key={key}>
+              {line.text}
+            </p>
+          );
+        }
+        if (line.kind === "h3") {
+          return (
+            <p className="pt-1 font-medium text-muted-foreground" key={key}>
+              {line.text}
+            </p>
+          );
+        }
+        if (line.kind === "li") {
+          return (
+            <div className="flex gap-1.5" key={key}>
+              <span className="text-muted-foreground">•</span>
+              <span>{line.text}</span>
+            </div>
+          );
+        }
+        return (
+          <p className="text-muted-foreground" key={key}>
+            {line.text}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 function UpdateSettings() {
   const { autoCheckForUpdates, setAutoCheckForUpdates } = useAppSettingsStore();
   const { checking, downloading, progress, available } = useUpdateStore();
@@ -2763,6 +2842,7 @@ function UpdateSettings() {
                   {downloading ? "Installing…" : "Update now"}
                 </Button>
               </div>
+              {available.body && <ReleaseNotes body={available.body} />}
               {downloading && (
                 <div className="mt-3 space-y-1">
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-primary/20">

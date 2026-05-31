@@ -211,12 +211,7 @@ export default function App() {
   }
 
   if (!onboardingCompleted) {
-    return (
-      <OnboardingPage
-        isLicenseActive={isValidated}
-        onComplete={() => setOnboardingCompleted(true)}
-      />
-    );
+    return <OnboardingPage onComplete={() => setOnboardingCompleted(true)} />;
   }
 
   // Route an export request through the license gate. Activated users go

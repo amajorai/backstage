@@ -313,12 +313,26 @@ export function LicenseActivation({ onBack }: { onBack?: () => void }) {
             Back
           </button>
 
-          <div className="absolute left-1/2 -translate-x-1/2">
-            <GalleryThumbnails
-              className="fill-foreground/40 text-foreground/40"
-              size={14}
-              strokeWidth={3}
-            />
+          <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1.5">
+            {(["pricing", "activation"] as const).map((step, i) => {
+              const currentIndex = view === "pricing" ? 0 : 1;
+              return (
+                <button
+                  aria-label={`Step ${i + 1}`}
+                  className={`rounded-full transition-all duration-200 ${
+                    i === currentIndex
+                      ? "h-1.5 w-5 bg-foreground"
+                      : "size-1.5 bg-foreground/15"
+                  }`}
+                  key={step}
+                  onClick={() => {
+                    sounds.click();
+                    setView(step);
+                  }}
+                  type="button"
+                />
+              );
+            })}
           </div>
         </div>
       </div>

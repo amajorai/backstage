@@ -1226,9 +1226,11 @@ export function ImageEditor({
           setShowLogoPicker(true);
           sileo.info({ title: "Logo Picker (L)" });
         } else if (e.key.toLowerCase() === "g") {
-          e.preventDefault();
-          setShowCarouselGenerator(true);
-          sileo.info({ title: "Generate Carousel (G)" });
+          if (useAppSettingsStore.getState().experimentalFeaturesEnabled) {
+            e.preventDefault();
+            setShowCarouselGenerator(true);
+            sileo.info({ title: "Generate Carousel (G)" });
+          }
         } else if (e.key.toLowerCase() === "x") {
           e.preventDefault();
           const { activeLayerIds: ids, layers: ls } = useEditorStore.getState();

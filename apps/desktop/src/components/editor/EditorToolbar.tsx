@@ -30,6 +30,7 @@ import {
   Zap,
 } from "lucide-react";
 import * as sounds from "@/lib/sounds";
+import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import { useEditorStore } from "@/stores/use-editor-store";
 import { IconPicker } from "./IconPicker";
 import { LogoPicker } from "./LogoPicker";
@@ -84,6 +85,10 @@ export function EditorToolbar({
     undo,
     redo,
   } = useEditorStore();
+
+  const experimentalFeaturesEnabled = useAppSettingsStore(
+    (s) => s.experimentalFeaturesEnabled
+  );
 
   const activeLayer = layers.find((l) => activeLayerIds.includes(l.id));
   const canRemoveBg = activeLayer?.type === "image" && !isProcessing;
@@ -438,20 +443,24 @@ export function EditorToolbar({
         </TooltipContent>
       </Tooltip>
 
-      <div className="my-1 h-px w-8 bg-border" />
+      {experimentalFeaturesEnabled && (
+        <>
+          <div className="my-1 h-px w-8 bg-border" />
 
-      <Tooltip>
-        <TooltipTrigger
-          className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
-          onClick={() => {
-            sounds.click();
-            onGenerateCarousel();
-          }}
-        >
-          <Bot className="size-4" />
-        </TooltipTrigger>
-        <TooltipContent side="right">Generate Carousel (G)</TooltipContent>
-      </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              className={buttonVariants({ size: "icon-sm", variant: "ghost" })}
+              onClick={() => {
+                sounds.click();
+                onGenerateCarousel();
+              }}
+            >
+              <Bot className="size-4" />
+            </TooltipTrigger>
+            <TooltipContent side="right">Generate Carousel (G)</TooltipContent>
+          </Tooltip>
+        </>
+      )}
 
       <Tooltip>
         <TooltipTrigger asChild>
