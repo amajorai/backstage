@@ -85,7 +85,6 @@ function WindowBoundsManager() {
 }
 
 export default function App() {
-  const [page, setPage] = useState<Page>("gallery");
   const [viewMode, setViewMode] = usePersistedViewMode(
     "view-mode:gallery",
     "4"
@@ -121,11 +120,32 @@ export default function App() {
 
   const tabs = useTabsStore((s) => s.tabs);
   const activeTabId = useTabsStore((s) => s.activeTabId);
-  const editorVisible = useTabsStore((s) => s.editorVisible);
   const openTab = useTabsStore((s) => s.openTab);
-  const setEditorVisible = useTabsStore((s) => s.setEditorVisible);
+  const openPageTab = useTabsStore((s) => s.openPageTab);
+
+  // The tab strip is the single source of truth for what's on screen. `page` and
+  // `editorVisible` are derived from the active tab so every existing
+  // `page === X && !editorVisible` guard below keeps working unchanged.
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const editorVisible = activeTab?.kind === "project";
+  const page: Page = activeTab?.kind === "page" ? activeTab.page : "gallery";
+
+  // Keep the editor mounted for the most recently active project tab even while
+  // a page tab is showing, so switching back preserves its in-memory UI state
+  // (per-tab chrome, scroll, selection) instead of remounting from a snapshot.
+  const lastProjectTabIdRef = useRef<string | null>(null);
+  if (activeTab?.kind === "project") {
+    lastProjectTabIdRef.current = activeTab.id;
+  }
+  const editorTabRaw = tabs.find((t) => t.id === lastProjectTabIdRef.current);
+  const editorTab = editorTabRaw?.kind === "project" ? editorTabRaw : undefined;
 
   const mainContentRef = useRef<HTMLDivElement>(null);
+  // Latches true once the app first renders its main UI. The full-screen loader
+  // is only for the initial load; an in-flight `isValidating` from an
+  // interactive license activation must NOT tear the tree down and remount it
+  // (that re-runs window-bounds restore, which un-maximizes the window).
+  const hasPassedInitialLoadRef = useRef(false);
 
   const {
     isValidated,
@@ -149,6 +169,7 @@ export default function App() {
     loggingEnabled,
     onboardingCompleted,
     setOnboardingCompleted,
+    experimentalFeaturesEnabled,
   } = useAppSettingsStore();
 
   useEffect(() => {
@@ -203,12 +224,23 @@ export default function App() {
   const { pendingPage, clearPending } = useNavigationStore();
   useEffect(() => {
     if (!pendingPage) return;
-    setEditorVisible(false);
-    setPage(pendingPage);
+    if (pendingPage === "ai-generate") {
+      // Generate needs its source state primed or the full-page block renders
+      // blank; mirror handleOpenAiGenerateFromGallery here.
+      setAiEditorLayers(null);
+      setRemixSourceUrl(null);
+      setRemixTitle(null);
+      setAiGenerateSource("gallery");
+      openPageTab("ai-generate");
+    } else {
+      openPageTab(pendingPage);
+    }
     clearPending();
-  }, [pendingPage, clearPending, setEditorVisible]);
+  }, [pendingPage, clearPending, openPageTab]);
 
-  if (!isInitialLoadDone || (isValidating && !isValidated)) {
+  const showInitialLoading =
+    !isInitialLoadDone || (isValidating && !isValidated);
+  if (showInitialLoading && !hasPassedInitialLoadRef.current) {
     return (
       <div className="flex h-screen items-center justify-center bg-muted">
         <div className="flex flex-col items-center gap-4">
@@ -218,6 +250,7 @@ export default function App() {
       </div>
     );
   }
+  hasPassedInitialLoadRef.current = true;
 
   if (!onboardingCompleted) {
     return <OnboardingPage onComplete={() => setOnboardingCompleted(true)} />;
@@ -273,7 +306,7 @@ export default function App() {
     setRemixSourceUrl(null);
     setRemixTitle(null);
     setAiGenerateSource("gallery");
-    setPage("ai-generate");
+    openPageTab("ai-generate");
   };
 
   const handleRemix = (thumbnailUrl: string, title: string) => {
@@ -281,7 +314,7 @@ export default function App() {
     setRemixSourceUrl(thumbnailUrl);
     setRemixTitle(title);
     setAiGenerateSource("remix");
-    setPage("ai-generate");
+    openPageTab("ai-generate");
   };
 
   const handleCloseAiGenerate = () => {
@@ -291,9 +324,20 @@ export default function App() {
     } else if (aiGenerateSource === "remix") {
       setRemixSourceUrl(null);
       setRemixTitle(null);
-      setPage("explore");
+      openPageTab("explore");
     } else {
-      setPage("gallery");
+      openPageTab("gallery");
+    }
+  };
+
+  // Single entry point for "navigate to a page" used by the tab strip's + menu
+  // and the command palette. Generate is special-cased so its source state is
+  // primed before the page tab opens.
+  const goToPage = (p: Page) => {
+    if (p === "ai-generate") {
+      handleOpenAiGenerateFromGallery();
+    } else {
+      openPageTab(p);
     }
   };
 
@@ -362,9 +406,8 @@ export default function App() {
     "mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background";
   const contentClassWithBottom = `${contentClass} mb-1`;
 
-  const activeTab = tabs.find((t) => t.id === activeTabId);
-  const activeThumbnail = activeTab
-    ? thumbnails.find((t) => t.id === activeTab.thumbnailId)
+  const editorThumbnail = editorTab
+    ? thumbnails.find((t) => t.id === editorTab.thumbnailId)
     : null;
 
   const showGallery = page === "gallery" && !editorVisible;
@@ -373,17 +416,7 @@ export default function App() {
   return (
     <TooltipProvider>
       <div className="flex h-screen flex-col bg-muted">
-        <TabBar
-          activePage={editorVisible ? "gallery" : page}
-          onPageChange={(p) => {
-            setEditorVisible(false);
-            if (p === "ai-generate") {
-              handleOpenAiGenerateFromGallery();
-            } else {
-              setPage(p);
-            }
-          }}
-        />
+        <TabBar onPageChange={goToPage} />
 
         <div className="flex min-h-0 flex-1 overflow-hidden">
           {/* Main content column — shrinks when the chat panel is open */}
@@ -403,8 +436,8 @@ export default function App() {
               />
             </div>
 
-            {/* Editor — stays mounted while tabs exist; right panel for settings / AI */}
-            {activeTab && activeThumbnail && (
+            {/* Editor — stays mounted while a project tab exists; right panel for settings / AI */}
+            {editorTab && editorThumbnail && (
               <div
                 className="mx-1 mb-1 flex flex-1 overflow-hidden"
                 style={{ display: editorVisible ? "flex" : "none" }}
@@ -412,12 +445,12 @@ export default function App() {
                 <div className="flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
                   <ImageEditor
                     onAiGenerate={handleOpenAiGenerate}
-                    onClose={() => setEditorVisible(false)}
-                    onExport={() => requestExportThumbnail(activeThumbnail)}
+                    onClose={() => openPageTab("gallery")}
+                    onExport={() => requestExportThumbnail(editorThumbnail)}
                     onOpenSettings={() => setEditorRightPanel("settings")}
-                    snapshot={activeTab.snapshot}
-                    tabId={activeTabId!}
-                    thumbnail={activeThumbnail}
+                    snapshot={editorTab.snapshot}
+                    tabId={editorTab.id}
+                    thumbnail={editorThumbnail}
                   />
                 </div>
 
@@ -461,7 +494,7 @@ export default function App() {
                   onClose={handleCloseAiGenerate}
                   onSaveAsImage={handleSaveAiImage}
                   onSaveAsLayer={undefined}
-                  onSettings={() => setPage("settings")}
+                  onSettings={() => openPageTab("settings")}
                   remixSourceUrl={remixSourceUrl ?? undefined}
                   remixTitle={remixTitle ?? undefined}
                 />
@@ -474,7 +507,7 @@ export default function App() {
                 <div className={contentClassWithBottom}>
                   <AiProjectPage
                     onClose={() => setOpenAiProjectId(null)}
-                    onSettings={() => setPage("settings")}
+                    onSettings={() => openPageTab("settings")}
                     projectId={openAiProjectId}
                   />
                 </div>
@@ -489,46 +522,46 @@ export default function App() {
             {/* Explore */}
             {page === "explore" && !editorVisible && (
               <ExplorePage
-                onClose={() => setPage("gallery")}
+                onClose={() => openPageTab("gallery")}
                 onRemix={handleRemix}
-                onSettings={() => setPage("settings")}
+                onSettings={() => openPageTab("settings")}
               />
             )}
 
             {/* My Channel */}
             {page === "my-channel" && !editorVisible && (
               <MyChannelPage
-                onClose={() => setPage("gallery")}
+                onClose={() => openPageTab("gallery")}
                 onRemix={handleRemix}
-                onSettings={() => setPage("settings")}
+                onSettings={() => openPageTab("settings")}
               />
             )}
 
             {/* Trash */}
             {page === "trash" && !editorVisible && (
-              <TrashPage onClose={() => setPage("gallery")} />
+              <TrashPage onClose={() => openPageTab("gallery")} />
             )}
 
             {/* Archive */}
             {page === "archive" && !editorVisible && (
-              <ArchivePage onClose={() => setPage("gallery")} />
+              <ArchivePage onClose={() => openPageTab("gallery")} />
             )}
 
             {/* Settings */}
             {page === "settings" && !editorVisible && (
-              <SettingsPage onClose={() => setPage("gallery")} />
+              <SettingsPage onClose={() => openPageTab("gallery")} />
             )}
 
             {showGallery && (
               <div className="mx-1 mb-1">
                 <BottomToolbar
                   onAddVideoClick={() => setShowExtractor(true)}
-                  onArchiveClick={() => setPage("archive")}
+                  onArchiveClick={() => openPageTab("archive")}
                   onExportSelected={handleExportSelected}
                   onNewFolderClick={() => setNewFolderOpen(true)}
                   onNewProjectClick={() => setNewProjectOpen(true)}
-                  onSettingsClick={() => setPage("settings")}
-                  onTrashClick={() => setPage("trash")}
+                  onSettingsClick={() => openPageTab("settings")}
+                  onTrashClick={() => openPageTab("trash")}
                   onViewModeChange={setViewMode}
                   viewMode={viewMode}
                 />
@@ -653,29 +686,28 @@ export default function App() {
           onNewFolder={() => setNewFolderOpen(true)}
           onNewProject={() => setNewProjectOpen(true)}
           onOpenChange={setCommandOpen}
-          onPageChange={(p) => {
-            setEditorVisible(false);
-            setPage(p);
-          }}
+          onPageChange={goToPage}
           open={commandOpen}
         />
         <Toaster />
-        {/* Assistant launcher — hidden on the settings page and while the
-            chat panel is open. Matches the Settings feedback button. */}
-        {!(isSettingsPage || chatOpen) && (
+        {/* Assistant launcher — gated behind experimental features, and hidden
+            on the settings page and while the chat panel is open. Uses the
+            default (primary) button variant. */}
+        {experimentalFeaturesEnabled && !(isSettingsPage || chatOpen) && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
+              <Button
                 aria-label="Open assistant"
-                className="fixed right-5 bottom-16 z-50 flex size-14 items-center justify-center rounded-full border border-border bg-muted text-foreground shadow-lg transition-all hover:scale-110"
+                className="fixed right-5 bottom-16 z-50 size-14 rounded-full shadow-lg transition-transform hover:scale-110"
                 onClick={() => {
                   sounds.click();
                   setChatOpen(true);
                 }}
+                size="icon"
                 type="button"
               >
                 <MessageCircle className="size-6" />
-              </button>
+              </Button>
             </TooltipTrigger>
             <TooltipContent side="left">Assistant</TooltipContent>
           </Tooltip>

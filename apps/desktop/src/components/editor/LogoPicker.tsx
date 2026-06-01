@@ -24,7 +24,12 @@ import {
   type RecentLogo,
 } from "@/lib/recently-used";
 import * as sounds from "@/lib/sounds";
-import { fetchAllLogos, type SvglLogo, searchLogos } from "@/lib/svgl";
+import {
+  fetchAllLogos,
+  parseSvgDimensions,
+  type SvglLogo,
+  searchLogos,
+} from "@/lib/svgl";
 import { useEditorStore } from "@/stores/use-editor-store";
 
 interface LogoPickerProps {
@@ -202,7 +207,13 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
         if (isSvg) {
           const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
           const svgString = new TextDecoder("utf-8").decode(bytes);
-          useEditorStore.getState().addSvgLayer(svgString, 128, 128);
+          const { width: svgWidth, height: svgHeight } =
+            parseSvgDimensions(svgString);
+          const maxSide = 128;
+          const scale = maxSide / Math.max(svgWidth, svgHeight);
+          useEditorStore
+            .getState()
+            .addSvgLayer(svgString, svgWidth * scale, svgHeight * scale);
         } else {
           const dataUrl = `data:image/png;base64,${b64}`;
           const { width, height } = await loadImageDimensions(dataUrl);

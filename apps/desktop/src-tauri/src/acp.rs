@@ -287,17 +287,45 @@ fn run_acp_prompt(
     image_data: Option<String>,
     image_mime_type: Option<String>,
 ) -> Result<String, String> {
-    let mut child = Command::new(&agent_command)
+    // On Windows, npm/bun-installed CLIs (npx, bunx, gemini, codex, …) are
+    // `.cmd`/`.bat` shims, not `.exe`. Rust's spawn only resolves `.exe` by
+    // PATH, so resolve the shim to a concrete path first or it fails to launch.
+    let resolved_command = resolve_agent_command(&agent_command);
+    let mut child = Command::new(&resolved_command)
         .args(&agent_args)
         .envs(&env_vars)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("Failed to spawn agent '{}': {}", agent_command, e))?;
 
     let stdin = child.stdin.take().ok_or("Failed to get agent stdin")?;
     let stdout = child.stdout.take().ok_or("Failed to get agent stdout")?;
+    let stderr = child.stderr.take();
+
+    // Drain stderr into a capped buffer so a failed handshake can report what
+    // the agent actually printed (e.g. "unknown option '--acp'").
+    let stderr_buf = Arc::new(Mutex::new(String::new()));
+    let stderr_thread = stderr.map(|stderr| {
+        let buf = stderr_buf.clone();
+        thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                match line {
+                    Ok(l) => {
+                        if let Ok(mut s) = buf.lock() {
+                            if s.len() < 8192 {
+                                s.push_str(&l);
+                                s.push('\n');
+                            }
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+        })
+    });
 
     let (reader_tx, reader_rx) = mpsc::channel::<serde_json::Value>();
     let (writer_tx, writer_rx) = mpsc::channel::<String>();
@@ -344,8 +372,82 @@ fn run_acp_prompt(
     let _ = child.wait();
     let _ = reader_thread.join();
     let _ = writer_thread.join();
+    if let Some(t) = stderr_thread {
+        let _ = t.join();
+    }
 
-    result
+    // On failure, fold in the last few lines of the agent's stderr so the user
+    // sees the real cause instead of just a bare timeout.
+    result.map_err(|e| {
+        let captured = stderr_buf
+            .lock()
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default();
+        if captured.is_empty() {
+            e
+        } else {
+            let mut tail: Vec<&str> = captured.lines().rev().take(8).collect();
+            tail.reverse();
+            format!("{e}\n\nAgent stderr:\n{}", tail.join("\n"))
+        }
+    })
+}
+
+/// Resolve an agent command to something the OS can actually spawn.
+///
+/// On Windows, CLIs installed via npm/bun (npx, bunx, gemini, codex, the
+/// claude-code ACP adapter, …) are `.cmd`/`.bat` shims rather than `.exe`
+/// files. Rust's `Command` only appends `.exe` during PATH lookup, so a bare
+/// `npx` never resolves. Search PATH ourselves using the common executable
+/// extensions and return the concrete path. On other platforms the command is
+/// returned unchanged.
+fn resolve_agent_command(command: &str) -> String {
+    #[cfg(windows)]
+    {
+        resolve_windows_command(command)
+    }
+    #[cfg(not(windows))]
+    {
+        command.to_string()
+    }
+}
+
+#[cfg(windows)]
+fn resolve_windows_command(command: &str) -> String {
+    // An explicit path (relative or absolute) is trusted as-is.
+    if command.contains('\\') || command.contains('/') {
+        return command.to_string();
+    }
+
+    let lower = command.to_ascii_lowercase();
+    let has_ext = [".exe", ".cmd", ".bat", ".com", ".ps1"]
+        .iter()
+        .any(|e| lower.ends_with(e));
+
+    // `.exe` runs natively; `.cmd`/`.bat` are executed via cmd by Rust's std.
+    // Skip `.ps1` (not directly spawnable) — npm/bun always emit a `.cmd` too.
+    let candidates: Vec<String> = if has_ext {
+        vec![command.to_string()]
+    } else {
+        [".exe", ".cmd", ".bat", ".com"]
+            .iter()
+            .map(|e| format!("{command}{e}"))
+            .collect()
+    };
+
+    if let Some(paths) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&paths) {
+            for name in &candidates {
+                let candidate = dir.join(name);
+                if candidate.is_file() {
+                    return candidate.to_string_lossy().into_owned();
+                }
+            }
+        }
+    }
+
+    // Fall back to the original so spawn surfaces a clear "not found" error.
+    command.to_string()
 }
 
 fn execute_acp_session(

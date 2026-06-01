@@ -36,7 +36,10 @@ export function getLogoRoute(
   return dark ? route.dark : route.light;
 }
 
-function parseSvgDimensions(svg: string): { width: number; height: number } {
+export function parseSvgDimensions(svg: string): {
+  width: number;
+  height: number;
+} {
   const wMatch = svg.match(/\bwidth="([^"]+)"/);
   const hMatch = svg.match(/\bheight="([^"]+)"/);
   const vbMatch = svg.match(/viewBox="([^"]+)"/);

@@ -18,6 +18,7 @@ import {
 import { sileo } from "sileo";
 import { AddColorBackgroundDialog } from "@/components/editor/AddColorBackgroundDialog";
 import { ArtboardView } from "@/components/editor/ArtboardView";
+import { BgRemovalPreprocessDialog } from "@/components/editor/BgRemovalPreprocessDialog";
 import { CarouselGeneratorDialog } from "@/components/editor/CarouselGeneratorDialog";
 import {
   EditorFooter,
@@ -125,6 +126,8 @@ export function ImageEditor({
   const [isProcessing, setIsProcessing] = useState(false);
   const [showColorBgDialog, setShowColorBgDialog] = useState(false);
   const [showQuickAiEditDialog, setShowQuickAiEditDialog] = useState(false);
+  const [showBgRemovalPreprocessDialog, setShowBgRemovalPreprocessDialog] =
+    useState(false);
   const [showGalleryPicker, setShowGalleryPicker] = useState(false);
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [showLogoPicker, setShowLogoPicker] = useState(false);
@@ -804,53 +807,91 @@ export function ImageEditor({
     [activeLayerId, layers, addImageLayer]
   );
 
+  const runBgRemoval = useCallback(
+    async (
+      dataUrl: string,
+      options?: import("@/lib/bg-removal-pipeline").BgRemovalPipelineOptions
+    ) => {
+      setIsProcessing(true);
+      const toastId = sileo.show({
+        title: "Removing background...",
+        type: "loading",
+        duration: null,
+      }) as string;
+      activeToastIdsRef.current.add(toastId);
+      try {
+        const { runBgRemovalPipeline } = await import(
+          "@/lib/bg-removal-pipeline"
+        );
+        const result = await runBgRemovalPipeline(
+          dataUrl,
+          (stage) =>
+            sileo.show({
+              title: stage,
+              type: "loading",
+              duration: null,
+              id: toastId,
+            } as any),
+          options
+        );
+        const img = new window.Image();
+        img.onload = () => addImageLayer(result.dataUrl, img.width, img.height);
+        img.src = result.dataUrl;
+        const message =
+          result.kind === "gemini-only"
+            ? "Background replaced with color"
+            : "Background removed";
+        sileo.success({ title: message, id: toastId } as any);
+      } catch (error) {
+        sileo.error({
+          title:
+            error instanceof Error
+              ? error.message
+              : "Failed to remove background",
+          id: toastId,
+        } as any);
+      } finally {
+        activeToastIdsRef.current.delete(toastId);
+        setIsProcessing(false);
+      }
+    },
+    [addImageLayer]
+  );
+
   const handleRemoveBackground = useCallback(async () => {
     const activeLayer = layers.find((l) => l.id === activeLayerId);
     if (!activeLayer || activeLayer.type !== "image") {
       return;
     }
-    setIsProcessing(true);
-    const toastId = sileo.show({
-      title: "Removing background...",
-      type: "loading",
-      duration: null,
-    }) as string;
-    activeToastIdsRef.current.add(toastId);
-    try {
-      const { runBgRemovalPipeline } = await import(
-        "@/lib/bg-removal-pipeline"
-      );
-      const result = await runBgRemovalPipeline(
-        (activeLayer as ImageLayer).dataUrl,
-        (stage) =>
-          sileo.show({
-            title: stage,
-            type: "loading",
-            duration: null,
-            id: toastId,
-          } as any)
-      );
-      const img = new window.Image();
-      img.onload = () => addImageLayer(result.dataUrl, img.width, img.height);
-      img.src = result.dataUrl;
-      const message =
-        result.kind === "gemini-only"
-          ? "Background replaced with color"
-          : "Background removed";
-      sileo.success({ title: message, id: toastId } as any);
-    } catch (error) {
-      sileo.error({
-        title:
-          error instanceof Error
-            ? error.message
-            : "Failed to remove background",
-        id: toastId,
-      } as any);
-    } finally {
-      activeToastIdsRef.current.delete(toastId);
-      setIsProcessing(false);
+    // When Gemini pre-processing is enabled, let the user enter a prompt and
+    // pick a background color first, then run the full preprocess + removal.
+    // Only show the dialog if a Gemini key is set; otherwise fall through to
+    // direct local removal so the action still works.
+    if (useAppSettingsStore.getState().bgRemovalGeminiEnabled) {
+      const apiKey = await getGeminiApiKey();
+      if (apiKey) {
+        setShowBgRemovalPreprocessDialog(true);
+        return;
+      }
     }
-  }, [activeLayerId, layers, addImageLayer]);
+    await runBgRemoval((activeLayer as ImageLayer).dataUrl);
+  }, [activeLayerId, layers, runBgRemoval]);
+
+  const handleRemoveBackgroundWithPreprocess = useCallback(
+    (color: string, prompt: string) => {
+      const activeLayer = layers.find((l) => l.id === activeLayerId);
+      if (!activeLayer || activeLayer.type !== "image") {
+        return;
+      }
+      setShowBgRemovalPreprocessDialog(false);
+      void runBgRemoval((activeLayer as ImageLayer).dataUrl, {
+        geminiColor: color,
+        geminiPrompt: prompt,
+        forceRemove: true,
+      });
+    },
+    [activeLayerId, layers, runBgRemoval]
+  );
 
   const handleSmartCrop = useCallback(() => {
     const activeLayer = layers.find((l) => l.id === activeLayerId);
@@ -1871,6 +1912,12 @@ export function ImageEditor({
         onConfirm={handleQuickAiEdit}
         onOpenChange={setShowQuickAiEditDialog}
         open={showQuickAiEditDialog}
+      />
+
+      <BgRemovalPreprocessDialog
+        onConfirm={handleRemoveBackgroundWithPreprocess}
+        onOpenChange={setShowBgRemovalPreprocessDialog}
+        open={showBgRemovalPreprocessDialog}
       />
 
       <CarouselGeneratorDialog

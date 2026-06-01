@@ -1,4 +1,4 @@
-﻿import {
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -24,12 +24,12 @@ import {
 } from "@repo/ui/dropdown-menu";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
-  ChevronDown,
   Compass,
   File,
   GalleryHorizontal,
   GalleryThumbnails,
   GitBranch,
+  Plus,
   RotateCcw,
   Settings,
   Sparkles,
@@ -48,20 +48,10 @@ import {
 import * as sounds from "@/lib/sounds";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import { useEditorStore } from "@/stores/use-editor-store";
-import type { TabEntry } from "@/stores/use-tabs-store";
+import type { PageId, TabEntry } from "@/stores/use-tabs-store";
 import { useTabsStore } from "@/stores/use-tabs-store";
 
-type ActivePage =
-  | "gallery"
-  | "ai-generate"
-  | "ai-projects"
-  | "trash"
-  | "archive"
-  | "settings"
-  | "explore"
-  | "my-channel";
-
-const PAGE_LABELS: Record<ActivePage, string> = {
+const PAGE_LABELS: Record<PageId, string> = {
   gallery: "Home",
   "ai-generate": "Generate",
   "ai-projects": "Sessions",
@@ -72,9 +62,9 @@ const PAGE_LABELS: Record<ActivePage, string> = {
   "my-channel": "My Channel",
 };
 
-const EXPERIMENTAL_PAGES = new Set<ActivePage>(["ai-projects", "my-channel"]);
+const EXPERIMENTAL_PAGES = new Set<PageId>(["ai-projects", "my-channel"]);
 
-const PAGE_ICONS: Record<ActivePage, React.ReactNode> = {
+const PAGE_ICONS: Record<PageId, React.ReactNode> = {
   gallery: <GalleryHorizontal className="size-3 shrink-0" />,
   "ai-generate": <Sparkles className="size-3 shrink-0" />,
   "ai-projects": <GitBranch className="size-3 shrink-0" />,
@@ -85,14 +75,24 @@ const PAGE_ICONS: Record<ActivePage, React.ReactNode> = {
   "my-channel": <Tv2 className="size-3 shrink-0" />,
 };
 
+// Order the "+" menu offers pages in.
+const ADDABLE_PAGES: PageId[] = [
+  "gallery",
+  "ai-generate",
+  "ai-projects",
+  "my-channel",
+  "explore",
+  "archive",
+  "trash",
+  "settings",
+];
+
 const noDrag = { WebkitAppRegion: "no-drag" } as React.CSSProperties;
 
 export function TabBar({
-  activePage = "gallery",
   onPageChange,
 }: {
-  activePage?: ActivePage;
-  onPageChange?: (page: ActivePage) => void;
+  onPageChange?: (page: PageId) => void;
 }) {
   const { seasonalEffectsEnabled, previewSeasonTheme } = useAppSettingsStore();
   const activeSeason = previewSeasonTheme
@@ -123,9 +123,7 @@ export function TabBar({
   const tabs = useTabsStore((s) => s.tabs);
   const activeTabId = useTabsStore((s) => s.activeTabId);
   const closedTabs = useTabsStore((s) => s.closedTabs);
-  const editorVisible = useTabsStore((s) => s.editorVisible);
   const setActiveTab = useTabsStore((s) => s.setActiveTab);
-  const setEditorVisible = useTabsStore((s) => s.setEditorVisible);
   const closeTab = useTabsStore((s) => s.closeTab);
   const closeOtherTabs = useTabsStore((s) => s.closeOtherTabs);
   const reopenClosedTab = useTabsStore((s) => s.reopenClosedTab);
@@ -142,6 +140,7 @@ export function TabBar({
   ctrlTabPendingIdRef.current = ctrlTabPendingId;
 
   const isTabDirty = (tab: TabEntry) => {
+    if (tab.kind !== "project") return false;
     if (tab.id === activeTabId) {
       return historyIndex !== tab.savedHistoryIndex;
     }
@@ -199,15 +198,17 @@ export function TabBar({
         e.preventDefault();
         const activeTab = tabs.find((t) => t.id === activeTabId);
         if (!activeTab) return;
-        const hi = historyIndexRef.current;
-        const isDirty =
-          hi !== activeTab.savedHistoryIndex &&
-          activeTab.savedHistoryIndex !== -1;
-        if (isDirty) {
-          setPendingAction(() => () => closeTab(activeTab.id));
-        } else {
-          closeTab(activeTab.id);
+        if (activeTab.kind === "project") {
+          const hi = historyIndexRef.current;
+          const isDirty =
+            hi !== activeTab.savedHistoryIndex &&
+            activeTab.savedHistoryIndex !== -1;
+          if (isDirty) {
+            setPendingAction(() => () => closeTab(activeTab.id));
+            return;
+          }
         }
+        closeTab(activeTab.id);
       }
     };
 
@@ -236,11 +237,6 @@ export function TabBar({
     // is not inside the bar, it came from a portal — don't start dragging.
     if (!e.currentTarget.contains(e.target as Node)) return;
     getCurrentWindow().startDragging();
-  };
-
-  const handleGalleryClick = () => {
-    if (!editorVisible) return;
-    setEditorVisible(false);
   };
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
@@ -285,13 +281,17 @@ export function TabBar({
   const GAP_PX = 8;
   const MAX_TAB_PX = 176;
   const MIN_TAB_PX = 40;
+  // Reserve room for the trailing "+" button (and its gap) so tabs shrink to
+  // sit beside it instead of pushing it off the bar.
+  const ADD_BTN_PX = 36;
   const tabWidth =
     containerWidth !== null && tabs.length > 0
       ? Math.max(
           MIN_TAB_PX,
           Math.min(
             MAX_TAB_PX,
-            (containerWidth - (tabs.length - 1) * GAP_PX) / tabs.length
+            (containerWidth - ADD_BTN_PX - (tabs.length - 1) * GAP_PX) /
+              tabs.length
           )
         )
       : MAX_TAB_PX;
@@ -347,78 +347,10 @@ export function TabBar({
           />
         </button>
 
-        {/* Page tab — label navigates directly, chevron opens switcher */}
-        <DropdownMenu>
-          <div
-            className={`relative z-[1001] flex h-7 shrink-0 select-none items-center rounded-md text-xs transition-colors ${
-              editorVisible || ctrlTabPendingId
-                ? "text-muted-foreground"
-                : "bg-background text-foreground"
-            }`}
-            style={noDrag}
-          >
-            {/* Page label — click goes to current page */}
-            <button
-              className="flex h-full cursor-pointer items-center gap-1.5 pr-1.5 pl-3 hover:text-foreground focus-visible:outline-none"
-              onClick={handleGalleryClick}
-              onMouseDown={(e) => e.stopPropagation()}
-              type="button"
-            >
-              {PAGE_ICONS[activePage]}
-              {PAGE_LABELS[activePage]}
-              {EXPERIMENTAL_PAGES.has(activePage) && (
-                <Badge variant="destructive">Experimental</Badge>
-              )}
-            </button>
-            {/* Chevron — opens page switcher dropdown */}
-            <DropdownMenuTrigger
-              className="flex h-full cursor-pointer items-center pr-1.5 pl-0.5 hover:text-foreground focus-visible:outline-none"
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <ChevronDown className="size-3 opacity-50" />
-            </DropdownMenuTrigger>
-          </div>
-          <DropdownMenuContent align="start" className="w-56" side="bottom">
-            {(
-              [
-                "gallery",
-                "ai-generate",
-                "ai-projects",
-                "my-channel",
-                "explore",
-                "archive",
-                "trash",
-                "settings",
-              ] as const
-            )
-              .filter((p) => p !== activePage)
-              .map((p) => (
-                <DropdownMenuItem
-                  key={p}
-                  onClick={() => {
-                    sounds.click();
-                    if (p === "gallery") handleGalleryClick();
-                    onPageChange?.(p);
-                  }}
-                >
-                  {PAGE_ICONS[p]}
-                  {PAGE_LABELS[p]}
-                  {EXPERIMENTAL_PAGES.has(p) && (
-                    <Badge className="ml-auto" variant="destructive">
-                      Experimental
-                    </Badge>
-                  )}
-                </DropdownMenuItem>
-              ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="mx-1 h-4 w-px shrink-0 bg-border" />
 
-        {/* Divider between page tab and project tabs */}
-        {tabs.length > 0 && (
-          <div className="mx-2 h-4 w-px shrink-0 bg-border" />
-        )}
-
-        {/* Project tabs — shrink like Chrome, no scroll */}
+        {/* Unified tab strip — page tabs and project tabs together, Chrome-style,
+            with a trailing "+" that opens any page in its own tab. */}
         <div
           className={`relative z-[1001] flex flex-1 items-center gap-2 overflow-hidden ${containerWidth === null ? "invisible" : ""}`}
           onDragOver={(e) => {
@@ -431,9 +363,13 @@ export function TabBar({
           {tabs.map((tab, index) => {
             const isActive = ctrlTabPendingId
               ? tab.id === ctrlTabPendingId
-              : tab.id === activeTabId && editorVisible;
+              : tab.id === activeTabId;
             const dirty = isTabDirty(tab);
             const isDragging = draggingIndex === index;
+            const isExperimental =
+              tab.kind === "page" && EXPERIMENTAL_PAGES.has(tab.page);
+            const label =
+              tab.kind === "project" ? tab.name : PAGE_LABELS[tab.page];
 
             return (
               <Fragment key={tab.id}>
@@ -467,8 +403,18 @@ export function TabBar({
                       }}
                       style={{ width: tabWidth }}
                     >
-                      <File className="size-3 shrink-0 opacity-60" />
-                      <span className="truncate">{tab.name}</span>
+                      {tab.kind === "project" ? (
+                        <File className="size-3 shrink-0 opacity-60" />
+                      ) : (
+                        PAGE_ICONS[tab.page]
+                      )}
+                      <span className="truncate">{label}</span>
+                      {isExperimental && (
+                        <span
+                          className="size-1.5 shrink-0 rounded-full bg-violet-400"
+                          title="Experimental"
+                        />
+                      )}
                       {dirty && (
                         <span className="size-1.5 shrink-0 rounded-full bg-amber-400" />
                       )}
@@ -523,7 +469,9 @@ export function TabBar({
                         Reopen Closed Tab
                         {closedTabs.length > 0 && (
                           <span className="text-muted-foreground text-xs">
-                            {closedTabs[0].name}
+                            {closedTabs[0].kind === "project"
+                              ? closedTabs[0].name
+                              : PAGE_LABELS[closedTabs[0].page]}
                           </span>
                         )}
                       </div>
@@ -536,6 +484,37 @@ export function TabBar({
           {showIndicator(tabs.length) && (
             <div className="pointer-events-none h-5 w-0.5 shrink-0 rounded-full bg-blue-400" />
           )}
+
+          {/* New-tab button — opens any page as its own tab */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Open a new tab"
+              className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none"
+              onMouseDown={(e) => e.stopPropagation()}
+              style={noDrag}
+            >
+              <Plus className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56" side="bottom">
+              {ADDABLE_PAGES.map((p) => (
+                <DropdownMenuItem
+                  key={p}
+                  onClick={() => {
+                    sounds.click();
+                    onPageChange?.(p);
+                  }}
+                >
+                  {PAGE_ICONS[p]}
+                  {PAGE_LABELS[p]}
+                  {EXPERIMENTAL_PAGES.has(p) && (
+                    <Badge className="ml-auto" variant="destructive">
+                      Experimental
+                    </Badge>
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

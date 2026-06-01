@@ -23,6 +23,7 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { sileo } from "sileo";
 import { SelectionCheckbox } from "@/components/gallery/SelectionCheckbox";
 import { ThumbnailActionButtons } from "@/components/gallery/ThumbnailActionButtons";
+import { setDragPreview } from "@/lib/drag-preview";
 import * as sounds from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
@@ -193,6 +194,11 @@ export const ThumbnailGridItem = memo(function ThumbnailGridItem({
                 : [thumbnail.id];
             e.dataTransfer.setData("text/plain", `t:${JSON.stringify(ids)}`);
             e.dataTransfer.effectAllowed = "move";
+            setDragPreview(e.dataTransfer, {
+              label:
+                ids.length > 1 ? `Move ${ids.length} projects` : thumbnail.name,
+              count: ids.length,
+            });
           }}
           onKeyDown={() => {}}
           onMouseDown={(e) => {

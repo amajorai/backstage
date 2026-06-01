@@ -263,8 +263,8 @@ async function handleSaveProject(): Promise<ToolResult> {
     return { success: false, error: "No active project" };
   }
   const activeTab = tabs.find((t) => t.id === activeTabId);
-  if (!activeTab) {
-    return { success: false, error: "Active tab not found" };
+  if (!activeTab || activeTab.kind !== "project") {
+    return { success: false, error: "No active project" };
   }
   const thumbnail = useGalleryStore
     .getState()
@@ -391,7 +391,7 @@ function handleGetActiveProject(): ToolResult {
     return { success: true, project: null };
   }
   const activeTab = tabs.find((t) => t.id === activeTabId);
-  if (!activeTab) {
+  if (!activeTab || activeTab.kind !== "project") {
     return { success: true, project: null };
   }
   const thumbnail = useGalleryStore

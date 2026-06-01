@@ -6,33 +6,34 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@repo/ui/drawer";
-import { Bot, Send, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Bot, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { AgentChat } from "@/components/agent-elements/agent-chat";
 import { acpPrompt } from "@/lib/acp-client";
-import { cn } from "@/lib/utils";
+import {
+  chatStatusFor,
+  type SimpleChatMessage,
+  toUIMessages,
+} from "@/lib/agent-chat-adapter";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
 import { useYtMyChannelStore } from "@/stores/use-yt-my-channel-store";
 import { useYtOAuthStore } from "@/stores/use-yt-oauth-store";
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
 
 interface YoutubeAnalystPanelProps {
   open: boolean;
   onClose: () => void;
 }
 
+const TOP_VIDEO_LIMIT = 20;
+
 export function YoutubeAnalystPanel({
   open,
   onClose,
 }: YoutubeAnalystPanelProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<SimpleChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Each send bumps this; a stopped or superseded turn is discarded on resolve.
+  const turnIdRef = useRef(0);
 
   const acpAgents = useAppSettingsStore((s) => s.acpAgents);
   const acpTextGenAgentId = useAppSettingsStore((s) => s.acpTextGenAgentId);
@@ -41,19 +42,30 @@ export function YoutubeAnalystPanel({
   const channelId = useYtOAuthStore((s) => s.channelId);
   const videos = useYtMyChannelStore((s) => s.videos);
 
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+  const handleSend = async (userMessage: string) => {
+    const trimmed = userMessage.trim();
+    if (!trimmed || isLoading) {
+      return;
     }
-  }, [messages, isLoading]);
 
-  const handleSend = async () => {
-    const userMessage = input.trim();
-    if (!userMessage || isLoading) return;
+    const turnId = turnIdRef.current + 1;
+    turnIdRef.current = turnId;
 
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
-    setInput("");
+    setMessages((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), role: "user", content: trimmed },
+    ]);
     setIsLoading(true);
+
+    const appendAssistant = (content: string) => {
+      if (turnIdRef.current !== turnId) {
+        return;
+      }
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: "assistant", content },
+      ]);
+    };
 
     try {
       const agent = acpTextGenAgentId
@@ -61,21 +73,16 @@ export function YoutubeAnalystPanel({
         : null;
 
       if (!agent) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content:
-              "No AI agent configured. Go to Settings → AI Agents to set one up.",
-          },
-        ]);
+        appendAssistant(
+          "No AI agent configured. Go to Settings → AI Agents to set one up."
+        );
         return;
       }
 
       const topVideos = videos
         .slice()
         .sort((a, b) => b.viewCount - a.viewCount)
-        .slice(0, 20)
+        .slice(0, TOP_VIDEO_LIMIT)
         .map((v) => ({
           id: v.id,
           title: v.title,
@@ -97,37 +104,36 @@ export function YoutubeAnalystPanel({
 Channel data:
 ${JSON.stringify(context, null, 2)}
 
-User question: ${userMessage}
+User question: ${trimmed}
 
 Provide specific, actionable insights based on the data.`;
 
       const response = await acpPrompt(agent, prompt);
-
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: response },
-      ]);
+      appendAssistant(response);
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content:
-            err instanceof Error
-              ? `Error: ${err.message}`
-              : "An unexpected error occurred. Please try again.",
-        },
-      ]);
+      appendAssistant(
+        err instanceof Error
+          ? `Error: ${err.message}`
+          : "An unexpected error occurred. Please try again."
+      );
     } finally {
-      setIsLoading(false);
+      if (turnIdRef.current === turnId) {
+        setIsLoading(false);
+      }
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+  const handleStop = () => {
+    // ACP turns can't truly be cancelled. Invalidate the in-flight turn so its
+    // eventual response is dropped, and close the turn with a marker so the feed
+    // stops showing the processing indicator (which keys off a trailing user
+    // turn with no reply).
+    turnIdRef.current += 1;
+    setIsLoading(false);
+    setMessages((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), role: "assistant", content: "Stopped." },
+    ]);
   };
 
   return (
@@ -157,89 +163,27 @@ Provide specific, actionable insights based on the data.`;
           </DrawerClose>
         </DrawerHeader>
 
-        {/* Chat area */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
-            {messages.length === 0 && !isLoading && (
-              <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-                <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10">
-                  <Bot className="size-6 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium text-foreground text-sm">
-                    YouTube AI Analyst
-                  </p>
-                  <p className="mt-1 max-w-xs text-muted-foreground text-xs">
-                    Ask about your top-performing videos, content patterns, or
-                    ideas to grow your channel.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {messages.map((msg, i) => (
-              <div
-                className={cn(
-                  "flex",
-                  msg.role === "user" ? "justify-end" : "justify-start"
-                )}
-                key={`${msg.role}-${i}`}
-              >
-                <div
-                  className={cn(
-                    "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
-                    msg.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground"
-                  )}
-                >
-                  {msg.content}
-                </div>
-              </div>
-            ))}
-
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="flex items-center gap-1.5 rounded-2xl bg-muted px-3.5 py-2.5">
-                  <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
-                  <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
-                  <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
-                </div>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input area */}
-          <div className="border-border border-t p-4">
-            <div className="flex items-end gap-2">
-              <textarea
-                className="flex-1 resize-none rounded-xl border border-border bg-muted px-3.5 py-2.5 text-foreground text-sm outline-none placeholder:text-muted-foreground focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
-                disabled={isLoading}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask about your channel..."
-                rows={2}
-                value={input}
-              />
-              <button
-                aria-label="Send message"
-                className={cn(
-                  "flex size-10 shrink-0 items-center justify-center rounded-xl transition-colors",
-                  input.trim() && !isLoading
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "cursor-not-allowed bg-muted text-muted-foreground"
-                )}
-                disabled={!input.trim() || isLoading}
-                onClick={handleSend}
-                type="button"
-              >
-                <Send className="size-4" />
-              </button>
-            </div>
-          </div>
-        </div>
+        {/* Message feed + composer (agent-elements) */}
+        <AgentChat
+          className="min-h-0 flex-1"
+          emptyStatePosition="center"
+          messages={toUIMessages(messages)}
+          onSend={({ content }) => handleSend(content)}
+          onStop={handleStop}
+          status={chatStatusFor(isLoading)}
+          suggestions={[
+            {
+              id: "top-videos",
+              label: "What are my top videos?",
+              value: "What are my top-performing videos and why?",
+            },
+            {
+              id: "growth-ideas",
+              label: "Ideas to grow",
+              value: "Give me content ideas to grow my channel.",
+            },
+          ]}
+        />
       </DrawerContent>
     </Drawer>
   );

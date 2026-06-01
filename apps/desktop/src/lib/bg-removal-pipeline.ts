@@ -7,9 +7,23 @@ export type BgRemovalPipelineResult =
   | { kind: "removed"; dataUrl: string }
   | { kind: "gemini-only"; dataUrl: string };
 
+export type BgRemovalPipelineOptions = {
+  /** Override the solid background color used during Gemini pre-processing. */
+  geminiColor?: string;
+  /** Extra instructions appended to the Gemini pre-processing prompt. */
+  geminiPrompt?: string;
+  /**
+   * Always run the local removal model after pre-processing, ignoring the
+   * `bgRemovalGeminiAutoRemove` setting. Used by the editor's prompt dialog
+   * where removal is the explicit intent.
+   */
+  forceRemove?: boolean;
+};
+
 export async function runBgRemovalPipeline(
   imageDataUrl: string,
-  onProgress?: (stage: string) => void
+  onProgress?: (stage: string) => void,
+  options?: BgRemovalPipelineOptions
 ): Promise<BgRemovalPipelineResult> {
   const {
     bgRemovalProvider,
@@ -30,7 +44,9 @@ export async function runBgRemovalPipeline(
       const { generateImageWithGemini, base64ToDataUrl } = await import(
         "@/lib/gemini-image"
       );
-      const prompt = `Replace the background of this image with a solid flat ${bgRemovalGeminiColor} color. Keep the subject (person, object, or foreground element) exactly as-is. Output the full image with the new background.`;
+      const color = options?.geminiColor ?? bgRemovalGeminiColor;
+      const extra = options?.geminiPrompt?.trim();
+      const prompt = `Replace the background of this image with a solid flat ${color} color. Keep the subject (person, object, or foreground element) exactly as-is. Output the full image with the new background.${extra ? ` Additional instructions: ${extra}` : ""}`;
       const geminiResult = await generateImageWithGemini(
         apiKey,
         bgRemovalGeminiModel as import("@/lib/gemini-image").GeminiImageModel,
@@ -42,7 +58,7 @@ export async function runBgRemovalPipeline(
         geminiResult.mimeType
       );
 
-      if (!bgRemovalGeminiAutoRemove) {
+      if (!(options?.forceRemove || bgRemovalGeminiAutoRemove)) {
         return { kind: "gemini-only", dataUrl: geminiDataUrl };
       }
 

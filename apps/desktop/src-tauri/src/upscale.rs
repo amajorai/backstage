@@ -184,21 +184,28 @@ pub async fn upscale_image(
     // Remove any stale output file so the existence check below is reliable.
     let _ = std::fs::remove_file(&output_path);
 
-    let result = tokio::process::Command::new(&bin)
-        .args([
-            "-i",
-            input_path.to_str().unwrap_or_default(),
-            "-o",
-            output_path.to_str().unwrap_or_default(),
-            "-s",
-            &run_scale.to_string(),
-            "-n",
-            &model,
-            "-m",
-            models_dir.to_str().unwrap_or_default(),
-        ])
-        .output()
-        .await;
+    let mut cmd = tokio::process::Command::new(&bin);
+    cmd.args([
+        "-i",
+        input_path.to_str().unwrap_or_default(),
+        "-o",
+        output_path.to_str().unwrap_or_default(),
+        "-s",
+        &run_scale.to_string(),
+        "-n",
+        &model,
+        "-m",
+        models_dir.to_str().unwrap_or_default(),
+    ]);
+
+    // On Windows, run the console binary without flashing up a cmd window.
+    #[cfg(target_os = "windows")]
+    {
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    let result = cmd.output().await;
 
     let _ = std::fs::remove_file(&input_path);
 

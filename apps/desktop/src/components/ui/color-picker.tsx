@@ -731,7 +731,7 @@ function ColorPickerTrigger(
     disabled,
     className,
     style,
-    variant = "outline",
+    variant = "muted",
     size,
     ...triggerProps
   } = props;

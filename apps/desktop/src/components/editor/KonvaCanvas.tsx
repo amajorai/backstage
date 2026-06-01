@@ -81,6 +81,19 @@ const UI_COLOR = "oklch(0.685 0.169 237.323)";
 const SNAP_GUIDE_COLOR = "#ff2d6f";
 const ROTATION_SNAPS_15 = Array.from({ length: 24 }, (_, i) => i * 15);
 
+// Generic floor for resizing any layer (stage pixels / canvas units).
+const MIN_LAYER_SIZE = 10;
+
+/**
+ * Minimum wrap width (canvas units) for a text box. Canva-style: never let the
+ * box collapse below roughly one character so the glyphs can't reflow into an
+ * unusable thin column whose transformer handles overlap and can't be grabbed.
+ * 1em comfortably fits a single character with breathing room.
+ */
+function minTextBoxWidth(fontSize: number): number {
+  return Math.max(MIN_LAYER_SIZE, fontSize);
+}
+
 /** Returns the effective width/height of a layer. */
 function getLayerDimensions(l: EditorLayer): { w: number; h: number } {
   if (l.type === "text") return { w: l.width ?? 300, h: 0 };
@@ -1081,7 +1094,18 @@ export function KonvaCanvas({
   };
   const snapBoundBoxFunc = useCallback(
     (oldBox: BoundBox, newBox: BoundBox) => {
-      if (newBox.width < 10 || newBox.height < 10) return oldBox;
+      // A single text layer gets a font-relative width floor (in stage pixels)
+      // so a width-only drag can't collapse it into a degenerate thin column.
+      // Other layers (and the box height) keep the generic small floor.
+      const soleTextLayer =
+        activeLayerIds.length === 1
+          ? layers.find((l) => l.id === activeLayerIds[0] && l.type === "text")
+          : undefined;
+      const minWidth = soleTextLayer
+        ? minTextBoxWidth((soleTextLayer as TextLayerType).fontSize) * scale
+        : MIN_LAYER_SIZE;
+      if (newBox.width < minWidth || newBox.height < MIN_LAYER_SIZE)
+        return oldBox;
       // Pure rotation — no size change — skip position snapping entirely
       const widthChanged = Math.abs(newBox.width - oldBox.width) > 0.5;
       const heightChanged = Math.abs(newBox.height - oldBox.height) > 0.5;
@@ -1238,7 +1262,7 @@ export function KonvaCanvas({
         y = oldCy - h / 2;
       }
 
-      if (w < 10 || h < 10) return oldBox;
+      if (w < minWidth || h < MIN_LAYER_SIZE) return oldBox;
       return { x, y, width: w, height: h, rotation };
     },
     [
@@ -2309,7 +2333,12 @@ export function KonvaCanvas({
       // Middle anchors ignore keepRatio, so a width-only drag keeps scaleY at 1.
       // Any change in scaleY means a corner drag → scale the font too.
       const isCornerDrag = Math.abs(scaleY - 1) > 0.001;
-      textNode.width(Math.max(10, textNode.width() * scaleX));
+      textNode.width(
+        Math.max(
+          minTextBoxWidth(textNode.fontSize()),
+          textNode.width() * scaleX
+        )
+      );
       if (isCornerDrag) {
         textNode.fontSize(Math.max(1, textNode.fontSize() * scaleX));
       }
@@ -2359,7 +2388,10 @@ export function KonvaCanvas({
               x: node.x(),
               y: node.y(),
               rotation: node.rotation(),
-              width: Math.max(10, Math.round(t.width())),
+              width: Math.max(
+                minTextBoxWidth(t.fontSize()),
+                Math.round(t.width())
+              ),
               fontSize: Math.max(1, Math.round(t.fontSize())),
             });
             return;
@@ -2379,7 +2411,10 @@ export function KonvaCanvas({
             y: node.y(),
             rotation: node.rotation(),
             fontSize: Math.max(1, Math.round(textLayer.fontSize * scaleX)),
-            width: Math.max(10, Math.round(currentWidth * scaleX)),
+            width: Math.max(
+              minTextBoxWidth(textLayer.fontSize * scaleX),
+              Math.round(currentWidth * scaleX)
+            ),
           });
         } else if (Math.abs(scaleX - 1) > 0.001) {
           // Horizontal edge drag: resize box width, keep font size
@@ -2387,7 +2422,10 @@ export function KonvaCanvas({
             x: node.x(),
             y: node.y(),
             rotation: node.rotation(),
-            width: Math.max(10, Math.round(currentWidth * scaleX)),
+            width: Math.max(
+              minTextBoxWidth(textLayer.fontSize),
+              Math.round(currentWidth * scaleX)
+            ),
           });
         } else {
           // Rotation only or vertical edge (vertical ignored — height is auto)
@@ -2434,14 +2472,20 @@ export function KonvaCanvas({
                 y: node.y(),
                 rotation: node.rotation(),
                 fontSize: Math.max(1, Math.round(layerState.fontSize * scaleX)),
-                width: Math.max(10, Math.round(currentWidth * scaleX)),
+                width: Math.max(
+                  minTextBoxWidth(layerState.fontSize * scaleX),
+                  Math.round(currentWidth * scaleX)
+                ),
               });
             } else if (Math.abs(scaleX - 1) > 0.001) {
               updateLayer(node.id(), {
                 x: node.x(),
                 y: node.y(),
                 rotation: node.rotation(),
-                width: Math.max(10, Math.round(currentWidth * scaleX)),
+                width: Math.max(
+                  minTextBoxWidth(layerState.fontSize),
+                  Math.round(currentWidth * scaleX)
+                ),
               });
             } else {
               updateLayer(node.id(), {

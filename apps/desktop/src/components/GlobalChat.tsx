@@ -5,17 +5,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/select";
-import { Bot, Send, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Bot, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { AgentChat } from "@/components/agent-elements/agent-chat";
 import { acpPrompt } from "@/lib/acp-client";
-import { cn } from "@/lib/utils";
+import {
+  chatStatusFor,
+  type SimpleChatMessage,
+  toUIMessages,
+} from "@/lib/agent-chat-adapter";
 import { useAppSettingsStore } from "@/stores/use-app-settings-store";
-
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-}
 
 const SYSTEM_PREAMBLE =
   "You are the in-app assistant for Backstage, a desktop thumbnail design app. " +
@@ -27,13 +26,14 @@ const SYSTEM_PREAMBLE =
  * Chat panel content for the global assistant. Rendered inside a resizable
  * right panel (like the editor's AI/settings panels). Talks to the selected
  * ACP agent (Claude/Gemini/Codex/…), which can drive the app UI via the
- * registered ACP tools. The agent/model is sourced from Settings.
+ * registered ACP tools. The agent/model is sourced from Settings. The message
+ * feed and composer come from the agent-elements library.
  */
 export function ChatPanel({ onClose }: { onClose: () => void }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<SimpleChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Each send bumps this; a stopped or superseded turn is discarded on resolve.
+  const turnIdRef = useRef(0);
 
   const acpAgents = useAppSettingsStore((s) => s.acpAgents);
   const acpTextGenAgentId = useAppSettingsStore((s) => s.acpTextGenAgentId);
@@ -45,74 +45,75 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
     ? (acpAgents.find((a) => a.id === acpTextGenAgentId) ?? null)
     : null;
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
-
-  const handleSend = async () => {
-    const userMessage = input.trim();
-    if (!userMessage || isLoading) {
+  const handleSend = async (userMessage: string) => {
+    const trimmed = userMessage.trim();
+    if (!trimmed || isLoading) {
       return;
     }
 
+    const turnId = turnIdRef.current + 1;
+    turnIdRef.current = turnId;
+
+    // Snapshot the transcript before this turn so the prompt carries multi-turn
+    // context (ACP sessions are stateless per call).
+    const history = messages
+      .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+      .join("\n");
+
     setMessages((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), role: "user", content: userMessage },
+      { id: crypto.randomUUID(), role: "user", content: trimmed },
     ]);
-    setInput("");
     setIsLoading(true);
+
+    const appendAssistant = (content: string) => {
+      if (turnIdRef.current !== turnId) {
+        return;
+      }
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: "assistant", content },
+      ]);
+    };
 
     try {
       if (!selectedAgent) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            content:
-              "No AI agent is selected. Choose one above, or set one up in Settings → AI Agents.",
-          },
-        ]);
+        appendAssistant(
+          "No AI agent is selected. Choose one above, or set one up in Settings → AI Agents."
+        );
         return;
       }
 
-      // ACP sessions are stateless per call, so include the recent transcript
-      // as context for multi-turn continuity.
-      const history = messages
-        .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
-        .join("\n");
       const prompt = `${SYSTEM_PREAMBLE}\n\n${
         history ? `Conversation so far:\n${history}\n\n` : ""
-      }User: ${userMessage}`;
+      }User: ${trimmed}`;
 
       const response = await acpPrompt(selectedAgent, prompt);
-
-      setMessages((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), role: "assistant", content: response },
-      ]);
+      appendAssistant(response);
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content:
-            err instanceof Error
-              ? `Error: ${err.message}`
-              : "An unexpected error occurred. Please try again.",
-        },
-      ]);
+      appendAssistant(
+        err instanceof Error
+          ? `Error: ${err.message}`
+          : "An unexpected error occurred. Please try again."
+      );
     } finally {
-      setIsLoading(false);
+      if (turnIdRef.current === turnId) {
+        setIsLoading(false);
+      }
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+  const handleStop = () => {
+    // ACP turns can't truly be cancelled. Invalidate the in-flight turn so its
+    // eventual response is dropped, and close the turn with a marker so the feed
+    // stops showing the processing indicator (which keys off a trailing user
+    // turn with no reply).
+    turnIdRef.current += 1;
+    setIsLoading(false);
+    setMessages((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), role: "assistant", content: "Stopped." },
+    ]);
   };
 
   return (
@@ -168,87 +169,27 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
         </Select>
       </div>
 
-      {/* Messages */}
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
-        {messages.length === 0 && !isLoading && (
-          <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10">
-              <Bot className="size-6 text-primary" />
-            </div>
-            <div>
-              <p className="font-medium text-foreground text-sm">
-                How can I help?
-              </p>
-              <p className="mt-1 max-w-xs text-muted-foreground text-xs">
-                Ask me to navigate, create a project, add layers, or anything
-                else — I can act on the app for you.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {messages.map((msg) => (
-          <div
-            className={cn(
-              "flex",
-              msg.role === "user" ? "justify-end" : "justify-start"
-            )}
-            key={msg.id}
-          >
-            <div
-              className={cn(
-                "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
-                msg.role === "user"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-foreground"
-              )}
-            >
-              {msg.content}
-            </div>
-          </div>
-        ))}
-
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="flex items-center gap-1.5 rounded-2xl bg-muted px-3.5 py-2.5">
-              <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
-              <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
-              <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
-            </div>
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input */}
-      <div className="border-border border-t p-4">
-        <div className="flex items-end gap-2">
-          <textarea
-            className="flex-1 resize-none rounded-xl border border-border bg-muted px-3.5 py-2.5 text-foreground text-sm outline-none placeholder:text-muted-foreground focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
-            disabled={isLoading}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask me anything…"
-            rows={2}
-            value={input}
-          />
-          <button
-            aria-label="Send message"
-            className={cn(
-              "flex size-10 shrink-0 items-center justify-center rounded-xl transition-colors",
-              input.trim() && !isLoading
-                ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                : "cursor-not-allowed bg-muted text-muted-foreground"
-            )}
-            disabled={!input.trim() || isLoading}
-            onClick={handleSend}
-            type="button"
-          >
-            <Send className="size-4" />
-          </button>
-        </div>
-      </div>
+      {/* Message feed + composer (agent-elements) */}
+      <AgentChat
+        className="min-h-0 flex-1"
+        emptyStatePosition="center"
+        messages={toUIMessages(messages)}
+        onSend={({ content }) => handleSend(content)}
+        onStop={handleStop}
+        status={chatStatusFor(isLoading)}
+        suggestions={[
+          {
+            id: "new-project",
+            label: "Create a new project",
+            value: "Create a new project",
+          },
+          {
+            id: "open-gallery",
+            label: "Take me to the gallery",
+            value: "Go to the gallery",
+          },
+        ]}
+      />
     </div>
   );
 }

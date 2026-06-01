@@ -8,7 +8,20 @@ import type { ThumbnailItem } from "@/stores/use-gallery-store";
 const TABS_STORE_NAME = "settings.json";
 const PERSISTED_TABS_KEY = "persisted_open_tabs";
 
-export interface TabEntry {
+// The set of full-screen "pages" that can each live in their own tab, exactly
+// like a browser tab. Mirrors the `Page` union in App.tsx / use-navigation-store.
+export type PageId =
+  | "gallery"
+  | "ai-generate"
+  | "ai-projects"
+  | "trash"
+  | "settings"
+  | "explore"
+  | "my-channel"
+  | "archive";
+
+export interface ProjectTabEntry {
+  kind: "project";
   id: string;
   thumbnailId: string;
   name: string;
@@ -16,21 +29,34 @@ export interface TabEntry {
   savedHistoryIndex: number;
 }
 
+export interface PageTabEntry {
+  kind: "page";
+  id: string;
+  page: PageId;
+}
+
+export type TabEntry = ProjectTabEntry | PageTabEntry;
+
+// How tabs are written to disk. Page tabs survive a restart just like project
+// tabs so the strip restores exactly as the user left it.
+type PersistedTabDescriptor =
+  | { kind: "page"; page: PageId }
+  | { kind: "project"; thumbnailId: string };
+
 interface TabsState {
   tabs: TabEntry[];
   activeTabId: string | null;
   closedTabs: TabEntry[];
-  editorVisible: boolean;
 
   openTab: (thumbnail: ThumbnailItem) => string;
   openTabBackground: (thumbnail: ThumbnailItem) => void;
+  openPageTab: (page: PageId) => string;
   closeTab: (tabId: string) => void;
   closeOtherTabs: (tabId: string) => void;
   duplicateTab: (tabId: string) => void;
   reopenClosedTab: () => void;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   setActiveTab: (tabId: string) => void;
-  setEditorVisible: (visible: boolean) => void;
   updateTabName: (tabId: string, name: string) => void;
   markTabSaved: (tabId: string, historyIndex: number) => void;
   clearAllTabs: () => void;
@@ -62,314 +88,307 @@ function captureSnapshot(savedHistoryIndex: number): EditorSnapshot {
   };
 }
 
-export const useTabsStore = create<TabsState>()((set, get) => ({
-  tabs: [],
-  activeTabId: null,
-  closedTabs: [],
-  editorVisible: false,
+function createGalleryTab(): PageTabEntry {
+  return { kind: "page", id: crypto.randomUUID(), page: "gallery" };
+}
 
-  openTab: (thumbnail: ThumbnailItem) => {
-    const { tabs, activeTabId } = get();
+function makeProjectTab(thumbnailId: string, name: string): ProjectTabEntry {
+  return {
+    kind: "project",
+    id: crypto.randomUUID(),
+    thumbnailId,
+    name,
+    snapshot: null,
+    savedHistoryIndex: -1,
+  };
+}
 
-    const existing = tabs.find((t) => t.thumbnailId === thumbnail.id);
-    if (existing) {
-      get().setActiveTab(existing.id);
-      return existing.id;
-    }
+// Returns `tabs` with the live editor state folded into the currently-active
+// project tab's snapshot, so switching away never loses unsaved work. Page tabs
+// (and "no active tab") have no editor state, so the list is returned untouched.
+function withActiveSnapshot(
+  tabs: TabEntry[],
+  activeTabId: string | null
+): TabEntry[] {
+  if (!activeTabId) return tabs;
+  const current = tabs.find((t) => t.id === activeTabId);
+  if (!current || current.kind !== "project") return tabs;
+  const snapshot = captureSnapshot(current.savedHistoryIndex);
+  return tabs.map((t) => (t.id === activeTabId ? { ...t, snapshot } : t));
+}
 
-    const newTab: TabEntry = {
-      id: crypto.randomUUID(),
-      thumbnailId: thumbnail.id,
-      name: thumbnail.name,
-      snapshot: null,
-      savedHistoryIndex: -1,
-    };
+export const useTabsStore = create<TabsState>()((set, get) => {
+  // Seed with a single Home tab so the strip is never empty on first launch.
+  const initialGallery = createGalleryTab();
 
-    if (activeTabId) {
-      const currentTab = tabs.find((t) => t.id === activeTabId);
-      const snapshot = captureSnapshot(currentTab?.savedHistoryIndex ?? -1);
+  return {
+    tabs: [initialGallery],
+    activeTabId: initialGallery.id,
+    closedTabs: [],
+
+    openTab: (thumbnail: ThumbnailItem) => {
+      const { tabs, activeTabId } = get();
+
+      const existing = tabs.find(
+        (t) => t.kind === "project" && t.thumbnailId === thumbnail.id
+      );
+      if (existing) {
+        get().setActiveTab(existing.id);
+        return existing.id;
+      }
+
+      const newTab = makeProjectTab(thumbnail.id, thumbnail.name);
       set({
-        tabs: [
-          ...tabs.map((t) => (t.id === activeTabId ? { ...t, snapshot } : t)),
-          newTab,
-        ],
+        tabs: [...withActiveSnapshot(tabs, activeTabId), newTab],
         activeTabId: newTab.id,
-        editorVisible: true,
       });
-    } else {
+
+      void get().savePersistedTabs();
+      return newTab.id;
+    },
+
+    openTabBackground: (thumbnail: ThumbnailItem) => {
+      const { tabs, activeTabId } = get();
+      const existing = tabs.find(
+        (t) => t.kind === "project" && t.thumbnailId === thumbnail.id
+      );
+      if (existing) return;
+
+      const newTab = makeProjectTab(thumbnail.id, thumbnail.name);
+      set({ tabs: [...withActiveSnapshot(tabs, activeTabId), newTab] });
+      void get().savePersistedTabs();
+    },
+
+    openPageTab: (page: PageId) => {
+      const { tabs, activeTabId } = get();
+
+      // Focus an existing page tab rather than opening a duplicate.
+      const existing = tabs.find((t) => t.kind === "page" && t.page === page);
+      if (existing) {
+        get().setActiveTab(existing.id);
+        return existing.id;
+      }
+
+      const newTab: PageTabEntry = {
+        kind: "page",
+        id: crypto.randomUUID(),
+        page,
+      };
       set({
-        tabs: [...tabs, newTab],
+        tabs: [...withActiveSnapshot(tabs, activeTabId), newTab],
         activeTabId: newTab.id,
-        editorVisible: true,
       });
-    }
 
-    void get().savePersistedTabs();
-    return newTab.id;
-  },
+      void get().savePersistedTabs();
+      return newTab.id;
+    },
 
-  openTabBackground: (thumbnail: ThumbnailItem) => {
-    const { tabs, activeTabId } = get();
-    const existing = tabs.find((t) => t.thumbnailId === thumbnail.id);
-    if (existing) return;
+    closeTab: (tabId: string) => {
+      const { tabs, activeTabId, closedTabs } = get();
+      const tabIndex = tabs.findIndex((t) => t.id === tabId);
+      if (tabIndex === -1) return;
 
-    const newTab: TabEntry = {
-      id: crypto.randomUUID(),
-      thumbnailId: thumbnail.id,
-      name: thumbnail.name,
-      snapshot: null,
-      savedHistoryIndex: -1,
-    };
+      const closingTab = tabs[tabIndex];
+      const newClosedTabs = [closingTab, ...closedTabs].slice(0, 10);
+      const newTabs = tabs.filter((t) => t.id !== tabId);
 
-    if (activeTabId) {
-      const currentTab = tabs.find((t) => t.id === activeTabId);
-      const snapshot = captureSnapshot(currentTab?.savedHistoryIndex ?? -1);
-      set({
-        tabs: [
-          ...tabs.map((t) => (t.id === activeTabId ? { ...t, snapshot } : t)),
-          newTab,
-        ],
-      });
-    } else {
-      set({ tabs: [...tabs, newTab] });
-    }
-
-    void get().savePersistedTabs();
-  },
-
-  closeTab: (tabId: string) => {
-    const { tabs, activeTabId, closedTabs } = get();
-    const tabIndex = tabs.findIndex((t) => t.id === tabId);
-    if (tabIndex === -1) return;
-
-    const closingTab = tabs[tabIndex];
-    const newClosedTabs = [closingTab, ...closedTabs].slice(0, 10);
-    const newTabs = tabs.filter((t) => t.id !== tabId);
-
-    if (activeTabId === tabId) {
+      // Never leave the strip empty — fall back to a fresh Home tab.
       if (newTabs.length === 0) {
+        const gallery = createGalleryTab();
         set({
-          tabs: [],
-          activeTabId: null,
+          tabs: [gallery],
+          activeTabId: gallery.id,
           closedTabs: newClosedTabs,
-          editorVisible: false,
         });
-      } else {
+        void get().savePersistedTabs();
+        return;
+      }
+
+      if (activeTabId === tabId) {
         const newActive = newTabs[Math.max(0, tabIndex - 1)];
-        useEditorStore
-          .getState()
-          .resetHistoryIndex(newActive.savedHistoryIndex);
+        if (newActive.kind === "project") {
+          useEditorStore
+            .getState()
+            .resetHistoryIndex(newActive.savedHistoryIndex);
+        }
         set({
           tabs: newTabs,
           activeTabId: newActive.id,
           closedTabs: newClosedTabs,
         });
+      } else {
+        set({ tabs: newTabs, closedTabs: newClosedTabs });
       }
-    } else {
-      set({ tabs: newTabs, closedTabs: newClosedTabs });
-    }
 
-    void get().savePersistedTabs();
-  },
+      void get().savePersistedTabs();
+    },
 
-  closeOtherTabs: (tabId: string) => {
-    const { tabs, closedTabs } = get();
-    const tabToKeep = tabs.find((t) => t.id === tabId);
-    if (!tabToKeep) return;
-    const closing = tabs.filter((t) => t.id !== tabId);
-    const newClosedTabs = [...closing, ...closedTabs].slice(0, 10);
-    set({ tabs: [tabToKeep], activeTabId: tabId, closedTabs: newClosedTabs });
-    void get().savePersistedTabs();
-  },
+    closeOtherTabs: (tabId: string) => {
+      const { tabs, closedTabs } = get();
+      const tabToKeep = tabs.find((t) => t.id === tabId);
+      if (!tabToKeep) return;
+      const closing = tabs.filter((t) => t.id !== tabId);
+      const newClosedTabs = [...closing, ...closedTabs].slice(0, 10);
+      set({ tabs: [tabToKeep], activeTabId: tabId, closedTabs: newClosedTabs });
+      void get().savePersistedTabs();
+    },
 
-  duplicateTab: (tabId: string) => {
-    const { tabs, activeTabId } = get();
-    const source = tabs.find((t) => t.id === tabId);
-    if (!source) return;
+    duplicateTab: (tabId: string) => {
+      const { tabs, activeTabId } = get();
+      const source = tabs.find((t) => t.id === tabId);
+      if (!source || source.kind !== "project") return;
 
-    const snapshot =
-      tabId === activeTabId
-        ? captureSnapshot(source.savedHistoryIndex)
-        : source.snapshot
-          ? JSON.parse(JSON.stringify(source.snapshot))
-          : null;
+      const snapshot =
+        tabId === activeTabId
+          ? captureSnapshot(source.savedHistoryIndex)
+          : source.snapshot
+            ? JSON.parse(JSON.stringify(source.snapshot))
+            : null;
 
-    const newTab: TabEntry = {
-      id: crypto.randomUUID(),
-      thumbnailId: source.thumbnailId,
-      name: source.name,
-      snapshot,
-      savedHistoryIndex: source.savedHistoryIndex,
-    };
+      const newTab: ProjectTabEntry = {
+        kind: "project",
+        id: crypto.randomUUID(),
+        thumbnailId: source.thumbnailId,
+        name: source.name,
+        snapshot,
+        savedHistoryIndex: source.savedHistoryIndex,
+      };
 
-    const sourceIndex = tabs.findIndex((t) => t.id === tabId);
-    const newTabs = [
-      ...tabs.slice(0, sourceIndex + 1),
-      newTab,
-      ...tabs.slice(sourceIndex + 1),
-    ];
+      const withSnapshot = withActiveSnapshot(tabs, activeTabId);
+      const sourceIndex = withSnapshot.findIndex((t) => t.id === tabId);
+      const newTabs = [
+        ...withSnapshot.slice(0, sourceIndex + 1),
+        newTab,
+        ...withSnapshot.slice(sourceIndex + 1),
+      ];
 
-    if (activeTabId) {
-      const currentTab = tabs.find((t) => t.id === activeTabId);
-      const currentSnapshot = captureSnapshot(
-        currentTab?.savedHistoryIndex ?? -1
-      );
+      set({ tabs: newTabs, activeTabId: newTab.id });
+      void get().savePersistedTabs();
+    },
+
+    reorderTabs: (fromIndex: number, toIndex: number) => {
+      if (fromIndex === toIndex) return;
+      set((s) => {
+        const tabs = [...s.tabs];
+        const [moved] = tabs.splice(fromIndex, 1);
+        tabs.splice(toIndex, 0, moved);
+        return { tabs };
+      });
+      void get().savePersistedTabs();
+    },
+
+    reopenClosedTab: () => {
+      const { closedTabs, tabs, activeTabId } = get();
+      if (closedTabs.length === 0) return;
+
+      const [tabToReopen, ...remainingClosed] = closedTabs;
+      const newTab: TabEntry = {
+        ...tabToReopen,
+        id: crypto.randomUUID(),
+      };
+
       set({
-        tabs: newTabs.map((t) =>
-          t.id === activeTabId ? { ...t, snapshot: currentSnapshot } : t
+        tabs: [...withActiveSnapshot(tabs, activeTabId), newTab],
+        activeTabId: newTab.id,
+        closedTabs: remainingClosed,
+      });
+
+      void get().savePersistedTabs();
+    },
+
+    setActiveTab: (tabId: string) => {
+      const { tabs, activeTabId } = get();
+      if (activeTabId === tabId) return;
+      set({ tabs: withActiveSnapshot(tabs, activeTabId), activeTabId: tabId });
+    },
+
+    updateTabName: (tabId: string, name: string) => {
+      set((s) => ({
+        tabs: s.tabs.map((t) =>
+          t.id === tabId && t.kind === "project" ? { ...t, name } : t
         ),
-        activeTabId: newTab.id,
-        editorVisible: true,
-      });
-    } else {
-      set({ tabs: newTabs, activeTabId: newTab.id, editorVisible: true });
-    }
+      }));
+    },
 
-    void get().savePersistedTabs();
-  },
+    markTabSaved: (tabId: string, historyIndex: number) => {
+      set((s) => ({
+        tabs: s.tabs.map((t) =>
+          t.id === tabId && t.kind === "project"
+            ? { ...t, savedHistoryIndex: historyIndex }
+            : t
+        ),
+      }));
+    },
 
-  reorderTabs: (fromIndex: number, toIndex: number) => {
-    if (fromIndex === toIndex) return;
-    set((s) => {
-      const tabs = [...s.tabs];
-      const [moved] = tabs.splice(fromIndex, 1);
-      tabs.splice(toIndex, 0, moved);
-      return { tabs };
-    });
-    void get().savePersistedTabs();
-  },
+    clearAllTabs: () => {
+      const gallery = createGalleryTab();
+      set({ tabs: [gallery], activeTabId: gallery.id });
+    },
 
-  reopenClosedTab: () => {
-    const { closedTabs, tabs, activeTabId } = get();
-    if (closedTabs.length === 0) return;
+    savePersistedTabs: async () => {
+      try {
+        const { useAppSettingsStore } = await import(
+          "@/stores/use-app-settings-store"
+        );
+        if (!useAppSettingsStore.getState().persistTabs) return;
+        const { tabs } = get();
+        const descriptors: PersistedTabDescriptor[] = tabs.map((t) =>
+          t.kind === "project"
+            ? { kind: "project", thumbnailId: t.thumbnailId }
+            : { kind: "page", page: t.page }
+        );
+        const store = await load(TABS_STORE_NAME, { autoSave: true });
+        await store.set(PERSISTED_TABS_KEY, descriptors);
+        await store.save();
+      } catch (error) {
+        logger.error({ err: error }, "[Tabs] Failed to persist tabs");
+      }
+    },
 
-    const [tabToReopen, ...remainingClosed] = closedTabs;
-    const newTab: TabEntry = {
-      ...tabToReopen,
-      id: crypto.randomUUID(),
-    };
+    restorePersistedTabs: async () => {
+      try {
+        const { useAppSettingsStore } = await import(
+          "@/stores/use-app-settings-store"
+        );
+        if (!useAppSettingsStore.getState().persistTabs) return;
 
-    if (activeTabId) {
-      const currentTab = tabs.find((t) => t.id === activeTabId);
-      const snapshot = captureSnapshot(currentTab?.savedHistoryIndex ?? -1);
-      set({
-        tabs: [
-          ...tabs.map((t) => (t.id === activeTabId ? { ...t, snapshot } : t)),
-          newTab,
-        ],
-        activeTabId: newTab.id,
-        closedTabs: remainingClosed,
-        editorVisible: true,
-      });
-    } else {
-      set({
-        tabs: [...tabs, newTab],
-        activeTabId: newTab.id,
-        closedTabs: remainingClosed,
-        editorVisible: true,
-      });
-    }
+        const store = await load(TABS_STORE_NAME, { autoSave: false });
+        const raw = await store.get<unknown>(PERSISTED_TABS_KEY);
+        if (!Array.isArray(raw) || raw.length === 0) return;
 
-    void get().savePersistedTabs();
-  },
+        const { useGalleryStore } = await import("@/stores/use-gallery-store");
+        const { thumbnails } = useGalleryStore.getState();
 
-  setActiveTab: (tabId: string) => {
-    const { tabs, activeTabId } = get();
-    if (activeTabId === tabId) {
-      set({ editorVisible: true });
-      return;
-    }
-
-    if (activeTabId) {
-      const currentTab = tabs.find((t) => t.id === activeTabId);
-      const snapshot = captureSnapshot(currentTab?.savedHistoryIndex ?? -1);
-      set({
-        tabs: tabs.map((t) => (t.id === activeTabId ? { ...t, snapshot } : t)),
-        activeTabId: tabId,
-        editorVisible: true,
-      });
-    } else {
-      set({ activeTabId: tabId, editorVisible: true });
-    }
-  },
-
-  setEditorVisible: (visible: boolean) => {
-    set({ editorVisible: visible });
-  },
-
-  updateTabName: (tabId: string, name: string) => {
-    set((s) => ({
-      tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, name } : t)),
-    }));
-  },
-
-  markTabSaved: (tabId: string, historyIndex: number) => {
-    set((s) => ({
-      tabs: s.tabs.map((t) =>
-        t.id === tabId ? { ...t, savedHistoryIndex: historyIndex } : t
-      ),
-    }));
-  },
-
-  clearAllTabs: () => {
-    set({ tabs: [], activeTabId: null, editorVisible: false });
-  },
-
-  savePersistedTabs: async () => {
-    try {
-      const { useAppSettingsStore } = await import(
-        "@/stores/use-app-settings-store"
-      );
-      if (!useAppSettingsStore.getState().persistTabs) return;
-      const { tabs } = get();
-      const store = await load(TABS_STORE_NAME, { autoSave: true });
-      await store.set(
-        PERSISTED_TABS_KEY,
-        tabs.map((t) => t.thumbnailId)
-      );
-      await store.save();
-    } catch (error) {
-      logger.error({ err: error }, "[Tabs] Failed to persist tabs");
-    }
-  },
-
-  restorePersistedTabs: async () => {
-    try {
-      const { useAppSettingsStore } = await import(
-        "@/stores/use-app-settings-store"
-      );
-      if (!useAppSettingsStore.getState().persistTabs) return;
-
-      const store = await load(TABS_STORE_NAME, { autoSave: false });
-      const thumbnailIds = await store.get<string[]>(PERSISTED_TABS_KEY);
-      if (!thumbnailIds || thumbnailIds.length === 0) return;
-
-      const { useGalleryStore } = await import("@/stores/use-gallery-store");
-      const { thumbnails } = useGalleryStore.getState();
-
-      const restoredTabs: TabEntry[] = [];
-      for (const tid of thumbnailIds) {
-        const thumb = thumbnails.find((t) => t.id === tid);
-        if (thumb) {
-          restoredTabs.push({
-            id: crypto.randomUUID(),
-            thumbnailId: tid,
-            name: thumb.name,
-            snapshot: null,
-            savedHistoryIndex: -1,
-          });
+        const restored: TabEntry[] = [];
+        for (const item of raw) {
+          // Back-compat: the legacy format persisted bare thumbnailId strings.
+          if (typeof item === "string") {
+            const thumb = thumbnails.find((t) => t.id === item);
+            if (thumb) restored.push(makeProjectTab(item, thumb.name));
+            continue;
+          }
+          if (item && typeof item === "object" && "kind" in item) {
+            const desc = item as PersistedTabDescriptor;
+            if (desc.kind === "project") {
+              const thumb = thumbnails.find((t) => t.id === desc.thumbnailId);
+              if (thumb)
+                restored.push(makeProjectTab(desc.thumbnailId, thumb.name));
+            } else if (desc.kind === "page") {
+              restored.push({
+                kind: "page",
+                id: crypto.randomUUID(),
+                page: desc.page,
+              });
+            }
+          }
         }
-      }
 
-      if (restoredTabs.length > 0) {
-        set({
-          tabs: restoredTabs,
-          activeTabId: restoredTabs[0].id,
-          editorVisible: true,
-        });
+        if (restored.length > 0) {
+          set({ tabs: restored, activeTabId: restored[0].id });
+        }
+      } catch (error) {
+        logger.error({ err: error }, "[Tabs] Failed to restore tabs");
       }
-    } catch (error) {
-      logger.error({ err: error }, "[Tabs] Failed to restore tabs");
-    }
-  },
-}));
+    },
+  };
+});

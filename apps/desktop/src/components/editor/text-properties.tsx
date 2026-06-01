@@ -231,7 +231,12 @@ export function TextProperties({
                                 : "opacity-0"
                             )}
                           />
-                          <span className="truncate">{font}</span>
+                          <span
+                            className="truncate"
+                            style={{ fontFamily: `"${font}"` }}
+                          >
+                            {font}
+                          </span>
                         </div>
                       );
                     }}
@@ -362,7 +367,7 @@ export function TextProperties({
           >
             <ColorPickerTrigger
               className="w-full justify-start gap-2 px-2 text-left font-normal"
-              variant="outline"
+              variant="muted"
             >
               <div
                 className="size-4 rounded border border-border"
@@ -393,7 +398,7 @@ export function TextProperties({
           >
             <ColorPickerTrigger
               className="w-full justify-start gap-2 px-2 text-left font-normal"
-              variant="outline"
+              variant="muted"
             >
               <div
                 className="size-4 rounded border border-border"
@@ -444,8 +449,8 @@ export function TextProperties({
           </span>
         </div>
         <Slider
-          max={50}
-          min={-10}
+          max={200}
+          min={-50}
           onValueChange={(value) => onUpdate({ letterSpacing: value[0] })}
           step={0.5}
           value={[layer.letterSpacing ?? 0]}
@@ -461,8 +466,8 @@ export function TextProperties({
           </span>
         </div>
         <Slider
-          max={4}
-          min={0.5}
+          max={10}
+          min={0}
           onValueChange={(value) => onUpdate({ lineHeight: value[0] })}
           step={0.05}
           value={[layer.lineHeight ?? 1]}
@@ -509,7 +514,7 @@ export function TextProperties({
                 >
                   <ColorPickerTrigger
                     className="w-full justify-start gap-2 px-2 text-left font-normal"
-                    variant="outline"
+                    variant="muted"
                   >
                     <div
                       className="size-4 rounded border border-border"

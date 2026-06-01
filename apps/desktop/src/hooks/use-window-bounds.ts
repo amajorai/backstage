@@ -28,18 +28,23 @@ async function loadBounds(): Promise<WindowBounds | undefined> {
   return store.get<WindowBounds>(BOUNDS_KEY);
 }
 
+// Restore must happen exactly once per process. A component-level ref resets on
+// remount; if the hook ever remounts (e.g. the app tree is torn down and
+// rebuilt), re-running setSize/setPosition would un-maximize a maximized
+// window. This module-level latch encodes the real "restore once" invariant.
+let hasRestored = false;
+
 export function useWindowBounds() {
   const rememberWindowBounds = useAppSettingsStore(
     (s) => s.rememberWindowBounds
   );
   const isInitialLoadDone = useAppSettingsStore((s) => s.isInitialLoadDone);
-  const restoredRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Restore bounds once settings are loaded
   useEffect(() => {
-    if (!isInitialLoadDone || restoredRef.current) return;
-    restoredRef.current = true;
+    if (!isInitialLoadDone || hasRestored) return;
+    hasRestored = true;
 
     if (!rememberWindowBounds) return;
 

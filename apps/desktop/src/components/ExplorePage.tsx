@@ -1,22 +1,31 @@
 import { Button } from "@repo/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/popover";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   ArrowLeft,
   Bot,
+  Check,
   ExternalLink,
   Eye,
+  Folder,
   Heart,
   Loader2,
+  Plus,
   RotateCcw,
   Search,
   Settings,
   ThumbsUp,
+  Trash2,
   Wand2,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { sileo } from "sileo";
 import type { ViewMode } from "@/App";
+import {
+  COLLECTION_DRAG_MIME,
+  CollectionTabRow,
+} from "@/components/explore/CollectionTabRow";
 import { VideoAnalyticsPanel } from "@/components/explore/VideoAnalyticsPanel";
 import { YoutubeAnalystPanel } from "@/components/explore/YoutubeAnalystPanel";
 import { EmptyState } from "@/components/gallery/EmptyState";
@@ -105,7 +114,6 @@ export function ExplorePage({
   const removeSearch = useSearchHistoryStore((s) => s.removeSearch);
   const clearHistory = useSearchHistoryStore((s) => s.clearHistory);
 
-  const toggleFavourite = useYtFavouritesStore((s) => s.toggleFavourite);
   const favouriteIds = useYtFavouritesStore((s) => s.favouriteIds);
   const favourites = useYtFavouritesStore((s) => s.favourites);
 
@@ -433,9 +441,9 @@ export function ExplorePage({
   return (
     <>
       <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
-        <div className="relative flex-1 overflow-hidden">
+        <div className="relative flex flex-1 flex-col overflow-hidden">
           {/* Category tabs */}
-          <div className="scrollbar-none absolute top-0 right-0 left-0 z-20 flex items-center gap-1.5 overflow-x-auto px-5 py-3">
+          <div className="scrollbar-none flex shrink-0 items-center gap-1.5 overflow-x-auto px-5 py-3">
             {CATEGORIES.map((cat) => (
               <button
                 className={cn(
@@ -455,8 +463,14 @@ export function ExplorePage({
               </button>
             ))}
           </div>
+          {selectedCategory === SAVED_CATEGORY_ID && (
+            <CollectionTabRow
+              onSelect={setSelectedCollectionId}
+              selectedCollectionId={selectedCollectionId}
+            />
+          )}
           <ScrollFadeEffect
-            className="h-full p-4 pt-12"
+            className="flex-1 p-4"
             onScroll={handleScroll}
             ref={scrollContainerRef}
           >
@@ -506,7 +520,6 @@ export function ExplorePage({
                       isFavourite={true}
                       key={video.id}
                       onRemix={handleRemix}
-                      onToggleFavourite={toggleFavourite}
                       video={video}
                     />
                   ))}
@@ -532,7 +545,6 @@ export function ExplorePage({
                       isFavourite={favouriteIds.has(video.id)}
                       key={video.id}
                       onRemix={handleRemix}
-                      onToggleFavourite={toggleFavourite}
                       video={video}
                     />
                   ))}
@@ -566,18 +578,21 @@ function VideoCard({
   video,
   isFavourite,
   onRemix,
-  onToggleFavourite,
 }: {
   video: YoutubeVideo;
   isFavourite: boolean;
   onRemix: (video: YoutubeVideo) => void;
-  onToggleFavourite: (video: YoutubeVideo) => void;
 }) {
   const [hovered, setHovered] = useState(false);
 
   return (
     <div
       className="flex cursor-default flex-col gap-2 transition-transform hover:scale-[1.02]"
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(COLLECTION_DRAG_MIME, video.id);
+        e.dataTransfer.effectAllowed = "copy";
+      }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -591,25 +606,7 @@ function VideoCard({
         {(hovered || isFavourite) && (
           <div className="absolute inset-0 flex items-end justify-between p-2">
             <div className="flex items-center gap-1">
-              <button
-                className={cn(
-                  "rounded-full p-1.5 shadow-lg backdrop-blur-sm transition-colors",
-                  isFavourite
-                    ? "bg-red-500/90 text-white hover:bg-red-600/90"
-                    : "bg-black/40 text-white hover:bg-black/60"
-                )}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  sounds.click();
-                  onToggleFavourite(video);
-                }}
-                title={isFavourite ? "Remove from saved" : "Save"}
-                type="button"
-              >
-                <Heart
-                  className={cn("size-3.5", isFavourite && "fill-current")}
-                />
-              </button>
+              <SaveToFolderPopover isFavourite={isFavourite} video={video} />
               {hovered && (
                 <button
                   className="rounded-full bg-black/40 p-1.5 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60"
@@ -668,5 +665,172 @@ function VideoCard({
         </div>
       </div>
     </div>
+  );
+}
+
+function SaveToFolderPopover({
+  video,
+  isFavourite,
+}: {
+  video: YoutubeVideo;
+  isFavourite: boolean;
+}) {
+  const collections = useYtCollectionsStore((s) => s.collections);
+  const membership = useYtCollectionsStore((s) => s.membership);
+  const addVideoToCollection = useYtCollectionsStore(
+    (s) => s.addVideoToCollection
+  );
+  const toggleVideoInCollection = useYtCollectionsStore(
+    (s) => s.toggleVideoInCollection
+  );
+  const removeVideoFromCollection = useYtCollectionsStore(
+    (s) => s.removeVideoFromCollection
+  );
+  const createCollection = useYtCollectionsStore((s) => s.createCollection);
+  const addFavourite = useYtFavouritesStore((s) => s.addFavourite);
+  const removeFavourite = useYtFavouritesStore((s) => s.removeFavourite);
+
+  const [newName, setNewName] = useState("");
+
+  const videoCollectionIds = membership.get(video.id);
+  const folderCount = videoCollectionIds?.size ?? 0;
+
+  // Saving defaults to "no folder": opening the picker (or hearting) saves the
+  // video, then the user may optionally file it into folders.
+  const ensureSaved = useCallback(() => {
+    if (!isFavourite) addFavourite(video);
+  }, [isFavourite, addFavourite, video]);
+
+  const handleHeartClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      sounds.click();
+      ensureSaved();
+    },
+    [ensureSaved]
+  );
+
+  const handleToggleFolder = useCallback(
+    (collectionId: string) => {
+      sounds.click();
+      ensureSaved();
+      toggleVideoInCollection(video.id, collectionId);
+    },
+    [ensureSaved, toggleVideoInCollection, video.id]
+  );
+
+  const handleCreateFolder = useCallback(async () => {
+    const name = newName.trim();
+    if (!name) return;
+    sounds.click();
+    ensureSaved();
+    const created = await createCollection(name);
+    if (created) await addVideoToCollection(video.id, created.id);
+    setNewName("");
+  }, [newName, ensureSaved, createCollection, addVideoToCollection, video.id]);
+
+  const handleRemoveSaved = useCallback(() => {
+    sounds.click();
+    if (videoCollectionIds) {
+      for (const collectionId of [...videoCollectionIds]) {
+        removeVideoFromCollection(video.id, collectionId);
+      }
+    }
+    removeFavourite(video.id);
+  }, [
+    videoCollectionIds,
+    removeVideoFromCollection,
+    removeFavourite,
+    video.id,
+  ]);
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            "rounded-full p-1.5 shadow-lg backdrop-blur-sm transition-colors",
+            isFavourite
+              ? "bg-red-500/90 text-white hover:bg-red-600/90"
+              : "bg-black/40 text-white hover:bg-black/60"
+          )}
+          onClick={handleHeartClick}
+          title={isFavourite ? "Saved — edit folders" : "Save"}
+          type="button"
+        >
+          <Heart className={cn("size-3.5", isFavourite && "fill-current")} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-60 gap-2 p-2" side="bottom">
+        <div className="px-1 pt-1">
+          <p className="font-medium text-sm">Save to folder</p>
+          <p className="text-muted-foreground text-xs">
+            {folderCount > 0
+              ? `In ${folderCount} folder${folderCount > 1 ? "s" : ""}`
+              : "No folder"}
+          </p>
+        </div>
+
+        <div className="scrollbar-none flex max-h-48 flex-col gap-0.5 overflow-y-auto">
+          {collections.length === 0 ? (
+            <p className="px-2 py-1.5 text-muted-foreground text-xs">
+              No folders yet. Create one below.
+            </p>
+          ) : (
+            collections.map((col) => {
+              const checked = videoCollectionIds?.has(col.id) ?? false;
+              return (
+                <button
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
+                  key={col.id}
+                  onClick={() => handleToggleFolder(col.id)}
+                  type="button"
+                >
+                  <Folder
+                    className="size-3.5 shrink-0"
+                    style={col.color ? { color: col.color } : undefined}
+                  />
+                  <span className="flex-1 truncate">{col.name}</span>
+                  {checked && (
+                    <Check className="size-3.5 shrink-0 text-primary" />
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 border-border/50 border-t pt-2">
+          <input
+            className="h-7 flex-1 rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/30"
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleCreateFolder();
+            }}
+            placeholder="New folder"
+            value={newName}
+          />
+          <button
+            aria-label="Create folder"
+            className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={handleCreateFolder}
+            type="button"
+          >
+            <Plus className="size-4" />
+          </button>
+        </div>
+
+        {isFavourite && (
+          <button
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-destructive text-sm hover:bg-destructive/10"
+            onClick={handleRemoveSaved}
+            type="button"
+          >
+            <Trash2 className="size-3.5" />
+            Remove from saved
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }

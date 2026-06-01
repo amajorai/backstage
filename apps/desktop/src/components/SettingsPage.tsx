@@ -1794,7 +1794,7 @@ function ProcessingSettings({ hasGeminiKey }: { hasGeminiKey: boolean }) {
                 <p className="font-medium text-sm">Gemini Pre-processing</p>
                 <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
                   {hasGeminiKey
-                    ? "Use Gemini to fill the background with a solid color before running background removal for potentially cleaner subject cuts"
+                    ? "Replace the background with a solid color first — gives the remover cleaner subject edges, or use it on its own for a flat backdrop"
                     : "Requires a Gemini API key"}
                 </p>
               </div>
@@ -3046,15 +3046,36 @@ function McpServerSettings() {
   );
 }
 
+// Each agent speaks ACP differently. Claude Code and Codex have no native ACP
+// mode — they're driven through the Zed adapter packages run via npx. Gemini
+// CLI and Cursor expose ACP natively (a flag / a subcommand). npx-based entries
+// auto-install the adapter on first run.
 const AGENT_PRESETS: Pick<AcpAgent, "name" | "command" | "args" | "envVars">[] =
   [
-    { name: "Claude Code", command: "claude", args: ["--acp"], envVars: [] },
-    { name: "Gemini CLI", command: "gemini", args: ["--acp"], envVars: [] },
-    { name: "OpenAI Codex", command: "codex", args: ["--acp"], envVars: [] },
-    { name: "Cursor", command: "cursor-agent", args: ["--acp"], envVars: [] },
-    { name: "Amp", command: "amp", args: ["--acp"], envVars: [] },
-    { name: "Aider", command: "aider", args: ["--acp"], envVars: [] },
-    { name: "Continue", command: "continue", args: ["--acp"], envVars: [] },
+    {
+      name: "Claude Code",
+      command: "npx",
+      args: ["-y", "@zed-industries/claude-code-acp"],
+      envVars: [],
+    },
+    {
+      name: "Gemini CLI",
+      command: "gemini",
+      args: ["--experimental-acp"],
+      envVars: [],
+    },
+    {
+      name: "OpenAI Codex",
+      command: "npx",
+      args: ["-y", "@zed-industries/codex-acp"],
+      envVars: [],
+    },
+    {
+      name: "Cursor",
+      command: "cursor-agent",
+      args: ["acp"],
+      envVars: [],
+    },
   ];
 
 function serializeEnvVars(vars: AcpAgentEnvVar[]): string {

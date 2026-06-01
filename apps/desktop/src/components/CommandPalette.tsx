@@ -91,7 +91,6 @@ export function CommandPalette({
     (s) => s.setOnboardingCompleted
   );
   const openTab = useTabsStore((s) => s.openTab);
-  const setEditorVisible = useTabsStore((s) => s.setEditorVisible);
   const checking = useUpdateStore((s) => s.checking);
 
   const [search, setSearch] = useState("");
@@ -171,7 +170,6 @@ export function CommandPalette({
   const openProject = (thumbnail: ThumbnailItem) => {
     run(() => {
       openTab(thumbnail);
-      setEditorVisible(true);
     });
   };
 

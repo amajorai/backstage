@@ -55,6 +55,7 @@ import { ThumbnailGridItem } from "@/components/ThumbnailGridItem";
 import { AddMenu } from "@/components/toolbar/add-menu";
 import { VideoExtractor } from "@/components/VideoExtractor";
 import { useDragSelection } from "@/hooks/use-drag-selection";
+import { setDragPreview } from "@/lib/drag-preview";
 import {
   loadDroppedImageFiles,
   openAndLoadImages,
@@ -69,6 +70,9 @@ import {
 } from "@/stores/use-gallery-store";
 import { useGalleryUIStore } from "@/stores/use-gallery-ui-store";
 import { useSelectionStore } from "@/stores/use-selection-store";
+
+// Sentinel folder id for the "No folder" pseudo-folder (thumbnails with no folderId)
+const NO_FOLDER_ID = "__none__";
 
 interface GalleryProps {
   viewMode: ViewMode;
@@ -159,7 +163,11 @@ export function Gallery({
   const folderCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const t of rawThumbnails) {
-      if (t.folderId) counts[t.folderId] = (counts[t.folderId] ?? 0) + 1;
+      if (t.folderId) {
+        counts[t.folderId] = (counts[t.folderId] ?? 0) + 1;
+      } else {
+        counts[NO_FOLDER_ID] = (counts[NO_FOLDER_ID] ?? 0) + 1;
+      }
     }
     return counts;
   }, [rawThumbnails]);
@@ -172,13 +180,16 @@ export function Gallery({
         .map((id) => thumbMap.get(id))
         .filter((t): t is ThumbnailItem => {
           if (!t) return false;
+          if (selectedFolderId === NO_FOLDER_ID) return !t.folderId;
           if (selectedFolderId !== null) return t.folderId === selectedFolderId;
           return true;
         });
     }
 
     let filtered = rawThumbnails;
-    if (selectedFolderId !== null) {
+    if (selectedFolderId === NO_FOLDER_ID) {
+      filtered = filtered.filter((t) => !t.folderId);
+    } else if (selectedFolderId !== null) {
       filtered = filtered.filter((t) => t.folderId === selectedFolderId);
     }
     if (searchQuery.trim()) {
@@ -553,6 +564,33 @@ export function Gallery({
               {rawThumbnails.length}
             </span>
           </button>
+          <button
+            className={cn(
+              "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-sm transition-colors",
+              selectedFolderId === NO_FOLDER_ID
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            onClick={() => {
+              sounds.click();
+              setSelectedFolderId(
+                selectedFolderId === NO_FOLDER_ID ? null : NO_FOLDER_ID
+              );
+            }}
+            type="button"
+          >
+            No folder
+            <span
+              className={cn(
+                "rounded px-1 py-0.5 text-xs tabular-nums",
+                selectedFolderId === NO_FOLDER_ID
+                  ? "bg-primary-foreground/20 text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
+              )}
+            >
+              {folderCounts[NO_FOLDER_ID] ?? 0}
+            </span>
+          </button>
           {folders.map((folder) => (
             <ContextMenu key={folder.id}>
               <ContextMenuTrigger asChild>
@@ -598,6 +636,10 @@ export function Gallery({
                     setDraggingFolderId(folder.id);
                     e.dataTransfer.setData("text/plain", `f:${folder.id}`);
                     e.dataTransfer.effectAllowed = "move";
+                    setDragPreview(e.dataTransfer, {
+                      label: folder.name,
+                      icon: "folder",
+                    });
                   }}
                   onDrop={async (e) => {
                     e.preventDefault();
