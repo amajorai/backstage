@@ -27,8 +27,10 @@ jobs:
             target: x86_64-apple-darwin
             # No ort/ONNX Runtime prebuilt exists for x86_64-apple-darwin, so
             # exclude the local-embeddings feature on Intel; the app falls back
-            # to Gemini embeddings at runtime.
-            args: --target x86_64-apple-darwin --no-default-features
+            # to Gemini embeddings at runtime. `tauri build` has no
+            # --no-default-features flag, so forward it to cargo after `--`
+            # (same passthrough form the dev script uses for --features).
+            args: --target x86_64-apple-darwin -- --no-default-features
             name: macOS (Intel)
           - platform: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
