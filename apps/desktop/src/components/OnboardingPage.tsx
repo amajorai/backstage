@@ -354,18 +354,48 @@ function GeminiKeyStep() {
   );
 }
 
+function smartSearchDescription({
+  isWorking,
+  downloadPct,
+  ready,
+  provider,
+}: {
+  isWorking: boolean;
+  downloadPct: number | null;
+  ready: boolean | null;
+  provider: "local" | "gemini";
+}): string {
+  if (provider === "gemini") {
+    return ready
+      ? "Search your projects by what they look like, powered by your Gemini API key."
+      : "Search your projects by what they look like. Needs a Gemini API key on this device.";
+  }
+  if (isWorking) {
+    return downloadPct === null
+      ? "Setting up on-device search (~880 MB, one time). This can take a few minutes."
+      : `Downloading the search model… ${downloadPct}% (~880 MB, one time)`;
+  }
+  return ready
+    ? "Search your projects by what they look like. Runs fully on your device."
+    : "Search your projects by what they look like. Enabling downloads a ~880 MB model once, then works offline.";
+}
+
 function SmartSearchStep() {
   const { semanticSearchEnabled, setSemanticSearchEnabled } =
     useAppSettingsStore();
-  const [installed, setInstalled] = useState<boolean | null>(null);
+  const [ready, setReady] = useState<boolean | null>(null);
+  const [provider, setProvider] = useState<"local" | "gemini">("local");
   const [isWorking, setIsWorking] = useState(false);
   const [downloadPct, setDownloadPct] = useState<number | null>(null);
 
   useEffect(() => {
-    import("@/lib/local-embedding")
-      .then(({ getEmbeddingModelStatus }) => getEmbeddingModelStatus())
-      .then((s) => setInstalled(s.installed))
-      .catch(() => setInstalled(false));
+    import("@/lib/embedding-provider")
+      .then(({ getEmbeddingProviderStatus }) => getEmbeddingProviderStatus())
+      .then((s) => {
+        setProvider(s.provider);
+        setReady(s.ready);
+      })
+      .catch(() => setReady(false));
   }, []);
 
   useEffect(() => {
@@ -392,19 +422,19 @@ function SmartSearchStep() {
       }
       setIsWorking(true);
       try {
-        const { downloadEmbeddingModels, EMBEDDING_MODEL_VERSION } =
-          await import("@/lib/local-embedding");
-        if (!installed) {
-          await downloadEmbeddingModels();
-          setInstalled(true);
+        const { ensureEmbeddingModelsReady, getActiveEmbeddingModelVersion } =
+          await import("@/lib/embedding-provider");
+        if (!ready) {
+          // No-op on the Gemini fallback build; downloads models locally.
+          await ensureEmbeddingModelsReady();
+          setReady(true);
         }
         // Purge any incompatible vectors from a previous model before enabling.
         const { clearEmbeddingsOtherModel } = await import(
           "@/lib/semantic-search"
         );
-        await clearEmbeddingsOtherModel(EMBEDDING_MODEL_VERSION).catch(
-          () => {}
-        );
+        const modelVersion = await getActiveEmbeddingModelVersion();
+        await clearEmbeddingsOtherModel(modelVersion).catch(() => {});
         await setSemanticSearchEnabled(true);
       } catch {
         await setSemanticSearchEnabled(false);
@@ -413,7 +443,7 @@ function SmartSearchStep() {
         setDownloadPct(null);
       }
     },
-    [installed, setSemanticSearchEnabled]
+    [ready, setSemanticSearchEnabled]
   );
 
   return (
@@ -425,13 +455,12 @@ function SmartSearchStep() {
         <div className="flex-1 pr-4">
           <p className="font-medium text-sm">Smart image search</p>
           <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
-            {isWorking
-              ? downloadPct !== null
-                ? `Downloading the search model… ${downloadPct}% (~880 MB, one time)`
-                : "Setting up on-device search (~880 MB, one time). This can take a few minutes."
-              : installed
-                ? "Search your projects by what they look like. Runs fully on your device."
-                : "Search your projects by what they look like. Enabling downloads a ~880 MB model once, then works offline."}
+            {smartSearchDescription({
+              isWorking,
+              downloadPct,
+              ready,
+              provider,
+            })}
           </p>
         </div>
         {isWorking ? (
@@ -439,7 +468,7 @@ function SmartSearchStep() {
         ) : (
           <Switch
             checked={semanticSearchEnabled}
-            disabled={installed === null}
+            disabled={ready === null}
             onCheckedChange={handleToggle}
           />
         )}

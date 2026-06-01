@@ -1,16 +1,27 @@
+#[cfg(feature = "local-embeddings")]
 use fastembed::{
     EmbeddingModel, ImageEmbedding, ImageEmbeddingModel, ImageInitOptions, TextEmbedding,
     TextInitOptions,
 };
 use rusqlite::{Connection, OptionalExtension};
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::sync::Mutex;
+use tauri::State;
+
+#[cfg(feature = "local-embeddings")]
+use std::path::PathBuf;
+#[cfg(feature = "local-embeddings")]
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+#[cfg(feature = "local-embeddings")]
+use std::sync::Arc;
+#[cfg(feature = "local-embeddings")]
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, Manager, State};
+#[cfg(feature = "local-embeddings")]
+use tauri::{AppHandle, Emitter, Manager};
 
 /// Approximate combined on-disk size of the two models, used only as the
 /// denominator for the download progress bar (text ~522 MB + vision ~357 MB).
+#[cfg(feature = "local-embeddings")]
 const EMBED_MODELS_TOTAL_BYTES: u64 = 922_514_521;
 
 /// Current local embedding model. Image thumbnails are embedded with
@@ -375,11 +386,13 @@ pub fn clear_embeddings_other_model(
 // embeds text queries; both are 768-dim and share an aligned space. Models are
 // loaded lazily on first use and dropped after an idle timeout to free RAM.
 
+#[cfg(feature = "local-embeddings")]
 const MODEL_MARKER: &str = ".models-installed";
 
 /// Lazily-loaded embedding models plus idle-unload bookkeeping. Held in Tauri
 /// managed state. The models are kept behind individual mutexes so a text query
 /// and an image embed don't block each other unnecessarily.
+#[cfg(feature = "local-embeddings")]
 pub struct LocalEmbedder {
     text: Mutex<Option<TextEmbedding>>,
     image: Mutex<Option<ImageEmbedding>>,
@@ -389,6 +402,7 @@ pub struct LocalEmbedder {
     cache_dir: PathBuf,
 }
 
+#[cfg(feature = "local-embeddings")]
 impl LocalEmbedder {
     pub fn new(cache_dir: PathBuf, idle_secs: u64) -> Self {
         Self {
@@ -425,12 +439,14 @@ impl LocalEmbedder {
     }
 }
 
+#[cfg(feature = "local-embeddings")]
 fn marker_path(cache_dir: &Path) -> PathBuf {
     cache_dir.join(MODEL_MARKER)
 }
 
 /// Recursively sum the byte size of every file under `dir`. Used to derive
 /// download progress without depending on fastembed/hf-hub internals.
+#[cfg(feature = "local-embeddings")]
 fn dir_size(dir: &Path) -> u64 {
     let mut total = 0u64;
     let Ok(entries) = std::fs::read_dir(dir) else {
@@ -447,6 +463,7 @@ fn dir_size(dir: &Path) -> u64 {
     total
 }
 
+#[cfg(feature = "local-embeddings")]
 #[tauri::command]
 pub fn embedding_model_status(state: State<LocalEmbedder>) -> Result<serde_json::Value, String> {
     let installed = marker_path(&state.cache_dir).exists();
@@ -463,6 +480,7 @@ pub fn embedding_model_status(state: State<LocalEmbedder>) -> Result<serde_json:
 /// tokenizer from HuggingFace into `cache_dir` on first construction; subsequent
 /// calls are fast. Progress is printed by fastembed to stderr, so the UI shows a
 /// "started/finished" spinner around this call.
+#[cfg(feature = "local-embeddings")]
 #[tauri::command]
 pub async fn download_embedding_models(
     app: AppHandle,
@@ -552,6 +570,7 @@ pub async fn download_embedding_models(
 
 /// Embed a single image (data URL or raw base64) into a 768-dim vector using
 /// nomic-embed-vision-v1.5.
+#[cfg(feature = "local-embeddings")]
 #[tauri::command]
 pub fn embed_image(state: State<LocalEmbedder>, data_url: String) -> Result<Vec<f32>, String> {
     let base64_data = data_url
@@ -584,6 +603,7 @@ pub fn embed_image(state: State<LocalEmbedder>, data_url: String) -> Result<Vec<
 /// Embed a text query into a 768-dim vector using nomic-embed-text-v1.5.
 /// nomic's retrieval convention prefixes queries with `search_query: `, which is
 /// what aligns text vectors with nomic-embed-vision image vectors.
+#[cfg(feature = "local-embeddings")]
 #[tauri::command]
 pub fn embed_text(state: State<LocalEmbedder>, text: String) -> Result<Vec<f32>, String> {
     let prefixed = format!("search_query: {text}");
@@ -607,6 +627,7 @@ pub fn embed_text(state: State<LocalEmbedder>, text: String) -> Result<Vec<f32>,
 }
 
 /// Update the idle-unload timeout (seconds; 0 = never unload).
+#[cfg(feature = "local-embeddings")]
 #[tauri::command]
 pub fn set_embedding_idle_timeout(state: State<LocalEmbedder>, secs: u64) -> Result<(), String> {
     if let Ok(mut s) = state.idle_secs.lock() {
@@ -616,6 +637,7 @@ pub fn set_embedding_idle_timeout(state: State<LocalEmbedder>, secs: u64) -> Res
 }
 
 /// Drop loaded models from memory immediately.
+#[cfg(feature = "local-embeddings")]
 #[tauri::command]
 pub fn unload_embedding_models(state: State<LocalEmbedder>) -> Result<(), String> {
     if let Ok(mut t) = state.text.lock() {
@@ -627,7 +649,7 @@ pub fn unload_embedding_models(state: State<LocalEmbedder>) -> Result<(), String
     Ok(())
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "local-embeddings"))]
 mod tests {
     use super::*;
     use image::{ExtendedColorType, ImageEncoder, Rgb, RgbImage};
@@ -704,6 +726,7 @@ mod tests {
 
 /// Background loop: unload models after the configured idle period. Spawned once
 /// at startup. Checks every 30s; a timeout of 0 disables unloading.
+#[cfg(feature = "local-embeddings")]
 pub fn spawn_idle_unloader(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let mut ticker = tokio::time::interval(std::time::Duration::from_secs(30));

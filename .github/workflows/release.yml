@@ -25,7 +25,10 @@ jobs:
             name: macOS (Apple Silicon)
           - platform: macos-latest
             target: x86_64-apple-darwin
-            args: --target x86_64-apple-darwin
+            # No ort/ONNX Runtime prebuilt exists for x86_64-apple-darwin, so
+            # exclude the local-embeddings feature on Intel; the app falls back
+            # to Gemini embeddings at runtime.
+            args: --target x86_64-apple-darwin --no-default-features
             name: macOS (Intel)
           - platform: ubuntu-24.04
             target: x86_64-unknown-linux-gnu

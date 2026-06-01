@@ -1,6 +1,6 @@
 [package]
 name = "backstage"
-version = "1.4.0-beta.3"
+version = "1.4.0-beta.4"
 description = "YouTube Thumbnail Studio"
 authors = ["you"]
 edition = "2021"
@@ -37,18 +37,26 @@ once_cell = "1.19"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "json"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }
 futures-util = { version = "0.3", optional = true }
-# ort is always-on now: the local embedding engine (fastembed) needs onnxruntime,
-# and `download-binaries` links it statically into the binary (nothing to bundle).
-ort = { version = "2.0.0-rc.12", features = ["download-binaries"] }
+# Local embedding engine. Gated behind the `local-embeddings` feature (on by
+# default) so it can be excluded on targets with no ort prebuilt — notably
+# x86_64-apple-darwin, where pyke/Microsoft ship no ONNX Runtime binary. When
+# excluded, the app falls back to Gemini embeddings at runtime.
+# `fastembed` pulls `ort` transitively, so both must be optional under the
+# feature, otherwise `ort` is dragged back in.
+ort = { version = "2.0.0-rc.12", features = ["download-binaries"], optional = true }
 image = { version = "0.25", optional = true }
 # Local image + text embeddings: nomic-embed-vision-v1.5 / nomic-embed-text-v1.5,
 # both 768-dim and aligned. Pins ort =2.0.0-rc.12, matching the version above.
-fastembed = "5"
+fastembed = { version = "5", optional = true }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "net", "time", "io-util", "process"] }
 axum = { version = "0.8" }
 tauri-plugin-deep-link = "2"
 
 [features]
+default = ["local-embeddings"]
+# Local, offline embeddings via fastembed/ONNX. Excluded on builds for targets
+# without an ort prebuilt (e.g. macOS Intel) via `--no-default-features`.
+local-embeddings = ["dep:fastembed", "dep:ort"]
 bria = ["dep:futures-util", "dep:image"]
 
 [dev-dependencies]

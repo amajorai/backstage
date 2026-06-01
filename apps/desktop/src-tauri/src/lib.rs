@@ -77,6 +77,14 @@ fn is_bria_available() -> bool {
     cfg!(feature = "bria")
 }
 
+/// Whether this build includes the local (fastembed/ONNX) embedding engine.
+/// False on targets without an ort prebuilt (e.g. macOS Intel); the frontend
+/// uses this to fall back to Gemini embeddings.
+#[tauri::command]
+fn local_embeddings_available() -> bool {
+    cfg!(feature = "local-embeddings")
+}
+
 #[tauri::command]
 async fn import_backup(app: tauri::AppHandle, zip_path: String) -> Result<(), String> {
     use std::io::Read;
@@ -182,17 +190,22 @@ pub fn run() {
 
             // Initialize the local embedding engine (fastembed / ONNX). Models
             // live under app_data/models/embeddings and load lazily on first use.
-            let embed_cache_dir = app_data_dir.join("models").join("embeddings");
-            let idle_secs: u64 = {
-                use tauri_plugin_store::StoreExt;
-                app.store("settings.json")
-                    .ok()
-                    .and_then(|store| store.get("embedding_idle_timeout_secs"))
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(300)
-            };
-            app.manage(embeddings::LocalEmbedder::new(embed_cache_dir, idle_secs));
-            embeddings::spawn_idle_unloader(app.handle().clone());
+            // Excluded on builds without the `local-embeddings` feature (e.g.
+            // macOS Intel); those fall back to Gemini embeddings at runtime.
+            #[cfg(feature = "local-embeddings")]
+            {
+                let embed_cache_dir = app_data_dir.join("models").join("embeddings");
+                let idle_secs: u64 = {
+                    use tauri_plugin_store::StoreExt;
+                    app.store("settings.json")
+                        .ok()
+                        .and_then(|store| store.get("embedding_idle_timeout_secs"))
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(300)
+                };
+                app.manage(embeddings::LocalEmbedder::new(embed_cache_dir, idle_secs));
+                embeddings::spawn_idle_unloader(app.handle().clone());
+            }
 
             // Initialize ACP tool-call state
             app.manage(acp::AcpState::new());
@@ -240,14 +253,21 @@ pub fn run() {
             embeddings::get_failure_reasons,
             embeddings::reset_failed_embeddings,
             embeddings::clear_embeddings_other_model,
+            #[cfg(feature = "local-embeddings")]
             embeddings::embedding_model_status,
+            #[cfg(feature = "local-embeddings")]
             embeddings::download_embedding_models,
+            #[cfg(feature = "local-embeddings")]
             embeddings::embed_image,
+            #[cfg(feature = "local-embeddings")]
             embeddings::embed_text,
+            #[cfg(feature = "local-embeddings")]
             embeddings::set_embedding_idle_timeout,
+            #[cfg(feature = "local-embeddings")]
             embeddings::unload_embedding_models,
             fetch_as_base64,
             is_bria_available,
+            local_embeddings_available,
             import_backup,
             migrate_app_data,
             upscale::upscaler_status,

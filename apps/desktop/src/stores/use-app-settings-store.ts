@@ -392,9 +392,18 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
       await store.set(EMBEDDING_IDLE_TIMEOUT_FIELD, secs);
       await store.save();
       set({ embeddingIdleTimeoutSecs: secs });
-      // Push the new timeout to the running embedding engine immediately.
-      const { setEmbeddingIdleTimeout } = await import("@/lib/local-embedding");
-      await setEmbeddingIdleTimeout(secs);
+      // Push the new timeout to the running embedding engine immediately. Only
+      // the local engine has models to unload; the Gemini fallback build has no
+      // such command registered, so skip it there.
+      const { isLocalEmbeddingAvailable } = await import(
+        "@/lib/embedding-provider"
+      );
+      if (await isLocalEmbeddingAvailable()) {
+        const { setEmbeddingIdleTimeout } = await import(
+          "@/lib/local-embedding"
+        );
+        await setEmbeddingIdleTimeout(secs);
+      }
     } catch (error) {
       logger.error(
         { err: error },

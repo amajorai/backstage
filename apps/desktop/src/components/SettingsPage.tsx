@@ -82,16 +82,16 @@ import {
 } from "@/lib/data-versions";
 import { closeDb, getDb, getSqliteSchemaVersion } from "@/lib/db";
 import {
+  ensureEmbeddingModelsReady,
+  getActiveEmbeddingModelVersion,
+  getEmbeddingProviderStatus,
+} from "@/lib/embedding-provider";
+import {
   getGeminiApiKey,
   removeGeminiApiKey,
   setGeminiApiKey,
 } from "@/lib/gemini-store";
 import { getHfToken, removeHfToken, setHfToken } from "@/lib/hf-store";
-import {
-  downloadEmbeddingModels,
-  EMBEDDING_MODEL_VERSION,
-  getEmbeddingModelStatus,
-} from "@/lib/local-embedding";
 import { POLAR_CONFIG } from "@/lib/polar-config";
 import {
   clearEmbeddingsOtherModel,
@@ -801,8 +801,8 @@ function EmbeddingSettings() {
   }, []);
 
   useEffect(() => {
-    getEmbeddingModelStatus()
-      .then((s) => setModelInstalled(s.installed))
+    getEmbeddingProviderStatus()
+      .then((s) => setModelInstalled(s.ready))
       .catch(() => setModelInstalled(false));
   }, []);
 
@@ -858,7 +858,7 @@ function EmbeddingSettings() {
       if (!modelInstalled) {
         setIsDownloading(true);
         try {
-          await downloadEmbeddingModels();
+          await ensureEmbeddingModelsReady();
           setModelInstalled(true);
         } catch {
           sileo.error({ title: "Couldn't set up on-device search" });
@@ -871,7 +871,8 @@ function EmbeddingSettings() {
       }
 
       // Purge any vectors from a previous embedding model before indexing.
-      await clearEmbeddingsOtherModel(EMBEDDING_MODEL_VERSION).catch(() => {});
+      const modelVersion = await getActiveEmbeddingModelVersion();
+      await clearEmbeddingsOtherModel(modelVersion).catch(() => {});
       await setSemanticSearchEnabled(true);
       setShowClearPrompt(false);
       await runBackfill();

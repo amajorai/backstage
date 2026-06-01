@@ -1,10 +1,9 @@
 import { create } from "zustand";
 import {
-  EMBEDDING_MODEL_VERSION,
-  embedImage,
-  embedText,
-  getEmbeddingModelStatus,
-} from "@/lib/local-embedding";
+  embedImageForIndex,
+  embedQueryText,
+  getEmbeddingProviderStatus,
+} from "@/lib/embedding-provider";
 import { logger } from "@/lib/logger";
 import {
   deleteEmbedding,
@@ -96,8 +95,9 @@ export const useEmbeddingStore = create<EmbeddingState>()((set, get) => ({
       const previewDataUrl = await loadPreview(projectId);
       if (!previewDataUrl) return `No image found for ${projectId}`;
 
-      const embedding = await embedImage(previewDataUrl);
-      await storeEmbedding(projectId, embedding, EMBEDDING_MODEL_VERSION);
+      const { embedding, modelVersion } =
+        await embedImageForIndex(previewDataUrl);
+      await storeEmbedding(projectId, embedding, modelVersion);
 
       set((state) => ({
         embeddedIds: new Set([...state.embeddedIds, projectId]),
@@ -116,16 +116,19 @@ export const useEmbeddingStore = create<EmbeddingState>()((set, get) => ({
   checkAndEmbedMissing: async (allProjectIds, onProgress) => {
     if (get().isEmbedding) return;
 
-    // The local model must be installed before we try to embed anything,
-    // otherwise every image would fail to index.
+    // The active provider must be ready before we try to embed anything: the
+    // local model installed, or (on Gemini-fallback builds) an API key present.
     try {
-      const status = await getEmbeddingModelStatus();
-      if (!status.installed) {
-        logger.warn("[Embedding] Model not installed, skipping embedding");
+      const status = await getEmbeddingProviderStatus();
+      if (!status.ready) {
+        logger.warn(
+          { provider: status.provider, reason: status.reason },
+          "[Embedding] Provider not ready, skipping embedding"
+        );
         return;
       }
     } catch (err) {
-      logger.error({ err }, "[Embedding] Failed to check model status");
+      logger.error({ err }, "[Embedding] Failed to check provider status");
       return;
     }
 
@@ -216,7 +219,7 @@ export const useEmbeddingStore = create<EmbeddingState>()((set, get) => ({
 
   performSemanticSearch: async (query) => {
     try {
-      const embedding = await embedText(query);
+      const embedding = await embedQueryText(query);
       const ids = await searchSimilarEmbeddings(embedding, 100);
       return ids;
     } catch (err) {
