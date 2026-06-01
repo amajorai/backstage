@@ -4,9 +4,14 @@ use fastembed::{
 };
 use rusqlite::{Connection, OptionalExtension};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
-use std::time::Instant;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State};
+
+/// Approximate combined on-disk size of the two models, used only as the
+/// denominator for the download progress bar (text ~522 MB + vision ~357 MB).
+const EMBED_MODELS_TOTAL_BYTES: u64 = 922_514_521;
 
 /// Current local embedding model. Image thumbnails are embedded with
 /// nomic-embed-vision-v1.5 and text queries with nomic-embed-text-v1.5; the two
@@ -424,6 +429,24 @@ fn marker_path(cache_dir: &Path) -> PathBuf {
     cache_dir.join(MODEL_MARKER)
 }
 
+/// Recursively sum the byte size of every file under `dir`. Used to derive
+/// download progress without depending on fastembed/hf-hub internals.
+fn dir_size(dir: &Path) -> u64 {
+    let mut total = 0u64;
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return 0;
+    };
+    for entry in entries.flatten() {
+        let Ok(ft) = entry.file_type() else { continue };
+        if ft.is_dir() {
+            total += dir_size(&entry.path());
+        } else if let Ok(meta) = entry.metadata() {
+            total += meta.len();
+        }
+    }
+    total
+}
+
 #[tauri::command]
 pub fn embedding_model_status(state: State<LocalEmbedder>) -> Result<serde_json::Value, String> {
     let installed = marker_path(&state.cache_dir).exists();
@@ -453,8 +476,35 @@ pub async fn download_embedding_models(
     let cd_text = cache_dir.clone();
     let cd_image = cache_dir.clone();
 
+    // Poll the cache directory size while fastembed downloads, emitting a real
+    // percentage. fastembed only prints progress to stderr, so this is how the
+    // UI gets a moving bar without depending on its internals.
+    let done = Arc::new(AtomicBool::new(false));
+    let poll_done = Arc::clone(&done);
+    let poll_dir = cache_dir.clone();
+    let poll_app = app.clone();
+    let poller = tauri::async_runtime::spawn(async move {
+        let mut ticker = tokio::time::interval(Duration::from_millis(400));
+        loop {
+            ticker.tick().await;
+            if poll_done.load(Ordering::Relaxed) {
+                break;
+            }
+            // Hold just under 100% until the download truly finishes.
+            let downloaded =
+                dir_size(&poll_dir).min(EMBED_MODELS_TOTAL_BYTES - 1);
+            let _ = poll_app.emit(
+                "embedding-download-progress",
+                serde_json::json!({
+                    "downloaded": downloaded,
+                    "total": EMBED_MODELS_TOTAL_BYTES,
+                }),
+            );
+        }
+    });
+
     // fastembed construction is blocking (downloads + initializes ONNX sessions).
-    let (text_model, image_model) =
+    let result =
         tauri::async_runtime::spawn_blocking(move || -> Result<(TextEmbedding, ImageEmbedding), String> {
             let text = TextEmbedding::try_new(
                 TextInitOptions::new(EmbeddingModel::NomicEmbedTextV15)
@@ -470,8 +520,13 @@ pub async fn download_embedding_models(
             .map_err(|e| format!("Failed to download image model: {e}"))?;
             Ok((text, image))
         })
-        .await
-        .map_err(|e| e.to_string())??;
+        .await;
+
+    // Stop the poller no matter how the download ended.
+    done.store(true, Ordering::Relaxed);
+    let _ = poller.await;
+
+    let (text_model, image_model) = result.map_err(|e| e.to_string())??;
 
     // Warm the state with the freshly loaded models and mark as installed.
     if let Ok(mut t) = state.text.lock() {
@@ -483,6 +538,14 @@ pub async fn download_embedding_models(
     std::fs::write(marker_path(&cache_dir), b"").map_err(|e| e.to_string())?;
     state.touch();
 
+    // Final 100% tick, then a completion signal.
+    let _ = app.emit(
+        "embedding-download-progress",
+        serde_json::json!({
+            "downloaded": EMBED_MODELS_TOTAL_BYTES,
+            "total": EMBED_MODELS_TOTAL_BYTES,
+        }),
+    );
     let _ = app.emit("embedding-download-finished", ());
     Ok(())
 }

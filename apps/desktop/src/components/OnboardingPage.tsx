@@ -359,12 +359,29 @@ function SmartSearchStep() {
     useAppSettingsStore();
   const [installed, setInstalled] = useState<boolean | null>(null);
   const [isWorking, setIsWorking] = useState(false);
+  const [downloadPct, setDownloadPct] = useState<number | null>(null);
 
   useEffect(() => {
     import("@/lib/local-embedding")
       .then(({ getEmbeddingModelStatus }) => getEmbeddingModelStatus())
       .then((s) => setInstalled(s.installed))
       .catch(() => setInstalled(false));
+  }, []);
+
+  useEffect(() => {
+    const p = listen<{ downloaded: number; total: number }>(
+      "embedding-download-progress",
+      (e) => {
+        if (e.payload.total > 0) {
+          setDownloadPct(
+            Math.round((e.payload.downloaded / e.payload.total) * 100)
+          );
+        }
+      }
+    );
+    return () => {
+      p.then((un) => un());
+    };
   }, []);
 
   const handleToggle = useCallback(
@@ -393,6 +410,7 @@ function SmartSearchStep() {
         await setSemanticSearchEnabled(false);
       } finally {
         setIsWorking(false);
+        setDownloadPct(null);
       }
     },
     [installed, setSemanticSearchEnabled]
@@ -408,10 +426,12 @@ function SmartSearchStep() {
           <p className="font-medium text-sm">Smart image search</p>
           <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
             {isWorking
-              ? "Setting up… downloading the search model (~700 MB, one time). This can take a few minutes."
+              ? downloadPct !== null
+                ? `Downloading the search model… ${downloadPct}% (~880 MB, one time)`
+                : "Setting up on-device search (~880 MB, one time). This can take a few minutes."
               : installed
                 ? "Search your projects by what they look like. Runs fully on your device."
-                : "Search your projects by what they look like. Enabling downloads a ~700 MB model once, then works offline."}
+                : "Search your projects by what they look like. Enabling downloads a ~880 MB model once, then works offline."}
           </p>
         </div>
         {isWorking ? (

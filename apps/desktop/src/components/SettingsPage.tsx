@@ -773,6 +773,7 @@ function EmbeddingSettings() {
   } = useAppSettingsStore();
   const [modelInstalled, setModelInstalled] = useState<boolean | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadPct, setDownloadPct] = useState<number | null>(null);
   const [isBackfilling, setIsBackfilling] = useState(false);
   const [backfillProgress, setBackfillProgress] = useState<{
     current: number;
@@ -803,6 +804,22 @@ function EmbeddingSettings() {
     getEmbeddingModelStatus()
       .then((s) => setModelInstalled(s.installed))
       .catch(() => setModelInstalled(false));
+  }, []);
+
+  useEffect(() => {
+    const p = listen<{ downloaded: number; total: number }>(
+      "embedding-download-progress",
+      (e) => {
+        if (e.payload.total > 0) {
+          setDownloadPct(
+            Math.round((e.payload.downloaded / e.payload.total) * 100)
+          );
+        }
+      }
+    );
+    return () => {
+      p.then((un) => un());
+    };
   }, []);
 
   useEffect(() => {
@@ -846,9 +863,11 @@ function EmbeddingSettings() {
         } catch {
           sileo.error({ title: "Couldn't set up on-device search" });
           setIsDownloading(false);
+          setDownloadPct(null);
           return;
         }
         setIsDownloading(false);
+        setDownloadPct(null);
       }
 
       // Purge any vectors from a previous embedding model before indexing.
@@ -889,7 +908,7 @@ function EmbeddingSettings() {
       ? `${embeddedCount} project${embeddedCount !== 1 ? "s" : ""} indexed · runs on your device`
       : modelInstalled
         ? "Search your projects by what they look like, fully on your device"
-        : "Enabling downloads a one-time ~700 MB model, then works offline";
+        : "Enabling downloads a one-time ~880 MB model, then works offline";
 
   return (
     <div className="space-y-4">
@@ -915,8 +934,9 @@ function EmbeddingSettings() {
           <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-4 py-3">
             <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
             <p className="text-muted-foreground text-xs">
-              Setting up on-device search (~700 MB, one time). This can take a
-              few minutes…
+              {downloadPct !== null
+                ? `Downloading on-device search model… ${downloadPct}% (~880 MB, one time)`
+                : "Setting up on-device search (~880 MB, one time). This can take a few minutes…"}
             </p>
           </div>
         )}

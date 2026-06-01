@@ -192,6 +192,23 @@ jobs:
             echo "EOF"
           } >> $GITHUB_OUTPUT
 
+      - name: Select bundles
+        id: bundles
+        shell: bash
+        run: |
+          # WiX MSI rejects non-numeric semver pre-release identifiers (e.g.
+          # "1.4.0-beta.1" fails with "pre-release identifier ... must be
+          # numeric-only"). So pre-release tags build the NSIS .exe only on
+          # Windows; stable tags still produce both .msi and .exe. Signed
+          # updater artifacts come from NSIS either way
+          # (bundle.createUpdaterArtifacts = true).
+          EXTRA=""
+          case "${{ matrix.name }}|${{ steps.version.outputs.tag }}" in
+            Windows*beta*|Windows*alpha*|Windows*rc*|Windows*nightly*)
+              EXTRA=" --bundles nsis" ;;
+          esac
+          echo "extra=$EXTRA" >> "$GITHUB_OUTPUT"
+
       - name: Build and release
         id: tauri
         uses: tauri-apps/tauri-action@v0
@@ -212,7 +229,7 @@ jobs:
           releaseDraft: false
           prerelease: ${{ contains(steps.version.outputs.tag, 'beta') || contains(steps.version.outputs.tag, 'alpha') || contains(steps.version.outputs.tag, 'nightly') || contains(steps.version.outputs.tag, 'rc') }}
           includeUpdaterJson: true
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }}${{ steps.bundles.outputs.extra }}
 
       - name: Generate checksums
         shell: bash
