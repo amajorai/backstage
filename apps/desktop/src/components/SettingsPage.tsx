@@ -87,8 +87,14 @@ import {
   setGeminiApiKey,
 } from "@/lib/gemini-store";
 import { getHfToken, removeHfToken, setHfToken } from "@/lib/hf-store";
+import {
+  downloadEmbeddingModels,
+  EMBEDDING_MODEL_VERSION,
+  getEmbeddingModelStatus,
+} from "@/lib/local-embedding";
 import { POLAR_CONFIG } from "@/lib/polar-config";
 import {
+  clearEmbeddingsOtherModel,
   deleteEmbeddingsBatch,
   getEmbeddedProjectIds,
   getEmbeddingStats,
@@ -249,15 +255,10 @@ interface GeminiKeySectionProps {
 function GeminiKeySection({ hasKey, onKeyChange }: GeminiKeySectionProps) {
   const [apiKey, setApiKey] = useState("");
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
-  const [clearEmbeddings, setClearEmbeddings] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
 
-  const {
-    bgRemovalGeminiEnabled,
-    setBgRemovalGeminiEnabled,
-    semanticSearchEnabled,
-    setSemanticSearchEnabled,
-  } = useAppSettingsStore();
+  const { bgRemovalGeminiEnabled, setBgRemovalGeminiEnabled } =
+    useAppSettingsStore();
 
   const handleSave = useCallback(async () => {
     if (!apiKey.trim()) {
@@ -280,13 +281,6 @@ function GeminiKeySection({ hasKey, onKeyChange }: GeminiKeySectionProps) {
       await removeGeminiApiKey();
       onKeyChange(false);
       if (bgRemovalGeminiEnabled) await setBgRemovalGeminiEnabled(false);
-      if (semanticSearchEnabled) {
-        await setSemanticSearchEnabled(false);
-        if (clearEmbeddings) {
-          const ids = await getEmbeddedProjectIds();
-          await deleteEmbeddingsBatch(ids);
-        }
-      }
       setShowRemoveDialog(false);
       sileo.success({ title: "API key removed" });
     } catch {
@@ -294,16 +288,9 @@ function GeminiKeySection({ hasKey, onKeyChange }: GeminiKeySectionProps) {
     } finally {
       setIsRemoving(false);
     }
-  }, [
-    onKeyChange,
-    bgRemovalGeminiEnabled,
-    setBgRemovalGeminiEnabled,
-    semanticSearchEnabled,
-    setSemanticSearchEnabled,
-    clearEmbeddings,
-  ]);
+  }, [onKeyChange, bgRemovalGeminiEnabled, setBgRemovalGeminiEnabled]);
 
-  const willDisableAnything = bgRemovalGeminiEnabled || semanticSearchEnabled;
+  const willDisableAnything = bgRemovalGeminiEnabled;
 
   return (
     <div className="space-y-4">
@@ -330,31 +317,8 @@ function GeminiKeySection({ hasKey, onKeyChange }: GeminiKeySectionProps) {
                       • Gemini Pre-processing
                     </li>
                   )}
-                  {semanticSearchEnabled && (
-                    <li className="text-muted-foreground">
-                      • Image Embeddings (Semantic Search)
-                    </li>
-                  )}
                 </ul>
               </>
-            )}
-            {semanticSearchEnabled && (
-              <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3">
-                <div className="flex-1 pr-4">
-                  <p className="font-medium text-sm">Clear stored embeddings</p>
-                  <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
-                    Free up disk space, or keep them ready to use if you
-                    re-enable later
-                  </p>
-                </div>
-                <Switch
-                  checked={clearEmbeddings}
-                  onCheckedChange={(v) => {
-                    v ? sounds.switchOn() : sounds.switchOff();
-                    setClearEmbeddings(v);
-                  }}
-                />
-              </div>
             )}
           </div>
           <DialogFooter>
@@ -793,9 +757,22 @@ function GeneralSettings() {
   );
 }
 
-function EmbeddingSettings({ hasGeminiKey }: { hasGeminiKey: boolean }) {
-  const { semanticSearchEnabled, setSemanticSearchEnabled } =
-    useAppSettingsStore();
+const EMBEDDING_IDLE_OPTIONS = [
+  { value: "60", label: "After 1 minute" },
+  { value: "300", label: "After 5 minutes" },
+  { value: "900", label: "After 15 minutes" },
+  { value: "0", label: "Never (fastest)" },
+] as const;
+
+function EmbeddingSettings() {
+  const {
+    semanticSearchEnabled,
+    setSemanticSearchEnabled,
+    embeddingIdleTimeoutSecs,
+    setEmbeddingIdleTimeoutSecs,
+  } = useAppSettingsStore();
+  const [modelInstalled, setModelInstalled] = useState<boolean | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [isBackfilling, setIsBackfilling] = useState(false);
   const [backfillProgress, setBackfillProgress] = useState<{
     current: number;
@@ -820,6 +797,12 @@ function EmbeddingSettings({ hasGeminiKey }: { hasGeminiKey: boolean }) {
     } else {
       setFailureReasons(null);
     }
+  }, []);
+
+  useEffect(() => {
+    getEmbeddingModelStatus()
+      .then((s) => setModelInstalled(s.installed))
+      .catch(() => setModelInstalled(false));
   }, []);
 
   useEffect(() => {
@@ -848,16 +831,33 @@ function EmbeddingSettings({ hasGeminiKey }: { hasGeminiKey: boolean }) {
 
   const handleToggle = useCallback(
     async (enabled: boolean) => {
-      if (enabled) {
-        await setSemanticSearchEnabled(true);
-        setShowClearPrompt(false);
-        await runBackfill();
-      } else {
+      if (!enabled) {
         await setSemanticSearchEnabled(false);
         setShowClearPrompt(true);
+        return;
       }
+
+      // Download the on-device model the first time it's enabled.
+      if (!modelInstalled) {
+        setIsDownloading(true);
+        try {
+          await downloadEmbeddingModels();
+          setModelInstalled(true);
+        } catch {
+          sileo.error({ title: "Couldn't set up on-device search" });
+          setIsDownloading(false);
+          return;
+        }
+        setIsDownloading(false);
+      }
+
+      // Purge any vectors from a previous embedding model before indexing.
+      await clearEmbeddingsOtherModel(EMBEDDING_MODEL_VERSION).catch(() => {});
+      await setSemanticSearchEnabled(true);
+      setShowClearPrompt(false);
+      await runBackfill();
     },
-    [setSemanticSearchEnabled, runBackfill]
+    [modelInstalled, setSemanticSearchEnabled, runBackfill]
   );
 
   const handleRetry = useCallback(async () => {
@@ -884,7 +884,12 @@ function EmbeddingSettings({ hasGeminiKey }: { hasGeminiKey: boolean }) {
     }
   }, []);
 
-  const disabled = !hasGeminiKey;
+  const description =
+    semanticSearchEnabled && embeddedCount !== null
+      ? `${embeddedCount} project${embeddedCount !== 1 ? "s" : ""} indexed · runs on your device`
+      : modelInstalled
+        ? "Search your projects by what they look like, fully on your device"
+        : "Enabling downloads a one-time ~700 MB model, then works offline";
 
   return (
     <div className="space-y-4">
@@ -895,22 +900,48 @@ function EmbeddingSettings({ hasGeminiKey }: { hasGeminiKey: boolean }) {
         <Badge variant="destructive">Experimental</Badge>
       </div>
       <div className="space-y-2">
-        <SettingRow
-          description={
-            hasGeminiKey
-              ? semanticSearchEnabled && embeddedCount !== null
-                ? `${embeddedCount} project${embeddedCount !== 1 ? "s" : ""} indexed`
-                : "Index project thumbnails for visual semantic search"
-              : "Requires a Gemini API key"
-          }
-          title="Image Embeddings"
-        >
-          <Switch
-            checked={semanticSearchEnabled}
-            disabled={disabled}
-            onCheckedChange={handleToggle}
-          />
+        <SettingRow description={description} title="Image Embeddings">
+          {isDownloading ? (
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          ) : (
+            <Switch
+              checked={semanticSearchEnabled}
+              disabled={modelInstalled === null}
+              onCheckedChange={handleToggle}
+            />
+          )}
         </SettingRow>
+        {isDownloading && (
+          <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-4 py-3">
+            <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+            <p className="text-muted-foreground text-xs">
+              Setting up on-device search (~700 MB, one time). This can take a
+              few minutes…
+            </p>
+          </div>
+        )}
+        {semanticSearchEnabled && !isDownloading && (
+          <SettingRow
+            description="Frees memory when search sits unused. First search after reloads briefly."
+            title="Unload model when idle"
+          >
+            <Select
+              onValueChange={(v) => v && setEmbeddingIdleTimeoutSecs(Number(v))}
+              value={String(embeddingIdleTimeoutSecs)}
+            >
+              <SelectTrigger className="w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {EMBEDDING_IDLE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SettingRow>
+        )}
         {isBackfilling && (
           <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-4 py-3">
             <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
@@ -1002,14 +1033,9 @@ function AiSettings() {
         const hasKey = !!k;
         setHasGeminiKey(hasKey);
         if (!hasKey) {
-          const {
-            bgRemovalGeminiEnabled,
-            setBgRemovalGeminiEnabled,
-            semanticSearchEnabled,
-            setSemanticSearchEnabled,
-          } = useAppSettingsStore.getState();
+          const { bgRemovalGeminiEnabled, setBgRemovalGeminiEnabled } =
+            useAppSettingsStore.getState();
           if (bgRemovalGeminiEnabled) setBgRemovalGeminiEnabled(false);
-          if (semanticSearchEnabled) setSemanticSearchEnabled(false);
         }
       })
       .finally(() => setGeminiKeyLoaded(true));
@@ -1027,9 +1053,7 @@ function AiSettings() {
     <div className="space-y-6">
       <h2 className="pl-2 font-semibold text-lg">AI</h2>
       <GeminiKeySection hasKey={hasGeminiKey} onKeyChange={setHasGeminiKey} />
-      {experimentalFeaturesEnabled && (
-        <EmbeddingSettings hasGeminiKey={hasGeminiKey} />
-      )}
+      {experimentalFeaturesEnabled && <EmbeddingSettings />}
       <ProcessingSettings hasGeminiKey={hasGeminiKey} />
       {experimentalFeaturesEnabled && <AgentSettings />}
       {experimentalFeaturesEnabled && <McpServerSettings />}
@@ -2743,8 +2767,14 @@ function ReleaseNotes({ body }: { body: string }) {
 }
 
 function UpdateSettings() {
-  const { autoCheckForUpdates, setAutoCheckForUpdates } = useAppSettingsStore();
-  const { checking, downloading, progress, available } = useUpdateStore();
+  const {
+    autoCheckForUpdates,
+    setAutoCheckForUpdates,
+    betaUpdatesEnabled,
+    setBetaUpdatesEnabled,
+  } = useAppSettingsStore();
+  const { checking, downloading, progress, available, manualUpdate } =
+    useUpdateStore();
   const [currentVersion, setCurrentVersion] = useState<string | null>(null);
 
   useEffect(() => {
@@ -2755,7 +2785,8 @@ function UpdateSettings() {
 
   const handleCheckNow = useCallback(async () => {
     await checkForUpdate();
-    if (!useUpdateStore.getState().available) {
+    const state = useUpdateStore.getState();
+    if (!(state.available || state.manualUpdate)) {
       sileo.success({
         title: "You're up to date",
         description: currentVersion
@@ -2770,6 +2801,21 @@ function UpdateSettings() {
       await downloadAndInstall(available);
     }
   }, [available]);
+
+  const handleBetaToggle = useCallback(
+    async (enabled: boolean) => {
+      if (enabled) {
+        sounds.switchOn();
+      } else {
+        sounds.switchOff();
+      }
+      // Persist first so checkForUpdate() reads the new channel, then re-check
+      // immediately instead of waiting for the next launch's auto-check.
+      await setBetaUpdatesEnabled(enabled);
+      await checkForUpdate();
+    },
+    [setBetaUpdatesEnabled]
+  );
 
   return (
     <div className="space-y-6">
@@ -2852,6 +2898,45 @@ function UpdateSettings() {
               )}
             </div>
           )}
+          {manualUpdate && (
+            <div className="rounded-lg bg-muted/50 p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm">
+                      Version {manualUpdate.version} is available
+                    </p>
+                    {manualUpdate.prerelease && (
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary text-xs">
+                        Beta
+                      </span>
+                    )}
+                  </div>
+                  {manualUpdate.date && (
+                    <p className="text-muted-foreground text-xs">
+                      Released{" "}
+                      {new Date(manualUpdate.date).toLocaleDateString(
+                        undefined,
+                        { year: "numeric", month: "long", day: "numeric" }
+                      )}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  onClick={() => {
+                    sounds.click();
+                    openUrl(manualUpdate.url);
+                  }}
+                  size="sm"
+                  variant="outline"
+                >
+                  <ExternalLink className="mr-2 size-4" />
+                  View release
+                </Button>
+              </div>
+              {manualUpdate.body && <ReleaseNotes body={manualUpdate.body} />}
+            </div>
+          )}
         </div>
       </div>
 
@@ -2859,7 +2944,7 @@ function UpdateSettings() {
         <p className="pl-2 font-medium text-muted-foreground text-xs">
           Preferences
         </p>
-        <div>
+        <div className="space-y-2">
           <SettingRow
             description="Automatically check for updates when the app starts"
             title="Check for updates automatically"
@@ -2870,6 +2955,15 @@ function UpdateSettings() {
                 v ? sounds.switchOn() : sounds.switchOff();
                 setAutoCheckForUpdates(v);
               }}
+            />
+          </SettingRow>
+          <SettingRow
+            description="Get early beta releases. These are pre-release builds and may be unstable."
+            title="Receive beta updates"
+          >
+            <Switch
+              checked={betaUpdatesEnabled}
+              onCheckedChange={handleBetaToggle}
             />
           </SettingRow>
         </div>

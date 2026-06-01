@@ -547,6 +547,11 @@ export function KonvaCanvas({
           const imageType = item.types.find((t) => t.startsWith("image/"));
           if (!imageType) continue;
           const blob = await item.getType(imageType);
+          // Match drag-drop import: register the pasted image as a project on
+          // the home page, not just a canvas layer.
+          const { useGalleryStore } = await import(
+            "@/stores/use-gallery-store"
+          );
           const url = URL.createObjectURL(blob);
           const img = new Image();
           img.onload = () => {
@@ -558,6 +563,9 @@ export function KonvaCanvas({
               return c.toDataURL("image/png");
             })();
             URL.revokeObjectURL(url);
+            void useGalleryStore
+              .getState()
+              .addThumbnail(dataUrl, "Pasted Image");
             addImageLayer(dataUrl, img.width, img.height);
             const newId = useEditorStore.getState().activeLayerIds[0];
             if (newId) {

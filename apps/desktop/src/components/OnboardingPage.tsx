@@ -354,6 +354,80 @@ function GeminiKeyStep() {
   );
 }
 
+function SmartSearchStep() {
+  const { semanticSearchEnabled, setSemanticSearchEnabled } =
+    useAppSettingsStore();
+  const [installed, setInstalled] = useState<boolean | null>(null);
+  const [isWorking, setIsWorking] = useState(false);
+
+  useEffect(() => {
+    import("@/lib/local-embedding")
+      .then(({ getEmbeddingModelStatus }) => getEmbeddingModelStatus())
+      .then((s) => setInstalled(s.installed))
+      .catch(() => setInstalled(false));
+  }, []);
+
+  const handleToggle = useCallback(
+    async (enabled: boolean) => {
+      if (!enabled) {
+        await setSemanticSearchEnabled(false);
+        return;
+      }
+      setIsWorking(true);
+      try {
+        const { downloadEmbeddingModels, EMBEDDING_MODEL_VERSION } =
+          await import("@/lib/local-embedding");
+        if (!installed) {
+          await downloadEmbeddingModels();
+          setInstalled(true);
+        }
+        // Purge any incompatible vectors from a previous model before enabling.
+        const { clearEmbeddingsOtherModel } = await import(
+          "@/lib/semantic-search"
+        );
+        await clearEmbeddingsOtherModel(EMBEDDING_MODEL_VERSION).catch(
+          () => {}
+        );
+        await setSemanticSearchEnabled(true);
+      } catch {
+        await setSemanticSearchEnabled(false);
+      } finally {
+        setIsWorking(false);
+      }
+    },
+    [installed, setSemanticSearchEnabled]
+  );
+
+  return (
+    <div className="flex w-full flex-col gap-3">
+      <div
+        className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3"
+        style={{ animation: "fade-slide-up 0.38s ease-out 120ms both" }}
+      >
+        <div className="flex-1 pr-4">
+          <p className="font-medium text-sm">Smart image search</p>
+          <p className="mt-0.5 text-muted-foreground text-xs leading-snug">
+            {isWorking
+              ? "Setting up… downloading the search model (~700 MB, one time). This can take a few minutes."
+              : installed
+                ? "Search your projects by what they look like. Runs fully on your device."
+                : "Search your projects by what they look like. Enabling downloads a ~700 MB model once, then works offline."}
+          </p>
+        </div>
+        {isWorking ? (
+          <Loader2 className="size-5 shrink-0 animate-spin text-muted-foreground" />
+        ) : (
+          <Switch
+            checked={semanticSearchEnabled}
+            disabled={installed === null}
+            onCheckedChange={handleToggle}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 function YoutubeKeyStep() {
   const [youtubeKey, setYoutubeKeyValue] = useState("");
   const [hasYoutubeKey, setHasYoutubeKey] = useState(false);
@@ -903,6 +977,12 @@ const STEPS = [
       "Generate images, remove backgrounds, and remix your ideas with Gemini",
   },
   {
+    id: "smartsearch",
+    title: "Find work by how it looks",
+    subtitle:
+      "Search your projects visually, right on your device. No account, no cloud",
+  },
+  {
     id: "youtube",
     title: "Enable Discovery",
     subtitle:
@@ -1017,6 +1097,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const isPreferencesStep = step.id === "preferences";
   const isStartupStep = step.id === "startup";
   const isGeminiStep = step.id === "gemini";
+  const isSmartSearchStep = step.id === "smartsearch";
   const isYoutubeStep = step.id === "youtube";
   const isBgRemovalStep = step.id === "bgremoval";
   const isPrivacyStep = step.id === "privacy";
@@ -1124,6 +1205,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
               {isPreferencesStep && <PreferencesStep />}
               {isStartupStep && <StartupStep />}
               {isGeminiStep && <GeminiKeyStep />}
+              {isSmartSearchStep && <SmartSearchStep />}
               {isYoutubeStep && <YoutubeKeyStep />}
               {isBgRemovalStep && <BgRemovalStep />}
               {isPrivacyStep && <PrivacyStep />}

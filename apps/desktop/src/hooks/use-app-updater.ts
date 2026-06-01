@@ -8,8 +8,11 @@ import { useEffect } from "react";
 import { sileo } from "sileo";
 import { create } from "zustand";
 import {
+  type GitHubRelease,
+  getLatestRelease,
   getMaxEntitledVersion,
   isVersionOutsideEntitlement,
+  normaliseTag,
   releaseTagUrl,
   semverGt,
 } from "@/lib/github-releases";
@@ -34,15 +37,30 @@ async function cleanInstallerCache() {
 
 // ─── Update download store ────────────────────────────────────────────────────
 
+/**
+ * A release the in-app updater can't silently install (a beta pre-release, or a
+ * version offered to an expired-license user). Surfaced as a notification that
+ * links to the GitHub release page for a manual download.
+ */
+export interface ManualUpdate {
+  version: string;
+  url: string;
+  body?: string;
+  date?: string;
+  prerelease: boolean;
+}
+
 interface UpdateStore {
   checking: boolean;
   downloading: boolean;
   progress: number;
   available: Update | null;
+  manualUpdate: ManualUpdate | null;
   setChecking: (v: boolean) => void;
   setDownloading: (v: boolean) => void;
   setProgress: (v: number) => void;
   setAvailable: (v: Update | null) => void;
+  setManualUpdate: (v: ManualUpdate | null) => void;
 }
 
 export const useUpdateStore = create<UpdateStore>()((set) => ({
@@ -50,11 +68,39 @@ export const useUpdateStore = create<UpdateStore>()((set) => ({
   downloading: false,
   progress: 0,
   available: null,
+  manualUpdate: null,
   setChecking: (v) => set({ checking: v }),
   setDownloading: (v) => set({ downloading: v }),
   setProgress: (v) => set({ progress: v }),
   setAvailable: (v) => set({ available: v }),
+  setManualUpdate: (v) => set({ manualUpdate: v }),
 }));
+
+function toManualUpdate(release: GitHubRelease): ManualUpdate {
+  const version = normaliseTag(release.tag_name);
+  return {
+    version,
+    url: release.html_url || releaseTagUrl(version),
+    body: release.body ?? undefined,
+    date: release.published_at || undefined,
+    prerelease: release.prerelease,
+  };
+}
+
+function notifyManualUpdate(update: ManualUpdate) {
+  useUpdateStore.getState().setManualUpdate(update);
+  sileo.show({
+    title: update.prerelease ? "Beta update available" : "Update Available",
+    description: `Version ${update.version} is available to download.`,
+    duration: 10_000,
+    button: {
+      title: "View release",
+      onClick: () => {
+        openUrl(update.url);
+      },
+    },
+  });
+}
 
 // ─── Version gate store ───────────────────────────────────────────────────────
 
@@ -142,16 +188,21 @@ export async function downloadAndInstall(update: Update) {
 // ─── Update check ─────────────────────────────────────────────────────────────
 
 export async function checkForUpdate() {
-  const { checking, downloading, setChecking, setAvailable } =
+  const { checking, downloading, setChecking, setAvailable, setManualUpdate } =
     useUpdateStore.getState();
   if (checking || downloading) return;
 
   setChecking(true);
+  setAvailable(null);
+  setManualUpdate(null);
   try {
+    const betaEnabled = useAppSettingsStore.getState().betaUpdatesEnabled;
     const licenseData = useLicenseStore.getState().validatedData;
+    const currentVersion = await getVersion();
 
     // No update window restriction → normal auto-update flow
     if (!(licenseData && isUpdateWindowExpired(licenseData))) {
+      // Stable channel still installs silently via the Tauri updater endpoint.
       const update = await check();
       if (update) {
         setAvailable(update);
@@ -165,27 +216,31 @@ export async function checkForUpdate() {
           },
         });
       }
+
+      // Beta opt-in: offer the newest pre-release when it beats both the running
+      // version and any stable update the silent updater just found.
+      if (betaEnabled) {
+        const release = await getLatestRelease({ includePrerelease: true });
+        const beatsCurrent =
+          release && semverGt(normaliseTag(release.tag_name), currentVersion);
+        const beatsStable =
+          !update ||
+          (release && semverGt(normaliseTag(release.tag_name), update.version));
+        if (release?.prerelease && beatsCurrent && beatsStable) {
+          notifyManualUpdate(toManualUpdate(release));
+        }
+      }
       return;
     }
 
-    // Update window expired → check GitHub releases for entitled version
+    // Update window expired → respect `expiresAt`, but follow the chosen channel.
     const updatesUntil = new Date(licenseData.expiresAt as string);
-    const maxVersion = await getMaxEntitledVersion(updatesUntil);
-    if (!maxVersion) return;
-
-    const currentVersion = await getVersion();
-    if (semverGt(maxVersion, currentVersion)) {
-      sileo.show({
-        title: "Update Available",
-        description: `Version ${maxVersion} is the latest you can install with your current license.`,
-        duration: 10_000,
-        button: {
-          title: "Download",
-          onClick: () => {
-            openUrl(releaseTagUrl(maxVersion));
-          },
-        },
-      });
+    const release = await getLatestRelease({
+      includePrerelease: betaEnabled,
+      updatesUntil,
+    });
+    if (release && semverGt(normaliseTag(release.tag_name), currentVersion)) {
+      notifyManualUpdate(toManualUpdate(release));
     }
   } catch {
     // Network unavailable or no release found — silent

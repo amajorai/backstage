@@ -64,3 +64,14 @@ export async function getFailureReasons(): Promise<
 export async function resetFailedEmbeddings(): Promise<void> {
   await invoke("reset_failed_embeddings");
 }
+
+/**
+ * Delete every stored embedding NOT produced by `currentModel`. Used when
+ * switching embedding models (e.g. away from the old Gemini vectors) so stale,
+ * incomparable vectors are purged and re-indexed with the current model.
+ */
+export async function clearEmbeddingsOtherModel(
+  currentModel: string
+): Promise<void> {
+  await invoke("clear_embeddings_other_model", { currentModel });
+}

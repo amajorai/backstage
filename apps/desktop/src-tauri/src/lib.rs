@@ -180,6 +180,20 @@ pub fn run() {
                 embedding_conn,
             )));
 
+            // Initialize the local embedding engine (fastembed / ONNX). Models
+            // live under app_data/models/embeddings and load lazily on first use.
+            let embed_cache_dir = app_data_dir.join("models").join("embeddings");
+            let idle_secs: u64 = {
+                use tauri_plugin_store::StoreExt;
+                app.store("settings.json")
+                    .ok()
+                    .and_then(|store| store.get("embedding_idle_timeout_secs"))
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(300)
+            };
+            app.manage(embeddings::LocalEmbedder::new(embed_cache_dir, idle_secs));
+            embeddings::spawn_idle_unloader(app.handle().clone());
+
             // Initialize ACP tool-call state
             app.manage(acp::AcpState::new());
 
@@ -225,6 +239,13 @@ pub fn run() {
             embeddings::get_embedding_stats,
             embeddings::get_failure_reasons,
             embeddings::reset_failed_embeddings,
+            embeddings::clear_embeddings_other_model,
+            embeddings::embedding_model_status,
+            embeddings::download_embedding_models,
+            embeddings::embed_image,
+            embeddings::embed_text,
+            embeddings::set_embedding_idle_timeout,
+            embeddings::unload_embedding_models,
             fetch_as_base64,
             is_bria_available,
             import_backup,

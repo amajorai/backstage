@@ -12,10 +12,12 @@ const BG_REMOVAL_GEMINI_MODEL_FIELD = "bg_removal_gemini_model";
 const BG_REMOVAL_GEMINI_COLOR_FIELD = "bg_removal_gemini_color";
 const BG_REMOVAL_GEMINI_AUTO_REMOVE_FIELD = "bg_removal_gemini_auto_remove";
 const AUTO_CHECK_FOR_UPDATES_FIELD = "auto_check_for_updates";
+const BETA_UPDATES_ENABLED_FIELD = "beta_updates_enabled";
 const PERSIST_TABS_FIELD = "persist_tabs";
 const ANALYTICS_ENABLED_FIELD = "analytics_enabled";
 const LOGGING_ENABLED_FIELD = "logging_enabled";
 const SEMANTIC_SEARCH_ENABLED_FIELD = "semantic_search_enabled";
+const EMBEDDING_IDLE_TIMEOUT_FIELD = "embedding_idle_timeout_secs";
 const ACP_AGENTS_FIELD = "acp_agents";
 const ACP_TEXT_GEN_AGENT_ID_FIELD = "acp_text_gen_agent_id";
 const REMEMBER_WINDOW_BOUNDS_FIELD = "remember_window_bounds";
@@ -60,10 +62,12 @@ interface AppSettingsState {
   bgRemovalGeminiColor: string;
   bgRemovalGeminiAutoRemove: boolean;
   autoCheckForUpdates: boolean;
+  betaUpdatesEnabled: boolean;
   persistTabs: boolean;
   analyticsEnabled: boolean;
   loggingEnabled: boolean;
   semanticSearchEnabled: boolean;
+  embeddingIdleTimeoutSecs: number;
   acpAgents: AcpAgent[];
   acpTextGenAgentId: string | null;
   rememberWindowBounds: boolean;
@@ -88,10 +92,12 @@ interface AppSettingsState {
   setBgRemovalGeminiColor: (color: string) => Promise<void>;
   setBgRemovalGeminiAutoRemove: (autoRemove: boolean) => Promise<void>;
   setAutoCheckForUpdates: (enabled: boolean) => Promise<void>;
+  setBetaUpdatesEnabled: (enabled: boolean) => Promise<void>;
   setPersistTabs: (enabled: boolean) => Promise<void>;
   setAnalyticsEnabled: (enabled: boolean) => Promise<void>;
   setLoggingEnabled: (enabled: boolean) => Promise<void>;
   setSemanticSearchEnabled: (enabled: boolean) => Promise<void>;
+  setEmbeddingIdleTimeoutSecs: (secs: number) => Promise<void>;
   setAcpAgents: (agents: AcpAgent[]) => Promise<void>;
   setAcpTextGenAgentId: (id: string | null) => Promise<void>;
   setRememberWindowBounds: (enabled: boolean) => Promise<void>;
@@ -115,10 +121,12 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
   bgRemovalGeminiColor: "#00ff00",
   bgRemovalGeminiAutoRemove: true,
   autoCheckForUpdates: true,
+  betaUpdatesEnabled: false,
   persistTabs: false,
   analyticsEnabled: true,
   loggingEnabled: true,
   semanticSearchEnabled: false,
+  embeddingIdleTimeoutSecs: 300,
   acpAgents: [],
   acpTextGenAgentId: null,
   rememberWindowBounds: false,
@@ -290,6 +298,23 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
     }
   },
 
+  setBetaUpdatesEnabled: async (enabled: boolean) => {
+    try {
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
+      await store.set(BETA_UPDATES_ENABLED_FIELD, enabled);
+      await store.save();
+      set({ betaUpdatesEnabled: enabled });
+    } catch (error) {
+      logger.error(
+        { err: error },
+        "[Settings] Failed to save setting: betaUpdatesEnabled"
+      );
+    }
+  },
+
   setPersistTabs: async (enabled: boolean) => {
     try {
       const store = await load(SETTINGS_STORE_NAME, {
@@ -354,6 +379,26 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
       logger.error(
         { err: error },
         "[Settings] Failed to save setting: semanticSearchEnabled"
+      );
+    }
+  },
+
+  setEmbeddingIdleTimeoutSecs: async (secs: number) => {
+    try {
+      const store = await load(SETTINGS_STORE_NAME, {
+        defaults: {},
+        autoSave: true,
+      });
+      await store.set(EMBEDDING_IDLE_TIMEOUT_FIELD, secs);
+      await store.save();
+      set({ embeddingIdleTimeoutSecs: secs });
+      // Push the new timeout to the running embedding engine immediately.
+      const { setEmbeddingIdleTimeout } = await import("@/lib/local-embedding");
+      await setEmbeddingIdleTimeout(secs);
+    } catch (error) {
+      logger.error(
+        { err: error },
+        "[Settings] Failed to save setting: embeddingIdleTimeoutSecs"
       );
     }
   },
@@ -543,6 +588,9 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
       const autoCheckForUpdates = await store.get<boolean>(
         AUTO_CHECK_FOR_UPDATES_FIELD
       );
+      const betaUpdatesEnabled = await store.get<boolean>(
+        BETA_UPDATES_ENABLED_FIELD
+      );
       const persistTabs = await store.get<boolean>(PERSIST_TABS_FIELD);
       const analyticsEnabled = await store.get<boolean>(
         ANALYTICS_ENABLED_FIELD
@@ -550,6 +598,9 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
       const loggingEnabled = await store.get<boolean>(LOGGING_ENABLED_FIELD);
       const semanticSearchEnabled = await store.get<boolean>(
         SEMANTIC_SEARCH_ENABLED_FIELD
+      );
+      const embeddingIdleTimeoutSecs = await store.get<number>(
+        EMBEDDING_IDLE_TIMEOUT_FIELD
       );
       const acpAgents = await store.get<AcpAgent[]>(ACP_AGENTS_FIELD);
       const acpTextGenAgentId = await store.get<string | null>(
@@ -585,10 +636,12 @@ export const useAppSettingsStore = create<AppSettingsState>()((set, _get) => ({
         bgRemovalGeminiColor: bgRemovalGeminiColor ?? "#00ff00",
         bgRemovalGeminiAutoRemove: bgRemovalGeminiAutoRemove ?? true,
         autoCheckForUpdates: autoCheckForUpdates ?? true,
+        betaUpdatesEnabled: betaUpdatesEnabled ?? false,
         persistTabs: persistTabs ?? false,
         analyticsEnabled: analyticsEnabled ?? true,
         loggingEnabled: loggingEnabled ?? true,
         semanticSearchEnabled: semanticSearchEnabled ?? false,
+        embeddingIdleTimeoutSecs: embeddingIdleTimeoutSecs ?? 300,
         acpAgents: acpAgents ?? [],
         acpTextGenAgentId: acpTextGenAgentId ?? null,
         rememberWindowBounds: rememberWindowBounds ?? false,

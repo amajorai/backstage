@@ -1,6 +1,10 @@
 import { create } from "zustand";
-import { embedText, generateImageEmbedding } from "@/lib/gemini-embedding";
-import { getGeminiApiKey } from "@/lib/gemini-store";
+import {
+  EMBEDDING_MODEL_VERSION,
+  embedImage,
+  embedText,
+  getEmbeddingModelStatus,
+} from "@/lib/local-embedding";
 import { logger } from "@/lib/logger";
 import {
   deleteEmbedding,
@@ -14,7 +18,6 @@ import {
 import { loadPreview } from "@/lib/thumbnail-storage";
 
 const CONCURRENCY = 3;
-const MAX_RETRIES = 3;
 
 interface EmbeddingProgress {
   current: number;
@@ -89,15 +92,12 @@ export const useEmbeddingStore = create<EmbeddingState>()((set, get) => ({
   },
 
   embedSingle: async (projectId) => {
-    const apiKey = await getGeminiApiKey();
-    if (!apiKey) return "No Gemini API key configured";
-
     try {
       const previewDataUrl = await loadPreview(projectId);
       if (!previewDataUrl) return `No image found for ${projectId}`;
 
-      const embedding = await generateImageEmbedding(apiKey, previewDataUrl);
-      await storeEmbedding(projectId, embedding);
+      const embedding = await embedImage(previewDataUrl);
+      await storeEmbedding(projectId, embedding, EMBEDDING_MODEL_VERSION);
 
       set((state) => ({
         embeddedIds: new Set([...state.embeddedIds, projectId]),
@@ -116,9 +116,16 @@ export const useEmbeddingStore = create<EmbeddingState>()((set, get) => ({
   checkAndEmbedMissing: async (allProjectIds, onProgress) => {
     if (get().isEmbedding) return;
 
-    const apiKey = await getGeminiApiKey();
-    if (!apiKey) {
-      logger.warn("[Embedding] No API key, skipping embedding");
+    // The local model must be installed before we try to embed anything,
+    // otherwise every image would fail to index.
+    try {
+      const status = await getEmbeddingModelStatus();
+      if (!status.installed) {
+        logger.warn("[Embedding] Model not installed, skipping embedding");
+        return;
+      }
+    } catch (err) {
+      logger.error({ err }, "[Embedding] Failed to check model status");
       return;
     }
 
@@ -208,11 +215,8 @@ export const useEmbeddingStore = create<EmbeddingState>()((set, get) => ({
   },
 
   performSemanticSearch: async (query) => {
-    const apiKey = await getGeminiApiKey();
-    if (!apiKey) return [];
-
     try {
-      const embedding = await embedText(apiKey, query);
+      const embedding = await embedText(query);
       const ids = await searchSimilarEmbeddings(embedding, 100);
       return ids;
     } catch (err) {
