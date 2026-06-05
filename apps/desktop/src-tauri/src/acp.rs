@@ -291,12 +291,25 @@ fn run_acp_prompt(
     // `.cmd`/`.bat` shims, not `.exe`. Rust's spawn only resolves `.exe` by
     // PATH, so resolve the shim to a concrete path first or it fails to launch.
     let resolved_command = resolve_agent_command(&agent_command);
-    let mut child = Command::new(&resolved_command)
+    let mut command = Command::new(&resolved_command);
+    command
         .args(&agent_args)
         .envs(&env_vars)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    // On Windows, spawning a `.cmd`/`.bat` shim runs it through cmd.exe, which
+    // flashes a console window because the Tauri app has no console of its own.
+    // CREATE_NO_WINDOW hides it without affecting the piped stdin/stdout/stderr.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    let mut child = command
         .spawn()
         .map_err(|e| format!("Failed to spawn agent '{}': {}", agent_command, e))?;
 

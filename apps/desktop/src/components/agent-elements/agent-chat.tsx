@@ -21,6 +21,7 @@ export function AgentChat({
   initialScrollBehavior,
   enableImagePreview,
   suggestions,
+  emptyState,
   emptyStatePosition = "default",
   emptySuggestionsPlacement = "input",
   emptySuggestionsPosition = "top",
@@ -34,6 +35,8 @@ export function AgentChat({
   const ResolvedInputBar = slots?.InputBar ?? InputBar;
   const isEmpty = !error && messages.length === 0;
   const isCenteredEmptyState = isEmpty && emptyStatePosition === "center";
+  const showEmptyPlaceholder =
+    isEmpty && !isCenteredEmptyState && Boolean(emptyState);
 
   const pendingQuestion = findPendingQuestion(messages, questionTool);
   const suggestionConfig = resolveSuggestions(suggestions);
@@ -111,6 +114,60 @@ export function AgentChat({
     />
   );
 
+  const centeredEmptyNode = (
+    <div className="flex min-h-0 flex-1 items-center justify-center px-4 py-4">
+      <div className="w-full max-w-an">
+        {emptySuggestionsPosition === "top" ? emptySuggestionsNode : null}
+        {inputBarNode}
+        {emptySuggestionsPosition === "bottom" ? emptySuggestionsNode : null}
+      </div>
+    </div>
+  );
+
+  const emptyPlaceholderNode = (
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-6">
+      {emptyState}
+    </div>
+  );
+
+  const messageListNode = (
+    <MessageList
+      classNames={classNames}
+      enableImagePreview={enableImagePreview}
+      initialScrollBehavior={initialScrollBehavior}
+      messages={
+        error
+          ? [
+              ...messages,
+              {
+                id: "agent-chat-error",
+                role: "assistant",
+                parts: [
+                  {
+                    type: "error",
+                    title: "Request failed",
+                    message: error.message,
+                  },
+                ],
+              } as unknown as (typeof messages)[number],
+            ]
+          : messages
+      }
+      showCopyToolbar={showCopyToolbar}
+      slots={slots}
+      status={status}
+      suppressQuestionTool={Boolean(pendingQuestion)}
+      toolRenderers={toolRenderers}
+    />
+  );
+
+  let feedNode = messageListNode;
+  if (isCenteredEmptyState) {
+    feedNode = centeredEmptyNode;
+  } else if (showEmptyPlaceholder) {
+    feedNode = emptyPlaceholderNode;
+  }
+
   return (
     <div
       className={cn(
@@ -121,46 +178,7 @@ export function AgentChat({
       ref={rootRef}
       style={style}
     >
-      {isCenteredEmptyState ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center px-4 py-4">
-          <div className="w-full max-w-an">
-            {emptySuggestionsPosition === "top" ? emptySuggestionsNode : null}
-            {inputBarNode}
-            {emptySuggestionsPosition === "bottom"
-              ? emptySuggestionsNode
-              : null}
-          </div>
-        </div>
-      ) : (
-        <MessageList
-          classNames={classNames}
-          enableImagePreview={enableImagePreview}
-          initialScrollBehavior={initialScrollBehavior}
-          messages={
-            error
-              ? [
-                  ...messages,
-                  {
-                    id: "agent-chat-error",
-                    role: "assistant",
-                    parts: [
-                      {
-                        type: "error",
-                        title: "Request failed",
-                        message: error.message,
-                      },
-                    ],
-                  } as unknown as (typeof messages)[number],
-                ]
-              : messages
-          }
-          showCopyToolbar={showCopyToolbar}
-          slots={slots}
-          status={status}
-          suppressQuestionTool={Boolean(pendingQuestion)}
-          toolRenderers={toolRenderers}
-        />
-      )}
+      {feedNode}
       {isCenteredEmptyState ? null : inputBarNode}
     </div>
   );

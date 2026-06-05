@@ -157,6 +157,13 @@ export type AgentChatProps = {
 
   suggestions?: InputSuggestions;
 
+  /**
+   * Placeholder rendered in the feed area when there are no messages and no
+   * error. Fills the available height (input bar stays pinned at the bottom).
+   * Ignored when `emptyStatePosition` is "center".
+   */
+  emptyState?: React.ReactNode;
+
   emptyStatePosition?: "default" | "center";
   emptySuggestionsPlacement?: "input" | "empty" | "both";
   emptySuggestionsPosition?: "top" | "bottom";

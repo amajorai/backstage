@@ -246,6 +246,10 @@ export function TabBar({
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
+    // Stop the event from bubbling to the container's onDragOver, which would
+    // otherwise overwrite dragOverIndex back to tabs.length on every move and
+    // pin every drop to the far-right end.
+    e.stopPropagation();
     e.dataTransfer.dropEffect = "move";
     const rect = e.currentTarget.getBoundingClientRect();
     setDragOverIndex(

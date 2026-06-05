@@ -14,6 +14,8 @@ interface GalleryUIState {
   setSearchQuery: (query: string) => void;
   filteredCount: number;
   setFilteredCount: (count: number) => void;
+  filteredIds: string[];
+  setFilteredIds: (ids: string[]) => void;
   selectedFolderId: string | null;
   setSelectedFolderId: (id: string | null) => void;
   bulkMoveFolderOpen: boolean;
@@ -38,6 +40,8 @@ export const useGalleryUIStore = create<GalleryUIState>()((set) => ({
   setSearchQuery: (query) => set({ searchQuery: query }),
   filteredCount: 0,
   setFilteredCount: (count) => set({ filteredCount: count }),
+  filteredIds: [],
+  setFilteredIds: (ids) => set({ filteredIds: ids }),
   selectedFolderId: null,
   setSelectedFolderId: (id) => set({ selectedFolderId: id }),
   bulkMoveFolderOpen: false,

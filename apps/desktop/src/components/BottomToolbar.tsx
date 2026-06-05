@@ -199,7 +199,7 @@ export function BottomToolbar({
         if (!isSelectionMode) {
           useSelectionStore.getState().toggleSelectionMode();
         }
-        selectAll(thumbnails.map((t) => t.id));
+        selectAll(useGalleryUIStore.getState().filteredIds);
       }
 
       if (e.key === "Escape") {
@@ -218,7 +218,6 @@ export function BottomToolbar({
   }, [
     selectedIds,
     isSelectionMode,
-    thumbnails,
     handleBulkDuplicate,
     handleBulkRemoveBackground,
     selectAll,

@@ -151,6 +151,7 @@ export function Gallery({
   const searchQuery = useGalleryUIStore((s) => s.searchQuery);
   const setSearchQuery = useGalleryUIStore((s) => s.setSearchQuery);
   const setFilteredCount = useGalleryUIStore((s) => s.setFilteredCount);
+  const setFilteredIds = useGalleryUIStore((s) => s.setFilteredIds);
   const selectedFolderId = useGalleryUIStore((s) => s.selectedFolderId);
   const setSelectedFolderId = useGalleryUIStore((s) => s.setSelectedFolderId);
   const bulkMoveFolderOpen = useGalleryUIStore((s) => s.bulkMoveFolderOpen);
@@ -217,9 +218,12 @@ export function Gallery({
 
   const projects = filteredThumbnails;
 
+  const projectIds = useMemo(() => projects.map((t) => t.id), [projects]);
+
   useEffect(() => {
-    setFilteredCount(projects.length);
-  }, [projects.length, setFilteredCount]);
+    setFilteredCount(projectIds.length);
+    setFilteredIds(projectIds);
+  }, [projectIds, setFilteredCount, setFilteredIds]);
 
   const gridColClass = useMemo(() => {
     const gridClasses: Record<ViewMode, string> = {

@@ -172,7 +172,20 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
       {/* Message feed + composer (agent-elements) */}
       <AgentChat
         className="min-h-0 flex-1"
-        emptyStatePosition="center"
+        emptyState={
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10">
+              <Bot className="size-6 text-primary" />
+            </div>
+            <div className="space-y-1">
+              <p className="font-medium text-sm">How can I help?</p>
+              <p className="max-w-[260px] text-muted-foreground text-xs">
+                Ask me to create projects, edit layers, or navigate the app — I
+                can control Backstage for you.
+              </p>
+            </div>
+          </div>
+        }
         messages={toUIMessages(messages)}
         onSend={({ content }) => handleSend(content)}
         onStop={handleStop}
