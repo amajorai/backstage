@@ -140,10 +140,10 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
   const appTheme = useAppSettingsStore((s) => s.theme);
 
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       {/* Content card */}
-      <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
-        <div className="flex-1 overflow-auto px-6 pt-10 pb-6">
+      <div className="mx-1 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+        <div className="min-h-0 flex-1 overflow-auto px-6 pt-10 pb-6">
           <div className="mx-auto max-w-2xl">
             {activeTab === "general" && <GeneralSettings />}
             {activeTab === "ai" && <AiSettings />}
@@ -158,15 +158,17 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
       </div>
 
       {/* Bottom bar */}
-      <div className="mx-1 mb-1">
+      <div className="mx-1 mb-1 shrink-0">
         <div className="relative flex h-12 items-center bg-muted px-4">
           <Button
+            aria-label="Close settings"
             disabled={isTransferring}
             onClick={() => {
               sounds.click();
               onClose();
             }}
             size="icon-sm"
+            title="Close settings"
             type="button"
             variant="ghost"
           >
@@ -221,7 +223,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
           </Tooltip>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
