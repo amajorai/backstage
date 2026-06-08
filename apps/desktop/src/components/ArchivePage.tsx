@@ -257,7 +257,10 @@ export function ArchivePage({ onClose }: ArchivePageProps) {
 
   return (
     <>
-      <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+      <div
+        className="relative mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background"
+        data-dialog-container="active"
+      >
         <div className="relative flex-1 select-none">
           {isLoaded ? (
             archiveItems.length === 0 ? (

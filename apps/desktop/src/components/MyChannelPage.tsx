@@ -20,7 +20,10 @@ export function MyChannelPage({
 
   return (
     <>
-      <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+      <div
+        className="relative mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background"
+        data-dialog-container="active"
+      >
         <MyChannelTab
           onRemix={onRemix}
           onSelectVideo={setSelectedVideoId}

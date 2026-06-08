@@ -285,10 +285,8 @@ export function TabBar({
   const GAP_PX = 8;
   const MAX_TAB_PX = 176;
   const MIN_TAB_PX = 40;
-  // Reserve room for the trailing "+" button (and its gap) so tabs shrink to
-  // sit beside it instead of pushing it off the bar.
   const ADD_BTN_PX = 36;
-  const tabWidth =
+  const tabMaxWidth =
     containerWidth !== null && tabs.length > 0
       ? Math.max(
           MIN_TAB_PX,
@@ -356,7 +354,7 @@ export function TabBar({
         {/* Unified tab strip — page tabs and project tabs together, Chrome-style,
             with a trailing "+" that opens any page in its own tab. */}
         <div
-          className={`relative z-[1001] flex flex-1 items-center gap-2 overflow-hidden ${containerWidth === null ? "invisible" : ""}`}
+          className={`relative z-[1001] flex min-w-0 flex-1 items-center gap-2 overflow-hidden ${containerWidth === null ? "invisible" : ""}`}
           onDragOver={(e) => {
             e.preventDefault();
             setDragOverIndex(tabs.length);
@@ -383,7 +381,7 @@ export function TabBar({
                 <ContextMenu>
                   <ContextMenuTrigger asChild>
                     <div
-                      className={`group relative z-[1001] flex h-7 shrink-0 cursor-pointer select-none items-center gap-1.5 overflow-hidden rounded-md px-3 text-xs ${
+                      className={`group relative z-[1001] flex h-8 min-w-10 flex-[0_1_auto] cursor-pointer select-none items-center gap-1.5 overflow-hidden rounded-md px-3 py-1 font-medium text-xs ${
                         isActive
                           ? "bg-background text-foreground"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -405,14 +403,33 @@ export function TabBar({
                           handleCloseTab(tab);
                         }
                       }}
-                      style={{ width: tabWidth }}
+                      style={{ maxWidth: tabMaxWidth }}
                     >
-                      {tab.kind === "project" ? (
-                        <File className="size-3 shrink-0 opacity-60" />
-                      ) : (
-                        PAGE_ICONS[tab.page]
-                      )}
-                      <span className="truncate">{label}</span>
+                      <span className="relative size-3 shrink-0">
+                        <span className="absolute inset-0 flex items-center justify-center transition-opacity group-focus-within:opacity-0 group-hover:opacity-0">
+                          {tab.kind === "project" ? (
+                            <File
+                              className={`size-3 ${isActive ? "text-foreground" : "opacity-60"}`}
+                            />
+                          ) : (
+                            PAGE_ICONS[tab.page]
+                          )}
+                        </span>
+                        <button
+                          aria-label={`Close ${label}`}
+                          className="absolute inset-[-2px] flex items-center justify-center rounded-full opacity-0 transition-opacity hover:bg-background hover:text-foreground group-focus-within:opacity-100 group-hover:opacity-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sounds.click();
+                            handleCloseTab(tab);
+                          }}
+                          style={noDrag}
+                          type="button"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                      <span className="min-w-0 truncate">{label}</span>
                       {isExperimental && (
                         <span
                           className="size-1.5 shrink-0 rounded-full bg-violet-400"
@@ -422,22 +439,6 @@ export function TabBar({
                       {dirty && (
                         <span className="size-1.5 shrink-0 rounded-full bg-amber-400" />
                       )}
-                      <button
-                        className={`ml-auto shrink-0 rounded-full p-0.5 transition-colors ${
-                          isActive
-                            ? "text-muted-foreground hover:bg-background hover:text-foreground"
-                            : "hover:!bg-muted hover:!text-foreground text-transparent group-hover:text-muted-foreground"
-                        }`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          sounds.click();
-                          handleCloseTab(tab);
-                        }}
-                        style={noDrag}
-                        type="button"
-                      >
-                        <X className="size-3" />
-                      </button>
                     </div>
                   </ContextMenuTrigger>
                   <ContextMenuContent className="w-52">

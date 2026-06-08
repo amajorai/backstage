@@ -257,7 +257,10 @@ export function TrashPage({ onClose }: TrashPageProps) {
   return (
     <>
       {/* Card */}
-      <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+      <div
+        className="relative mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background"
+        data-dialog-container="active"
+      >
         {/* Content */}
         <div className="relative flex-1 select-none">
           {isLoaded ? (

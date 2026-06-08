@@ -7,6 +7,16 @@ import { cn } from "@/lib/utils";
 import { Button } from "./button";
 import { DialogContainerContext } from "./dialog";
 
+function getActiveDialogContainer() {
+  if (typeof document === "undefined") {
+    return undefined;
+  }
+  const containers = document.querySelectorAll<HTMLElement>(
+    "[data-dialog-container='active']"
+  );
+  return containers.item(containers.length - 1) ?? undefined;
+}
+
 function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {
   return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />;
 }
@@ -22,13 +32,15 @@ function AlertDialogPortal({
   ...props
 }: AlertDialogPrimitive.Portal.Props) {
   const containerRef = useContext(DialogContainerContext);
+  const activeContainer =
+    container ??
+    (containerRef?.current
+      ? (containerRef as React.RefObject<HTMLElement | null>)
+      : getActiveDialogContainer());
+
   return (
     <AlertDialogPrimitive.Portal
-      container={
-        container ??
-        (containerRef as React.RefObject<HTMLElement | null> | undefined) ??
-        undefined
-      }
+      container={activeContainer}
       data-slot="alert-dialog-portal"
       {...props}
     />
@@ -43,8 +55,10 @@ function AlertDialogOverlay({
   return (
     <AlertDialogPrimitive.Backdrop
       className={cn(
-        "data-open:fade-in-0 data-closed:fade-out-0 top-[var(--titlebar-height,0px)] right-0 bottom-0 left-0 isolate z-50 bg-black/30 duration-100 data-closed:animate-out data-open:animate-in supports-backdrop-filter:backdrop-blur-sm",
-        containerRef ? "absolute" : "fixed",
+        "data-open:fade-in-0 data-closed:fade-out-0 right-0 bottom-0 left-0 isolate z-50 bg-black/30 duration-100 data-closed:animate-out data-open:animate-in supports-backdrop-filter:backdrop-blur-sm",
+        containerRef?.current || getActiveDialogContainer()
+          ? "absolute top-0 rounded-[inherit]"
+          : "fixed top-[var(--titlebar-height,0px)]",
         className
       )}
       data-slot="alert-dialog-overlay"
@@ -61,13 +75,16 @@ function AlertDialogContent({
   size?: "default" | "sm";
 }) {
   const containerRef = useContext(DialogContainerContext);
+  const hasScopedContainer = Boolean(
+    containerRef?.current || getActiveDialogContainer()
+  );
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />
       <AlertDialogPrimitive.Popup
         className={cn(
           "group/alert-dialog-content data-open:fade-in-0 data-open:zoom-in-95 data-closed:fade-out-0 data-closed:zoom-out-95 top-1/2 left-1/2 z-50 grid w-full -translate-x-1/2 -translate-y-1/2 gap-6 rounded-4xl bg-popover p-6 text-popover-foreground shadow-xl outline-none ring-1 ring-foreground/5 duration-100 data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-closed:animate-out data-open:animate-in data-[size=default]:sm:max-w-md dark:ring-foreground/10",
-          containerRef ? "absolute" : "fixed",
+          hasScopedContainer ? "absolute" : "fixed",
           className
         )}
         data-size={size}

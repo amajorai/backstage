@@ -172,6 +172,14 @@ export function Gallery({
     }
     return counts;
   }, [rawThumbnails]);
+  const noFolderCount = folderCounts[NO_FOLDER_ID] ?? 0;
+  const hasNoFolderItems = noFolderCount > 0;
+
+  useEffect(() => {
+    if (selectedFolderId === NO_FOLDER_ID && !hasNoFolderItems) {
+      setSelectedFolderId(null);
+    }
+  }, [hasNoFolderItems, selectedFolderId, setSelectedFolderId]);
 
   const filteredThumbnails = useMemo(() => {
     // Semantic mode: use KNN results (ordered by similarity), optionally folder-filtered
@@ -568,33 +576,35 @@ export function Gallery({
               {rawThumbnails.length}
             </span>
           </button>
-          <button
-            className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-sm transition-colors",
-              selectedFolderId === NO_FOLDER_ID
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-            onClick={() => {
-              sounds.click();
-              setSelectedFolderId(
-                selectedFolderId === NO_FOLDER_ID ? null : NO_FOLDER_ID
-              );
-            }}
-            type="button"
-          >
-            No folder
-            <span
+          {hasNoFolderItems && (
+            <button
               className={cn(
-                "rounded px-1 py-0.5 text-xs tabular-nums",
+                "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-sm transition-colors",
                 selectedFolderId === NO_FOLDER_ID
-                  ? "bg-primary-foreground/20 text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               )}
+              onClick={() => {
+                sounds.click();
+                setSelectedFolderId(
+                  selectedFolderId === NO_FOLDER_ID ? null : NO_FOLDER_ID
+                );
+              }}
+              type="button"
             >
-              {folderCounts[NO_FOLDER_ID] ?? 0}
-            </span>
-          </button>
+              No folder
+              <span
+                className={cn(
+                  "rounded px-1 py-0.5 text-xs tabular-nums",
+                  selectedFolderId === NO_FOLDER_ID
+                    ? "bg-primary-foreground/20 text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {noFolderCount}
+              </span>
+            </button>
+          )}
           {folders.map((folder) => (
             <ContextMenu key={folder.id}>
               <ContextMenuTrigger asChild>

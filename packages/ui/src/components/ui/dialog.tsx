@@ -8,6 +8,16 @@ import { Button } from "./button";
 const DialogContainerContext =
   createContext<React.RefObject<HTMLElement | null> | null>(null);
 
+function getActiveDialogContainer() {
+  if (typeof document === "undefined") {
+    return undefined;
+  }
+  const containers = document.querySelectorAll<HTMLElement>(
+    "[data-dialog-container='active']"
+  );
+  return containers.item(containers.length - 1) ?? undefined;
+}
+
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
 }
@@ -18,13 +28,15 @@ function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
 
 function DialogPortal({ container, ...props }: DialogPrimitive.Portal.Props) {
   const containerRef = useContext(DialogContainerContext);
+  const activeContainer =
+    container ??
+    (containerRef?.current
+      ? (containerRef as React.RefObject<HTMLElement | null>)
+      : getActiveDialogContainer());
+
   return (
     <DialogPrimitive.Portal
-      container={
-        container ??
-        (containerRef as React.RefObject<HTMLElement | null> | undefined) ??
-        undefined
-      }
+      container={activeContainer}
       data-slot="dialog-portal"
       {...props}
     />
@@ -43,8 +55,10 @@ function DialogOverlay({
   return (
     <DialogPrimitive.Backdrop
       className={cn(
-        "data-open:fade-in-0 data-closed:fade-out-0 top-[var(--titlebar-height,0px)] right-0 bottom-0 left-0 isolate z-50 bg-black/30 duration-100 data-closed:animate-out data-open:animate-in supports-backdrop-filter:backdrop-blur-sm",
-        containerRef ? "absolute" : "fixed",
+        "data-open:fade-in-0 data-closed:fade-out-0 right-0 bottom-0 left-0 isolate z-50 bg-black/30 duration-100 data-closed:animate-out data-open:animate-in supports-backdrop-filter:backdrop-blur-sm",
+        containerRef?.current || getActiveDialogContainer()
+          ? "absolute top-0 rounded-[inherit]"
+          : "fixed top-[var(--titlebar-height,0px)]",
         className
       )}
       data-slot="dialog-overlay"
@@ -62,13 +76,16 @@ function DialogContent({
   showCloseButton?: boolean;
 }) {
   const containerRef = useContext(DialogContainerContext);
+  const hasScopedContainer = Boolean(
+    containerRef?.current || getActiveDialogContainer()
+  );
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Popup
         className={cn(
           "data-open:fade-in-0 data-open:zoom-in-95 data-closed:fade-out-0 data-closed:zoom-out-95 top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 rounded-4xl bg-popover p-6 text-popover-foreground text-sm shadow-xl outline-none ring-1 ring-foreground/5 duration-100 data-closed:animate-out data-open:animate-in sm:max-w-md dark:ring-foreground/10",
-          containerRef ? "absolute" : "fixed",
+          hasScopedContainer ? "absolute" : "fixed",
           className
         )}
         data-slot="dialog-content"

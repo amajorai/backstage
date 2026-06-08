@@ -7,7 +7,7 @@
 import { Input } from "@repo/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@repo/ui/tooltip";
 import { invoke } from "@tauri-apps/api/core";
-import { Loader2, Moon, Search, Sun } from "lucide-react";
+import { Loader2, Moon, Search, Sun, Type } from "lucide-react";
 import {
   forwardRef,
   type HTMLAttributes,
@@ -23,12 +23,17 @@ import {
   getRecentLogos,
   type RecentLogo,
 } from "@/lib/recently-used";
-import * as sounds from "@/lib/sounds";
+import {
+  dialogClose as playDialogClose,
+  dialogOpen as playDialogOpen,
+  select as playSelect,
+} from "@/lib/sounds";
 import {
   fetchAllLogos,
   parseSvgDimensions,
   type SvglLogo,
   searchLogos,
+  type ThemeOptions,
 } from "@/lib/svgl";
 import { useEditorStore } from "@/stores/use-editor-store";
 
@@ -43,7 +48,8 @@ interface DisplayLogo {
   resolvedRoute: string;
   variantKey: string;
   variant?: "light" | "dark";
-  originalRoute: string | { dark: string; light: string };
+  kind: "icon" | "wordmark";
+  originalRoute: string | ThemeOptions;
 }
 
 const LogoGridList = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
@@ -71,72 +77,75 @@ LogoGridItem.displayName = "LogoGridItem";
 
 const logoGridComponents = { List: LogoGridList, Item: LogoGridItem };
 
-function flattenLogos(logos: SvglLogo[]): DisplayLogo[] {
-  return logos.flatMap((logo): DisplayLogo[] => {
-    if (typeof logo.route === "string") {
-      return [
-        {
-          id: logo.id,
-          title: logo.title,
-          resolvedRoute: logo.route,
-          variantKey: `${logo.id}`,
-          originalRoute: logo.route,
-        },
-      ];
-    }
+function flattenLogoAsset(
+  id: number,
+  title: string,
+  route: string | ThemeOptions | undefined,
+  kind: DisplayLogo["kind"],
+  keyPrefix: string
+): DisplayLogo[] {
+  if (!route) {
+    return [];
+  }
+
+  if (typeof route === "string") {
     return [
       {
-        id: logo.id,
-        title: logo.title,
-        resolvedRoute: logo.route.light,
-        variantKey: `${logo.id}-light`,
-        variant: "light" as const,
-        originalRoute: logo.route,
-      },
-      {
-        id: logo.id,
-        title: logo.title,
-        resolvedRoute: logo.route.dark,
-        variantKey: `${logo.id}-dark`,
-        variant: "dark" as const,
-        originalRoute: logo.route,
+        id,
+        title,
+        resolvedRoute: route,
+        variantKey: `${keyPrefix}-${kind}`,
+        kind,
+        originalRoute: route,
       },
     ];
-  });
+  }
+
+  return [
+    {
+      id,
+      title,
+      resolvedRoute: route.light,
+      variantKey: `${keyPrefix}-${kind}-light`,
+      variant: "light" as const,
+      kind,
+      originalRoute: route,
+    },
+    {
+      id,
+      title,
+      resolvedRoute: route.dark,
+      variantKey: `${keyPrefix}-${kind}-dark`,
+      variant: "dark" as const,
+      kind,
+      originalRoute: route,
+    },
+  ];
+}
+
+function flattenLogos(logos: SvglLogo[]): DisplayLogo[] {
+  return logos.flatMap((logo): DisplayLogo[] => [
+    ...flattenLogoAsset(logo.id, logo.title, logo.route, "icon", `${logo.id}`),
+    ...flattenLogoAsset(
+      logo.id,
+      logo.title,
+      logo.wordmark,
+      "wordmark",
+      `${logo.id}`
+    ),
+  ]);
 }
 
 function flattenRecentLogos(logos: RecentLogo[]): DisplayLogo[] {
-  return logos.flatMap((logo): DisplayLogo[] => {
-    if (typeof logo.route === "string") {
-      return [
-        {
-          id: logo.id,
-          title: logo.title,
-          resolvedRoute: logo.route,
-          variantKey: `recent-${logo.id}`,
-          originalRoute: logo.route,
-        },
-      ];
-    }
-    return [
-      {
-        id: logo.id,
-        title: logo.title,
-        resolvedRoute: logo.route.light,
-        variantKey: `recent-${logo.id}-light`,
-        variant: "light" as const,
-        originalRoute: logo.route,
-      },
-      {
-        id: logo.id,
-        title: logo.title,
-        resolvedRoute: logo.route.dark,
-        variantKey: `recent-${logo.id}-dark`,
-        variant: "dark" as const,
-        originalRoute: logo.route,
-      },
-    ];
-  });
+  return logos.flatMap((logo): DisplayLogo[] =>
+    flattenLogoAsset(
+      logo.id,
+      logo.title,
+      logo.route,
+      logo.kind ?? "icon",
+      `recent-${logo.id}`
+    )
+  );
 }
 
 function loadImageDimensions(
@@ -165,9 +174,13 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
   const searchTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      return;
+    }
     setRecentLogos(getRecentLogos());
-    if (allLogos.length > 0) return;
+    if (allLogos.length > 0) {
+      return;
+    }
     setLoading(true);
     fetchAllLogos()
       .then(setAllLogos)
@@ -196,7 +209,7 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
 
   const handleSelect = useCallback(
     async (entry: DisplayLogo) => {
-      sounds.select();
+      playSelect();
       setLoadingKey(entry.variantKey);
       try {
         const url = entry.resolvedRoute;
@@ -209,7 +222,7 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
           const svgString = new TextDecoder("utf-8").decode(bytes);
           const { width: svgWidth, height: svgHeight } =
             parseSvgDimensions(svgString);
-          const maxSide = 128;
+          const maxSide = entry.kind === "wordmark" ? 240 : 128;
           const scale = maxSide / Math.max(svgWidth, svgHeight);
           useEditorStore
             .getState()
@@ -221,15 +234,20 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
         }
         const id = useEditorStore.getState().activeLayerIds[0];
         if (id) {
-          const name = entry.variant
-            ? `${entry.title} (${entry.variant === "light" ? "Light" : "Dark"})`
-            : entry.title;
+          const parts = [
+            entry.title,
+            entry.kind === "wordmark" ? "Wordmark" : null,
+            entry.variant === "light" ? "Light" : null,
+            entry.variant === "dark" ? "Dark" : null,
+          ].filter(Boolean);
+          const name = parts.join(" ");
           useEditorStore.getState().updateLayer(id, { name });
         }
 
         addRecentLogo({
           id: entry.id,
           title: entry.title,
+          kind: entry.kind,
           route: entry.originalRoute,
         });
         setRecentLogos(getRecentLogos());
@@ -245,15 +263,22 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
 
   const renderLogoButton = (entry: DisplayLogo) => {
     const isLoading = loadingKey === entry.variantKey;
-    const tooltipLabel = entry.variant
-      ? `${entry.title} (${entry.variant === "light" ? "Light" : "Dark"})`
-      : entry.title;
+    const details = [
+      entry.kind === "wordmark" ? "Wordmark" : null,
+      entry.variant === "light" ? "Light" : null,
+      entry.variant === "dark" ? "Dark" : null,
+    ].filter(Boolean);
+    const tooltipLabel =
+      details.length > 0
+        ? `${entry.title} (${details.join(", ")})`
+        : entry.title;
 
     return (
       <Tooltip key={entry.variantKey}>
         <TooltipTrigger asChild>
           <button
-            className="relative flex items-center justify-center rounded border border-transparent p-2 transition-colors hover:border-border hover:bg-muted disabled:opacity-50"
+            aria-label={tooltipLabel}
+            className="relative flex h-14 w-full items-center justify-center rounded border border-transparent p-2 transition-colors hover:border-border hover:bg-muted disabled:opacity-50"
             disabled={loadingKey !== null}
             onClick={() => handleSelect(entry)}
             type="button"
@@ -262,12 +287,20 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
               <Loader2 className="size-7 animate-spin" />
             ) : (
               <>
+                {/* biome-ignore lint/performance/noImgElement: The desktop Vite app previews remote SVGL assets directly. */}
                 <img
                   alt={tooltipLabel}
-                  className="size-7 object-contain"
+                  className="max-h-9 max-w-full object-contain"
+                  height={36}
                   loading="lazy"
                   src={entry.resolvedRoute}
+                  width={144}
                 />
+                {entry.kind === "wordmark" && (
+                  <span className="absolute bottom-0.5 left-0.5 text-muted-foreground">
+                    <Type className="size-2.5" />
+                  </span>
+                )}
                 {entry.variant && (
                   <span className="absolute right-0.5 bottom-0.5 text-muted-foreground">
                     {entry.variant === "light" ? (
@@ -298,10 +331,38 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
     [recentLogos]
   );
 
+  const logoListContent = (() => {
+    if (loading || searching) {
+      return (
+        <div className="flex h-full items-center justify-center">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
+
+    if (displayList.length === 0) {
+      return (
+        <div className="flex h-full items-center justify-center text-muted-foreground">
+          {searchTerm ? "No logos found" : "No logos available"}
+        </div>
+      );
+    }
+
+    return (
+      <VirtuosoGrid
+        components={logoGridComponents}
+        itemContent={(index) => renderLogoButton(displayList[index])}
+        overscan={200}
+        style={{ height: "100%", width: "100%" }}
+        totalCount={displayList.length}
+      />
+    );
+  })();
+
   return (
     <Dialog
       onOpenChange={(isOpen) => {
-        isOpen ? sounds.dialogOpen() : sounds.dialogClose();
+        isOpen ? playDialogOpen() : playDialogClose();
         onOpenChange(isOpen);
       }}
       open={open}
@@ -314,7 +375,7 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
         {flatRecentLogos.length > 0 && (
           <div>
             <p className="mb-1 text-muted-foreground text-xs">Recently Used</p>
-            <div className="flex flex-wrap gap-1">
+            <div className="grid grid-cols-6 gap-2">
               {flatRecentLogos.map(renderLogoButton)}
             </div>
           </div>
@@ -330,25 +391,7 @@ export function LogoPicker({ open, onOpenChange }: LogoPickerProps) {
           />
         </div>
 
-        <div className="min-h-0 flex-1">
-          {loading || searching ? (
-            <div className="flex h-full items-center justify-center">
-              <Loader2 className="size-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : displayList.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-muted-foreground">
-              {searchTerm ? "No logos found" : "No logos available"}
-            </div>
-          ) : (
-            <VirtuosoGrid
-              components={logoGridComponents}
-              itemContent={(index) => renderLogoButton(displayList[index])}
-              overscan={200}
-              style={{ height: "100%", width: "100%" }}
-              totalCount={displayList.length}
-            />
-          )}
-        </div>
+        <div className="min-h-0 flex-1">{logoListContent}</div>
       </DialogContent>
     </Dialog>
   );

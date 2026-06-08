@@ -142,7 +142,10 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       {/* Content card */}
-      <div className="mx-1 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+      <div
+        className="relative mx-1 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background"
+        data-dialog-container="active"
+      >
         <div className="min-h-0 flex-1 overflow-auto px-6 pt-10 pb-6">
           <div className="mx-auto max-w-2xl">
             {activeTab === "general" && <GeneralSettings />}

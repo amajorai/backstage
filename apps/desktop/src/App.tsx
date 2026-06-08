@@ -140,7 +140,6 @@ export default function App() {
   const editorTabRaw = tabs.find((t) => t.id === lastProjectTabIdRef.current);
   const editorTab = editorTabRaw?.kind === "project" ? editorTabRaw : undefined;
 
-  const mainContentRef = useRef<HTMLDivElement>(null);
   // Latches true once the app first renders its main UI. The full-screen loader
   // is only for the initial load; an in-flight `isValidating` from an
   // interactive license activation must NOT tear the tree down and remount it
@@ -396,14 +395,12 @@ export default function App() {
   };
 
   const handleSaveAiImage = async (dataUrl: string) => {
-    const { addThumbnail } = await import("@/stores/use-gallery-store").then(
-      (m) => m.useGalleryStore.getState()
-    );
+    const { addThumbnail } = useGalleryStore.getState();
     await addThumbnail(dataUrl, "AI Generated");
   };
 
   const contentClass =
-    "mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background";
+    "relative mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background";
   const contentClassWithBottom = `${contentClass} mb-1`;
 
   const editorThumbnail = editorTab
@@ -424,6 +421,7 @@ export default function App() {
             {/* Gallery — always mounted so scroll/state survives navigation */}
             <div
               className={contentClass}
+              data-dialog-container={showGallery ? "active" : undefined}
               style={{ display: showGallery ? "flex" : "none" }}
             >
               <Gallery
@@ -442,7 +440,10 @@ export default function App() {
                 className="mx-1 mb-1 flex flex-1 overflow-hidden"
                 style={{ display: editorVisible ? "flex" : "none" }}
               >
-                <div className="flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+                <div
+                  className="relative flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background"
+                  data-dialog-container={editorVisible ? "active" : undefined}
+                >
                   <ImageEditor
                     onAiGenerate={handleOpenAiGenerate}
                     onClose={() => openPageTab("gallery")}
@@ -508,7 +509,10 @@ export default function App() {
             {page === "ai-projects" &&
               !editorVisible &&
               (openAiProjectId ? (
-                <div className={contentClassWithBottom}>
+                <div
+                  className={contentClassWithBottom}
+                  data-dialog-container="active"
+                >
                   <AiProjectPage
                     onClose={() => setOpenAiProjectId(null)}
                     onSettings={() => openPageTab("settings")}
@@ -516,7 +520,10 @@ export default function App() {
                   />
                 </div>
               ) : (
-                <div className={contentClassWithBottom}>
+                <div
+                  className={contentClassWithBottom}
+                  data-dialog-container="active"
+                >
                   <AiProjectsGallery
                     onOpenProject={(id) => setOpenAiProjectId(id)}
                   />

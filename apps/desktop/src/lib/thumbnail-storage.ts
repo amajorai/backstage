@@ -13,6 +13,8 @@ import { migrate } from "@/lib/schema-migration";
 const THUMBNAILS_DIR = "thumbnails";
 const LAYERS_SCHEMA_VERSION = 1;
 const PREVIEW_SIZE = 1920; // Preview thumbnail max dimension in pixels
+const FULL_IMAGE_QUALITY = 0.92;
+const PREVIEW_IMAGE_QUALITY = 0.8;
 
 /**
  * Get the base thumbnails directory path
@@ -30,45 +32,68 @@ async function getThumbDir(id: string): Promise<string> {
   return await join(baseDir, id);
 }
 
-/**
- * Generate a preview thumbnail from a data URL
- * Returns a smaller data URL (max 300px)
- */
-async function generatePreview(dataUrl: string): Promise<string> {
+function loadImage(dataUrl: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      // Calculate new dimensions maintaining aspect ratio
-      let width = img.width;
-      let height = img.height;
-
-      if (width > height) {
-        if (width > PREVIEW_SIZE) {
-          height = Math.round((height * PREVIEW_SIZE) / width);
-          width = PREVIEW_SIZE;
-        }
-      } else if (height > PREVIEW_SIZE) {
-        width = Math.round((width * PREVIEW_SIZE) / height);
-        height = PREVIEW_SIZE;
-      }
-
-      // Create canvas and draw resized image
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        reject(new Error("Could not get canvas context"));
-        return;
-      }
-
-      ctx.drawImage(img, 0, 0, width, height);
-      // Use WebP for smaller file size
-      resolve(canvas.toDataURL("image/webp", 0.8));
+      resolve(img);
     };
-    img.onerror = () => reject(new Error("Failed to load image for preview"));
+    img.onerror = () => reject(new Error("Failed to load image data URL"));
     img.src = dataUrl;
   });
+}
+
+function getScaledDimensions(
+  width: number,
+  height: number,
+  maxDimension?: number
+): { width: number; height: number } {
+  if (!maxDimension || Math.max(width, height) <= maxDimension) {
+    return { width, height };
+  }
+
+  if (width > height) {
+    return {
+      width: maxDimension,
+      height: Math.round((height * maxDimension) / width),
+    };
+  }
+
+  return {
+    width: Math.round((width * maxDimension) / height),
+    height: maxDimension,
+  };
+}
+
+async function encodeImageAsWebp(
+  dataUrl: string,
+  quality: number,
+  maxDimension?: number
+): Promise<string> {
+  const img = await loadImage(dataUrl);
+  const dimensions = getScaledDimensions(img.width, img.height, maxDimension);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = dimensions.width;
+  canvas.height = dimensions.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Could not get canvas context");
+  }
+
+  ctx.drawImage(img, 0, 0, dimensions.width, dimensions.height);
+  const encoded = canvas.toDataURL("image/webp", quality);
+  if (!encoded.startsWith("data:image/webp;base64,")) {
+    throw new Error("Failed to encode image as WebP");
+  }
+  return encoded;
+}
+
+/**
+ * Generate a preview thumbnail from a data URL.
+ */
+function generatePreview(dataUrl: string): Promise<string> {
+  return encodeImageAsWebp(dataUrl, PREVIEW_IMAGE_QUALITY, PREVIEW_SIZE);
 }
 
 /**
@@ -80,7 +105,9 @@ export async function regeneratePreviewFromFull(
 ): Promise<string | null> {
   try {
     const fullDataUrl = await loadFullImage(id);
-    if (!fullDataUrl) return null;
+    if (!fullDataUrl) {
+      return null;
+    }
 
     const previewDataUrl = await generatePreview(fullDataUrl);
     const thumbDir = await getThumbDir(id);
@@ -106,13 +133,15 @@ export async function saveThumbnail(
   const thumbDir = await getThumbDir(id);
   await ensureDir(thumbDir);
 
+  const fullDataUrl = await encodeImageAsWebp(dataUrl, FULL_IMAGE_QUALITY);
+
   // Save full image
   const fullPath = await join(thumbDir, "full.webp");
-  const fullBytes = dataUrlToBytes(dataUrl);
+  const fullBytes = dataUrlToBytes(fullDataUrl);
   await writeFile(fullPath, fullBytes);
 
   // Generate and save preview
-  const previewDataUrl = await generatePreview(dataUrl);
+  const previewDataUrl = await generatePreview(fullDataUrl);
   const previewPath = await join(thumbDir, "preview.webp");
   const previewBytes = dataUrlToBytes(previewDataUrl);
   await writeFile(previewPath, previewBytes);
@@ -205,7 +234,9 @@ export async function loadLayerData(id: string): Promise<unknown[] | null> {
     const bytes = await readFile(layersPath);
     const raw = JSON.parse(new TextDecoder().decode(bytes));
     // v0 wrote a bare layer array
-    if (Array.isArray(raw)) return raw;
+    if (Array.isArray(raw)) {
+      return raw;
+    }
     const data = migrate<LayerFileV1>(
       raw,
       layerMigrations,

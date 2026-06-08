@@ -421,7 +421,10 @@ export function ExplorePage({
   if (!apiKey) {
     return (
       <>
-        <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+        <div
+          className="relative mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background"
+          data-dialog-container="active"
+        >
           <EmptyState
             action={{
               icon: <Settings className="size-4" />,
@@ -440,7 +443,10 @@ export function ExplorePage({
 
   return (
     <>
-      <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+      <div
+        className="relative mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background"
+        data-dialog-container="active"
+      >
         <div className="relative flex flex-1 flex-col overflow-hidden">
           {/* Category tabs */}
           <div className="scrollbar-none flex shrink-0 items-center gap-1.5 overflow-x-auto px-5 py-3">

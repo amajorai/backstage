@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { sileo } from "sileo";
+import { ImageLightbox } from "@/components/agent-elements/image-lightbox";
 import { EmptyState } from "@/components/gallery/EmptyState";
 import { GeminiPromptPanel } from "@/components/gemini/GeminiPromptPanel";
 import { GeneratedImageGrid } from "@/components/gemini/GeneratedImageGrid";
@@ -522,6 +523,14 @@ export function GeminiImagePage({
     setSelectedIndices(new Set());
   }, []);
 
+  const selectAllCharacterSetImages = useCallback(() => {
+    setCharacterSetImageIds(new Set(characterSetThumbnails.map((t) => t.id)));
+  }, [characterSetThumbnails]);
+
+  const deselectAllCharacterSetImages = useCallback(() => {
+    setCharacterSetImageIds(new Set());
+  }, []);
+
   const handleSaveSelectedAsLayers = useCallback(() => {
     if (!onSaveAsLayer) return;
     const selected = generatedImages.filter((_, idx) =>
@@ -589,6 +598,12 @@ export function GeminiImagePage({
         : selectedProjectIds.size + (remixDataUrl ? 1 : 0);
   const showCompareSlider =
     hasGeneratedImages && effectiveInputCount === 1 && inputPreviewUrl !== null;
+  const allCharacterSetImagesSelected =
+    characterSetThumbnails.length > 0 &&
+    characterSetImageIds.size === characterSetThumbnails.length;
+  const noCharacterSetImagesSelected = characterSetImageIds.size === 0;
+  const estimatedInputImageCount =
+    effectiveInputCount + characterSetImageIds.size;
 
   const hasAutoPrompt = useMemo(() => {
     const hasRemix = !!remixSourceUrl;
@@ -608,7 +623,8 @@ export function GeminiImagePage({
   const estimatedCost = estimateGenerationCost(
     model,
     generationCount,
-    Math.ceil(prompt.length / 4) || 25
+    Math.ceil(prompt.length / 4) || 25,
+    estimatedInputImageCount
   );
 
   const characterSetSection = (
@@ -650,13 +666,37 @@ export function GeminiImagePage({
       )}
       {characterSetFolderId && characterSetThumbnails.length > 0 && (
         <div className="flex flex-col gap-1 rounded-md border border-border bg-muted/20 p-2">
-          <div className="mb-1 flex items-center justify-between">
-            <p className="text-[10px] text-muted-foreground">
-              Select images to include
-            </p>
-            <span className="text-[10px] text-muted-foreground">
-              {characterSetImageIds.size}/{characterSetThumbnails.length}
-            </span>
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-1.5">
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] text-muted-foreground">
+                Select images to include
+              </p>
+              <span className="text-[10px] text-muted-foreground">
+                {characterSetImageIds.size}/{characterSetThumbnails.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                className="h-6 px-2 text-[10px]"
+                disabled={allCharacterSetImagesSelected}
+                onClick={selectAllCharacterSetImages}
+                size="xs"
+                type="button"
+                variant="ghost"
+              >
+                Select all
+              </Button>
+              <Button
+                className="h-6 px-2 text-[10px]"
+                disabled={noCharacterSetImagesSelected}
+                onClick={deselectAllCharacterSetImages}
+                size="xs"
+                type="button"
+                variant="ghost"
+              >
+                Deselect all
+              </Button>
+            </div>
           </div>
           <div className="max-h-32 overflow-y-auto">
             {characterSetThumbnails.map((thumb) => (
@@ -835,7 +875,10 @@ export function GeminiImagePage({
   if (fullPage && !hasApiKey) {
     return (
       <>
-        <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+        <div
+          className="relative mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background"
+          data-dialog-container="active"
+        >
           <EmptyState
             action={{
               icon: <Settings className="size-4" />,
@@ -944,9 +987,10 @@ export function GeminiImagePage({
       <div
         className={
           fullPage
-            ? "mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background"
+            ? "relative mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background"
             : "flex h-full flex-col bg-background"
         }
+        data-dialog-container={fullPage ? "active" : undefined}
       >
         {/* Header — panel mode only (fullPage uses bottom toolbar for back) */}
         {!fullPage && (
@@ -1255,7 +1299,9 @@ function ProjectThumbnailCheckbox({
     if (preview) return;
     let cancelled = false;
     loadPreview(id).then((url) => {
-      if (!cancelled) setPreview(url);
+      if (!cancelled) {
+        setPreview(url);
+      }
     });
     return () => {
       cancelled = true;
@@ -1325,11 +1371,14 @@ function CharacterSetThumb({
   loadPreview: (id: string) => Promise<string | null>;
 }) {
   const [preview, setPreview] = useState<string | null>(null);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     loadPreview(id).then((url) => {
-      if (!cancelled) setPreview(url);
+      if (!cancelled) {
+        setPreview(url);
+      }
     });
     return () => {
       cancelled = true;
@@ -1337,20 +1386,44 @@ function CharacterSetThumb({
   }, [id, loadPreview]);
 
   return (
-    <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-muted/50">
+    <div className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-muted/50">
       <Checkbox
+        aria-label={`${isSelected ? "Exclude" : "Include"} ${name}`}
         checked={isSelected}
-        onCheckedChange={(checked) => onToggle(id, checked === true)}
+        onCheckedChange={(checked) => {
+          sounds.select();
+          onToggle(id, checked === true);
+        }}
       />
+      <button
+        className="flex min-w-0 flex-1 items-center gap-2 rounded text-left hover:text-foreground disabled:cursor-default disabled:hover:text-current"
+        disabled={!preview}
+        onClick={() => {
+          sounds.dialogOpen();
+          setIsLightboxOpen(true);
+        }}
+        title={preview ? `Preview ${name}` : name}
+        type="button"
+      >
+        {preview && (
+          <span
+            aria-hidden="true"
+            className="size-5 shrink-0 rounded bg-center bg-cover"
+            style={{ backgroundImage: `url(${preview})` }}
+          />
+        )}
+        <span className="truncate">{name}</span>
+      </button>
       {preview && (
-        <img
-          alt={name}
-          className="size-5 rounded object-cover"
-          draggable={false}
-          src={preview}
+        <ImageLightbox
+          images={[{ filename: name, id, url: preview }]}
+          onClose={() => {
+            sounds.dialogClose();
+            setIsLightboxOpen(false);
+          }}
+          open={isLightboxOpen}
         />
       )}
-      <span className="truncate">{name}</span>
-    </label>
+    </div>
   );
 }
