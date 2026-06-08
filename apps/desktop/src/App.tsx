@@ -447,7 +447,11 @@ export default function App() {
                     onAiGenerate={handleOpenAiGenerate}
                     onClose={() => openPageTab("gallery")}
                     onExport={() => requestExportThumbnail(editorThumbnail)}
-                    onOpenSettings={() => setEditorRightPanel("settings")}
+                    onOpenSettings={() =>
+                      setEditorRightPanel((panel) =>
+                        panel === "settings" ? null : "settings"
+                      )
+                    }
                     snapshot={editorTab.snapshot}
                     tabId={editorTab.id}
                     thumbnail={editorThumbnail}
