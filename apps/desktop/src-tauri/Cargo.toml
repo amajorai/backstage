@@ -1,6 +1,6 @@
 [package]
 name = "backstage"
-version = "1.5.0"
+version = "1.5.1"
 description = "YouTube Thumbnail Studio"
 authors = ["you"]
 edition = "2021"
@@ -13,11 +13,10 @@ crate-type = ["lib", "cdylib", "staticlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["protocol-asset"] }
+tauri = { version = "2", features = ["protocol-asset", "macos-private-api"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
-tauri-plugin-decorum = "1.1"
 tauri-plugin-store = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-updater = "2"

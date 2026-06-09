@@ -29,6 +29,7 @@ export function TitleBar({
 }: TitleBarProps) {
   const { seasonalEffectsEnabled, previewSeasonTheme } = useAppSettingsStore();
   const [bounceKey, setBounceKey] = useState(0);
+  const isMac = /Mac/.test(navigator.userAgent);
 
   const activeSeason = previewSeasonTheme
     ? SEASONS.find((s) => s.id === previewSeasonTheme)
@@ -58,7 +59,7 @@ export function TitleBar({
       `}</style>
       <div
         className={cn(
-          "relative flex h-11 select-none items-center justify-between pr-2 pl-4",
+          "relative flex h-11 select-none items-center justify-between pr-2 pl-[96px]",
           className
         )}
       >
@@ -85,7 +86,7 @@ export function TitleBar({
         )}
 
         <div className="relative z-[1001] flex items-center gap-3">
-          {showIcon && (
+          {showIcon && !isMac && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button

@@ -301,7 +301,7 @@ export function TabBar({
   return (
     <>
       <div
-        className={`relative flex h-10 shrink-0 items-center bg-muted ${isMac ? "pr-2 pl-[80px]" : "pr-[148px] pl-2"}`}
+        className={`relative flex h-10 shrink-0 items-center bg-muted ${isMac ? "pr-2 pl-[96px]" : "pr-[148px] pl-2"}`}
         onMouseDown={handleBarMouseDown}
       >
         <style>{`
@@ -333,23 +333,27 @@ export function TabBar({
           />
         )}
 
-        {/* Logo */}
-        <button
-          className="relative z-[1001] flex shrink-0 cursor-pointer items-center px-1.5 outline-none"
-          onClick={() => setBounceKey((k) => k + 1)}
-          onMouseDown={(e) => e.stopPropagation()}
-          style={noDrag}
-          type="button"
-        >
-          <GalleryThumbnails
-            className={`fill-foreground opacity-60 transition-opacity hover:opacity-90 active:opacity-50 ${bounceKey > 0 ? "tab-logo-bounce" : ""}`}
-            key={bounceKey}
-            size={14}
-            strokeWidth={3}
-          />
-        </button>
+        {!isMac && (
+          <>
+            {/* Logo */}
+            <button
+              className="relative z-[1001] flex shrink-0 cursor-pointer items-center px-1.5 outline-none"
+              onClick={() => setBounceKey((k) => k + 1)}
+              onMouseDown={(e) => e.stopPropagation()}
+              style={noDrag}
+              type="button"
+            >
+              <GalleryThumbnails
+                className={`fill-foreground opacity-60 transition-opacity hover:opacity-90 active:opacity-50 ${bounceKey > 0 ? "tab-logo-bounce" : ""}`}
+                key={bounceKey}
+                size={14}
+                strokeWidth={3}
+              />
+            </button>
 
-        <div className="mx-1 h-4 w-px shrink-0 bg-border" />
+            <div className="mx-1 h-4 w-px shrink-0 bg-border" />
+          </>
+        )}
 
         {/* Unified tab strip — page tabs and project tabs together, Chrome-style,
             with a trailing "+" that opens any page in its own tab. */}

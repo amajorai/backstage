@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   Check,
   DoorOpen,
-  GalleryThumbnails,
   Key,
   Loader2,
   TrendingUp,
@@ -80,15 +79,9 @@ export function LicenseActivation({ onBack }: { onBack?: () => void }) {
 
       {/* Titlebar drag region */}
       <div
-        className="relative flex h-10 shrink-0 items-center pr-[148px] pl-4"
+        className="relative flex h-10 shrink-0 items-center pr-[148px] pl-[96px]"
         data-tauri-drag-region=""
-      >
-        <GalleryThumbnails
-          className="fill-foreground text-foreground"
-          size={16}
-          strokeWidth={3}
-        />
-      </div>
+      ></div>
 
       {/* Content card */}
       <div className="mx-1 flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
