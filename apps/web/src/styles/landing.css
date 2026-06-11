@@ -1,181 +1,241 @@
 /*
- * Landing page — only CSS that can't be expressed in Tailwind utility classes.
- * All layout / color / typography lives in LandingComponents.tsx as Tailwind classes.
+ * Landing page — premiere-night design system.
+ * Only CSS that can't be expressed in Tailwind utility classes.
  */
 
-/* ── Emoji drag ───────────────────────────────────────────────────────── */
-@keyframes emoji-bob {
-  0%,
-  100% {
-    transform: translateY(0) rotate(var(--r, 0deg));
+.landing-root {
+  --stage-red: #ff3358;
+  --stage-amber: #ffb347;
+}
+
+.landing-root ::selection {
+  background: var(--stage-red);
+  color: #fff;
+}
+
+/* ── Typography ───────────────────────────────────────────────────────── */
+.font-display {
+  font-family: var(--font-anton), Impact, "Arial Narrow", sans-serif;
+  font-weight: 400;
+}
+
+.font-serif-accent {
+  font-family: var(--font-serif-accent), Georgia, serif;
+  font-weight: 400;
+}
+
+/* ── Film grain ───────────────────────────────────────────────────────── */
+.stage-grain {
+  position: fixed;
+  inset: -100px;
+  z-index: 70;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: stage-grain-shift 0.9s steps(4) infinite;
+}
+
+@keyframes stage-grain-shift {
+  0% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(-32px, 18px);
   }
   50% {
-    transform: translateY(-10px) rotate(calc(var(--r, 0deg) + 4deg));
+    transform: translate(22px, -28px);
+  }
+  75% {
+    transform: translate(-14px, -12px);
+  }
+  100% {
+    transform: translate(0, 0);
   }
 }
-.emoji-draggable {
-  position: absolute;
-  cursor: grab;
-  pointer-events: auto;
-  user-select: none;
-  -webkit-user-select: none;
-  transform: translate(var(--user-tx, 0px), var(--user-ty, 0px));
-  will-change: transform;
-  touch-action: none;
-  filter: drop-shadow(0 8px 24px oklch(0 0 0 / 0.4));
-  transition: filter 220ms ease;
-}
-.emoji-draggable:hover {
-  filter: drop-shadow(
-    0 12px 32px color-mix(in oklch, var(--foreground) 45%, transparent)
-  );
-}
-.emoji-draggable.is-dragging {
-  cursor: grabbing;
-  z-index: 10;
-  filter: drop-shadow(0 16px 36px oklch(0 0 0 / 0.5));
-}
-.emoji-draggable.is-dragging .emoji-inner {
-  animation-play-state: paused;
-}
-.emoji-inner {
-  display: inline-block;
-  font-size: 44px;
-  line-height: 1;
-  animation: emoji-bob 6s ease-in-out infinite;
-  animation-delay: var(--delay, 0s);
-  will-change: transform;
-}
+
 @media (prefers-reduced-motion: reduce) {
-  .emoji-inner {
+  .stage-grain {
     animation: none;
   }
 }
 
-/* ── Scroll reveal ────────────────────────────────────────────────────── */
-.reveal {
-  opacity: 0;
-  transform: translateY(20px);
-  transition:
-    opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.reveal.is-in {
-  opacity: 1;
-  transform: translateY(0);
-}
-.reveal[data-delay="1"] {
-  transition-delay: 80ms;
-}
-.reveal[data-delay="2"] {
-  transition-delay: 160ms;
-}
-.reveal[data-delay="3"] {
-  transition-delay: 240ms;
-}
-.reveal[data-delay="4"] {
-  transition-delay: 320ms;
-}
-.reveal[data-delay="5"] {
-  transition-delay: 400ms;
-}
-@media (prefers-reduced-motion: reduce) {
-  .reveal,
-  .reveal.is-in {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
-}
-
-/* ── Draggable handle cursor states (set via classList in JS) ─────────── */
-.compare-handle {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: white;
-  box-shadow:
-    0 0 0 2px var(--foreground),
-    0 4px 12px oklch(0 0 0 / 0.4);
-  cursor: grab;
-  touch-action: none;
-  display: grid;
-  place-items: center;
-  border: none;
-  z-index: 4;
-}
-.compare-handle.is-dragging {
-  cursor: grabbing;
-  transform: translate(-50%, -50%) scale(1.05);
-}
-
-.scrub-handle {
-  position: absolute;
-  top: 50%;
-  width: 3px;
-  height: 30px;
-  border-radius: 2px;
-  background: var(--foreground);
-  transform: translate(-50%, -50%);
-  border: none;
-  cursor: grab;
-  touch-action: none;
-  box-shadow: 0 0 8px var(--foreground);
-  left: 25%;
-}
-.scrub-handle.is-dragging {
-  cursor: grabbing;
-}
-
-.export-thumb {
-  position: absolute;
-  top: 50%;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
+/* ── Buttons ──────────────────────────────────────────────────────────── */
+.stage-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding: 0.8rem 1.7rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid transparent;
   background: #fff;
-  box-shadow: 0 0 0 2px var(--foreground);
-  transform: translate(-50%, -50%);
-  border: none;
-  cursor: grab;
-  touch-action: none;
+  color: #0a0a0a;
+  transition:
+    background 200ms ease,
+    color 200ms ease,
+    border-color 200ms ease,
+    box-shadow 250ms ease;
 }
 
-/* ── Gemini tile shimmer ──────────────────────────────────────────────── */
-@keyframes gemini-shimmer {
+.stage-button-sm {
+  padding: 0.5rem 1.1rem;
+  font-size: 0.8rem;
+}
+
+.stage-button-lg {
+  padding: 1.05rem 2.1rem;
+  font-size: 1rem;
+}
+
+.stage-button-primary {
+  background: linear-gradient(135deg, #ff3358, #ff5a3d);
+  color: #fff;
+  box-shadow:
+    0 0 24px rgb(255 51 88 / 0.35),
+    inset 0 1px 0 rgb(255 255 255 / 0.25);
+}
+
+.stage-button-primary:hover {
+  box-shadow:
+    0 0 48px rgb(255 51 88 / 0.55),
+    inset 0 1px 0 rgb(255 255 255 / 0.25);
+}
+
+.stage-button-ghost {
+  background: rgb(255 255 255 / 0.06);
+  border-color: rgb(255 255 255 / 0.16);
+  color: #fff;
+}
+
+.stage-button-ghost:hover {
+  background: rgb(255 255 255 / 0.12);
+}
+
+.stage-button-text {
+  background: transparent;
+  color: rgb(255 255 255 / 0.6);
+}
+
+.stage-button-text:hover {
+  color: #fff;
+}
+
+/* ── Scenes ───────────────────────────────────────────────────────────── */
+.scene-number {
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgb(255 255 255 / 0.35);
+}
+
+.scene-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--stage-red);
+  box-shadow: 0 0 12px rgb(255 51 88 / 0.9);
+  animation: scene-scrub 7s ease-in-out infinite alternate;
+}
+
+@keyframes scene-scrub {
   0% {
-    transform: translateX(-100%);
+    left: 6%;
+  }
+  35% {
+    left: 64%;
+  }
+  60% {
+    left: 38%;
   }
   100% {
-    transform: translateX(100%);
+    left: 92%;
   }
 }
-.tile-shimmer img {
-  opacity: 0 !important;
-}
-.tile-shimmer::after {
+
+.scene-gen-tile::after {
   content: "";
   position: absolute;
   inset: 0;
   background: linear-gradient(
     100deg,
-    transparent 20%,
-    oklch(1 0 0 / 0.06) 50%,
-    transparent 80%
+    transparent 25%,
+    rgb(255 255 255 / 0.09) 50%,
+    transparent 75%
   );
-  animation: gemini-shimmer 1.2s linear infinite;
+  transform: translateX(-100%);
+  animation: scene-shimmer 2.8s ease-in-out infinite;
+  animation-delay: inherit;
 }
 
-/* ── FAQ open icon state ──────────────────────────────────────────────── */
-details[open] .faq-icon {
-  transform: rotate(45deg);
-  color: var(--foreground);
+@keyframes scene-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  60%,
+  100% {
+    transform: translateX(100%);
+  }
 }
 
-/* ── Success check (Transitions.dev) ─────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .scene-playhead,
+  .scene-gen-tile::after {
+    animation: none;
+  }
+}
+
+/* ── Terminal caret ───────────────────────────────────────────────────── */
+.terminal-caret {
+  display: inline-block;
+  width: 8px;
+  height: 1em;
+  vertical-align: text-bottom;
+  background: var(--stage-red);
+  animation: caret-blink 1.1s steps(1) infinite;
+}
+
+@keyframes caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ── Pricing glow border ──────────────────────────────────────────────── */
+@property --stage-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.stage-glow-border {
+  background:
+    conic-gradient(
+      from var(--stage-angle) at 50% 50%,
+      rgb(255 51 88 / 0) 0%,
+      rgb(255 51 88 / 0.9) 10%,
+      rgb(255 179 71 / 0.7) 16%,
+      rgb(255 51 88 / 0) 28%
+    ),
+    rgb(255 255 255 / 0.09);
+  animation: stage-angle-spin 5s linear infinite;
+}
+
+@keyframes stage-angle-spin {
+  to {
+    --stage-angle: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage-glow-border {
+    animation: none;
+  }
+}
+
+/* ── Success check (dialog) ───────────────────────────────────────────── */
 :root {
   --check-opacity-dur: 550ms;
   --check-rotate-dur: 550ms;
