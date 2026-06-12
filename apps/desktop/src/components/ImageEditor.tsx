@@ -710,9 +710,21 @@ export function ImageEditor({
       setIsDraggingFilesOnEditor(false);
       if (!e.dataTransfer.files.length) return;
       const { loadDroppedImageFiles } = await import("@/lib/image-file-utils");
+      const { parseSvgDimensions } = await import("@/lib/svgl");
       const images = await loadDroppedImageFiles(e.dataTransfer.files);
-      for (const { dataUrl, fileName } of images) {
+      for (const { dataUrl, fileName, kind, svgString } of images) {
         await addThumbnail(dataUrl, fileName);
+        if (kind === "svg" && svgString) {
+          const { width: svgWidth, height: svgHeight } =
+            parseSvgDimensions(svgString);
+          const maxSize = Math.min(canvasSize.width, canvasSize.height) * 0.4;
+          const scale = Math.min(1, maxSize / Math.max(svgWidth, svgHeight));
+          useEditorStore
+            .getState()
+            .addSvgLayer(svgString, svgWidth * scale, svgHeight * scale);
+          continue;
+        }
+
         const img = new window.Image();
         await new Promise<void>((resolve) => {
           img.onload = () => {
