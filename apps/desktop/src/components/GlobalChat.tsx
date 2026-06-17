@@ -89,7 +89,10 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
       }User: ${trimmed}`;
 
       const response = await acpPrompt(selectedAgent, prompt);
-      appendAssistant(response);
+      appendAssistant(
+        response.trim() ||
+          "The assistant finished without returning a message. Please try again or check the selected agent in Settings."
+      );
     } catch (err) {
       appendAssistant(
         err instanceof Error

@@ -5,6 +5,7 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, State};
+use tauri_plugin_store::StoreExt;
 
 pub type ToolResultSender = mpsc::SyncSender<Result<serde_json::Value, String>>;
 
@@ -472,7 +473,7 @@ fn execute_acp_session(
     image_data: Option<String>,
     image_mime_type: Option<String>,
 ) -> Result<String, String> {
-    // 1. Initialize with tool definitions
+    // 1. Initialize and detect which ACP/MCP capabilities the agent supports.
     send_msg(
         writer_tx,
         serde_json::json!({
@@ -480,29 +481,64 @@ fn execute_acp_session(
             "id": 1,
             "method": "initialize",
             "params": {
-                "protocolVersion": "1",
-                "capabilities": {
-                    "tools": tool_definitions()
-                }
+                "protocolVersion": 1,
+                "capabilities": {}
             }
         }),
     )?;
-    wait_for_response(reader_rx, writer_tx, 1, 30)?;
+    let initialize_resp = wait_for_response(reader_rx, writer_tx, 1, 30)?;
+    let supports_http_mcp = initialize_resp["result"]["agentCapabilities"]["mcpCapabilities"]
+        ["http"]
+        .as_bool()
+        .unwrap_or(false);
 
-    // 2. New session
+    // 2. Create a session. Current ACP uses `session/new`; older adapters used
+    // `newSession`, so keep a fallback for existing custom agent configs.
+    let bridge_port = bridge_port(app);
+    let cwd = std::env::current_dir()
+        .ok()
+        .map(|path| path.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let mcp_servers = if supports_http_mcp {
+        serde_json::json!([{
+            "name": "backstage",
+            "type": "http",
+            "url": format!("http://127.0.0.1:{bridge_port}/mcp"),
+            "headers": []
+        }])
+    } else {
+        serde_json::json!([])
+    };
     send_msg(
         writer_tx,
         serde_json::json!({
             "jsonrpc": "2.0",
             "id": 2,
-            "method": "newSession",
-            "params": {}
+            "method": "session/new",
+            "params": {
+                "cwd": cwd,
+                "mcpServers": mcp_servers
+            }
         }),
     )?;
-    let session_resp = wait_for_response(reader_rx, writer_tx, 2, 30)?;
+    let mut prompt_method = "session/prompt";
+    let mut session_resp = wait_for_response_allow_error(reader_rx, writer_tx, 2, 30)?;
+    if session_resp.get("error").is_some() {
+        send_msg(
+            writer_tx,
+            serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 20,
+                "method": "newSession",
+                "params": {}
+            }),
+        )?;
+        session_resp = wait_for_response(reader_rx, writer_tx, 20, 30)?;
+        prompt_method = "prompt";
+    }
     let session_id = session_resp["result"]["sessionId"]
         .as_str()
-        .ok_or("No sessionId in newSession response")?
+        .ok_or("No sessionId in session response")?
         .to_string();
 
     // 3. Build prompt blocks
@@ -523,7 +559,7 @@ fn execute_acp_session(
         serde_json::json!({
             "jsonrpc": "2.0",
             "id": 3,
-            "method": "prompt",
+            "method": prompt_method,
             "params": {
                 "sessionId": session_id,
                 "prompt": prompt_blocks
@@ -555,6 +591,21 @@ fn execute_acp_session(
 
         let method = msg.get("method").and_then(|m| m.as_str());
 
+        if method == Some("session/request_permission") {
+            if let Some(req_id) = msg.get("id").cloned() {
+                let option_id = reject_permission_option_id(&msg);
+                send_msg(
+                    writer_tx,
+                    serde_json::json!({
+                        "jsonrpc": "2.0",
+                        "id": req_id,
+                        "result": { "optionId": option_id }
+                    }),
+                )?;
+            }
+            continue;
+        }
+
         if method == Some("requestPermission") {
             if let Some(req_id) = msg.get("id").cloned() {
                 send_msg(
@@ -585,15 +636,11 @@ fn execute_acp_session(
 
         if method == Some("tools/call") {
             if let Some(req_id) = msg.get("id").cloned() {
-                let tool_name = msg["params"]["name"]
-                    .as_str()
-                    .unwrap_or("")
-                    .to_string();
+                let tool_name = msg["params"]["name"].as_str().unwrap_or("").to_string();
                 let arguments = msg["params"]["arguments"].clone();
 
                 let call_id = generate_call_id();
-                let (sender, receiver) =
-                    mpsc::sync_channel::<Result<serde_json::Value, String>>(1);
+                let (sender, receiver) = mpsc::sync_channel::<Result<serde_json::Value, String>>(1);
                 {
                     pending.lock().unwrap().insert(call_id.clone(), sender);
                 }
@@ -661,38 +708,89 @@ fn execute_acp_session(
             continue;
         }
 
-        if method == Some("sessionUpdate") {
-            if let Some(params) = msg.get("params") {
-                if params.get("kind").and_then(|k| k.as_str())
-                    == Some("agent_message_chunk")
-                {
-                    if let Some(content) = params.get("content") {
-                        if content.get("type").and_then(|t| t.as_str()) == Some("text") {
-                            if let Some(text) =
-                                content.get("text").and_then(|t| t.as_str())
-                            {
-                                collected_text.push_str(text);
-                            }
-                        }
-                    }
-                }
-            }
+        if method == Some("session/update") || method == Some("sessionUpdate") {
+            collect_agent_message_chunk(&msg, &mut collected_text);
         }
     }
 
     Ok(collected_text.trim().to_string())
 }
 
-fn send_msg(
-    writer_tx: &mpsc::Sender<String>,
-    msg: serde_json::Value,
-) -> Result<(), String> {
+fn bridge_port(app: &AppHandle) -> u16 {
+    std::env::var("BACKSTAGE_HTTP_PORT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .or_else(|| {
+            let store = app.store("settings.json").ok()?;
+            store
+                .get("mcp_port")
+                .and_then(|v| v.as_u64())
+                .and_then(|n| u16::try_from(n).ok())
+        })
+        .unwrap_or(37842)
+}
+
+fn collect_agent_message_chunk(msg: &serde_json::Value, collected_text: &mut String) {
+    let params = match msg.get("params") {
+        Some(params) => params,
+        None => return,
+    };
+    let update = params.get("update").unwrap_or(params);
+    let update_kind = update
+        .get("sessionUpdate")
+        .or_else(|| update.get("kind"))
+        .and_then(|k| k.as_str());
+    if update_kind != Some("agent_message_chunk") {
+        return;
+    }
+    let Some(content) = update.get("content") else {
+        return;
+    };
+    if content.get("type").and_then(|t| t.as_str()) != Some("text") {
+        return;
+    }
+    if let Some(text) = content.get("text").and_then(|t| t.as_str()) {
+        collected_text.push_str(text);
+    }
+}
+
+fn reject_permission_option_id(msg: &serde_json::Value) -> String {
+    msg["params"]["options"]
+        .as_array()
+        .and_then(|options| {
+            options.iter().find_map(|option| {
+                let kind = option.get("kind").and_then(|k| k.as_str());
+                let option_id = option.get("optionId").and_then(|id| id.as_str());
+                if kind == Some("reject_once") || option_id == Some("reject-once") {
+                    option_id.map(str::to_string)
+                } else {
+                    None
+                }
+            })
+        })
+        .unwrap_or_else(|| "reject-once".to_string())
+}
+
+fn send_msg(writer_tx: &mpsc::Sender<String>, msg: serde_json::Value) -> Result<(), String> {
     writer_tx
         .send(msg.to_string())
         .map_err(|_| "Failed to send message to agent (channel closed)".to_string())
 }
 
 fn wait_for_response(
+    reader_rx: &mpsc::Receiver<serde_json::Value>,
+    writer_tx: &mpsc::Sender<String>,
+    id: u64,
+    timeout_secs: u64,
+) -> Result<serde_json::Value, String> {
+    let msg = wait_for_response_allow_error(reader_rx, writer_tx, id, timeout_secs)?;
+    if let Some(err) = msg.get("error") {
+        return Err(format!("ACP error response: {err}"));
+    }
+    Ok(msg)
+}
+
+fn wait_for_response_allow_error(
     reader_rx: &mpsc::Receiver<serde_json::Value>,
     writer_tx: &mpsc::Sender<String>,
     id: u64,
@@ -713,6 +811,21 @@ fn wait_for_response(
             .recv_timeout(remaining)
             .map_err(|_| format!("Timeout waiting for ACP response to request {id}"))?;
 
+        if msg.get("method").and_then(|m| m.as_str()) == Some("session/request_permission") {
+            if let Some(req_id) = msg.get("id").cloned() {
+                let option_id = reject_permission_option_id(&msg);
+                let _ = send_msg(
+                    writer_tx,
+                    serde_json::json!({
+                        "jsonrpc": "2.0",
+                        "id": req_id,
+                        "result": { "optionId": option_id }
+                    }),
+                );
+            }
+            continue;
+        }
+
         if msg.get("method").and_then(|m| m.as_str()) == Some("requestPermission") {
             if let Some(req_id) = msg.get("id").cloned() {
                 let _ = send_msg(
@@ -728,9 +841,6 @@ fn wait_for_response(
         }
 
         if msg.get("id") == Some(&id_val) {
-            if let Some(err) = msg.get("error") {
-                return Err(format!("ACP error response: {err}"));
-            }
             return Ok(msg);
         }
     }

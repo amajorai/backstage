@@ -1,6 +1,6 @@
 [package]
 name = "backstage"
-version = "1.5.2"
+version = "1.5.3"
 description = "YouTube Thumbnail Studio"
 authors = ["you"]
 edition = "2021"

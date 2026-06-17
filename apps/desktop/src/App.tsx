@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@repo/ui/dialog";
 import { Input } from "@repo/ui/input";
+import { Sidebar, SidebarContent, SidebarProvider } from "@repo/ui/sidebar";
 import {
   Tooltip,
   TooltipContent,
@@ -15,7 +16,7 @@ import {
   TooltipTrigger,
 } from "@repo/ui/tooltip";
 import { MessageCircle } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { sileo } from "sileo";
 import { AiProjectPage } from "@/components/AiProjectPage";
 import { AiProjectsGallery } from "@/components/AiProjectsGallery";
@@ -412,323 +413,328 @@ export default function App() {
 
   return (
     <TooltipProvider>
-      <div className="flex h-screen flex-col bg-muted">
-        <TabBar onPageChange={goToPage} />
+      <SidebarProvider
+        className="h-screen min-h-0 bg-muted"
+        defaultOpen={false}
+        onOpenChange={setChatOpen}
+        open={chatOpen}
+        style={{ "--sidebar-width": "29rem" } as CSSProperties}
+      >
+        <div className="flex h-screen min-w-0 flex-1 flex-col bg-muted">
+          <TabBar onPageChange={goToPage} />
 
-        <div className="flex min-h-0 flex-1 overflow-hidden">
-          {/* Main content column — shrinks when the chat panel is open */}
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            {/* Gallery — always mounted so scroll/state survives navigation */}
-            <div
-              className={contentClass}
-              data-dialog-container={showGallery ? "active" : undefined}
-              style={{ display: showGallery ? "flex" : "none" }}
-            >
-              <Gallery
-                onAddVideoClick={() => setShowExtractor(true)}
-                onExportClick={requestExportThumbnail}
-                onNewFolderClick={() => setNewFolderOpen(true)}
-                onNewProjectClick={() => setNewProjectOpen(true)}
-                onThumbnailClick={handleEditThumbnail}
-                viewMode={viewMode}
-              />
-            </div>
-
-            {/* Editor — stays mounted while a project tab exists; right panel for settings / AI */}
-            {editorTab && editorThumbnail && (
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            {/* Main content column — shrinks when the chat panel is open */}
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              {/* Gallery — always mounted so scroll/state survives navigation */}
               <div
-                className="mx-1 mb-1 flex flex-1 overflow-hidden"
-                style={{ display: editorVisible ? "flex" : "none" }}
+                className={contentClass}
+                data-dialog-container={showGallery ? "active" : undefined}
+                style={{ display: showGallery ? "flex" : "none" }}
               >
-                <div
-                  className="relative flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background"
-                  data-dialog-container={editorVisible ? "active" : undefined}
-                >
-                  <ImageEditor
-                    onAiGenerate={handleOpenAiGenerate}
-                    onClose={() => openPageTab("gallery")}
-                    onExport={() => requestExportThumbnail(editorThumbnail)}
-                    onOpenSettings={() =>
-                      setEditorRightPanel((panel) =>
-                        panel === "settings" ? null : "settings"
-                      )
-                    }
-                    snapshot={editorTab.snapshot}
-                    tabId={editorTab.id}
-                    thumbnail={editorThumbnail}
-                  />
-                </div>
-
-                {editorRightPanel && (
-                  <ResizablePanel
-                    className="ml-1"
-                    defaultWidth={600}
-                    maxWidth={1100}
-                    minWidth={400}
-                    side="right"
-                  >
-                    {editorRightPanel === "settings" ? (
-                      <SettingsPage onClose={() => setEditorRightPanel(null)} />
-                    ) : (
-                      <div className="flex h-full flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
-                        <GeminiImagePage
-                          canvasHeight={aiCanvasHeight}
-                          canvasWidth={aiCanvasWidth}
-                          editorLayers={aiEditorLayers}
-                          onClose={handleCloseAiGenerate}
-                          onSaveAsImage={handleSaveAiImage}
-                          onSaveAsLayer={handleSaveAiLayer}
-                          onSettings={() => setEditorRightPanel("settings")}
-                        />
-                      </div>
-                    )}
-                  </ResizablePanel>
-                )}
-              </div>
-            )}
-
-            {/* AI Generate — full page from gallery or remix */}
-            {page === "ai-generate" &&
-              (aiGenerateSource === "gallery" ||
-                aiGenerateSource === "remix") && (
-                <GeminiImagePage
-                  canvasHeight={aiCanvasHeight}
-                  canvasWidth={aiCanvasWidth}
-                  editorLayers={null}
-                  fullPage
-                  onClose={handleCloseAiGenerate}
-                  onSaveAsImage={handleSaveAiImage}
-                  onSaveAsLayer={undefined}
-                  onSettings={() => openPageTab("settings")}
-                  remixSourceUrl={remixSourceUrl ?? undefined}
-                  remixTitle={remixTitle ?? undefined}
-                />
-              )}
-
-            {/* AI Projects */}
-            {page === "ai-projects" &&
-              !editorVisible &&
-              (openAiProjectId ? (
-                <div
-                  className={contentClassWithBottom}
-                  data-dialog-container="active"
-                >
-                  <AiProjectPage
-                    onClose={() => setOpenAiProjectId(null)}
-                    onSettings={() => openPageTab("settings")}
-                    projectId={openAiProjectId}
-                  />
-                </div>
-              ) : (
-                <div
-                  className={contentClassWithBottom}
-                  data-dialog-container="active"
-                >
-                  <AiProjectsGallery
-                    onOpenProject={(id) => setOpenAiProjectId(id)}
-                  />
-                </div>
-              ))}
-
-            {/* Explore */}
-            {page === "explore" && !editorVisible && (
-              <ExplorePage
-                onClose={() => openPageTab("gallery")}
-                onRemix={handleRemix}
-                onSettings={() => openPageTab("settings")}
-              />
-            )}
-
-            {/* My Channel */}
-            {page === "my-channel" && !editorVisible && (
-              <MyChannelPage
-                onClose={() => openPageTab("gallery")}
-                onRemix={handleRemix}
-                onSettings={() => openPageTab("settings")}
-              />
-            )}
-
-            {/* Trash */}
-            {page === "trash" && !editorVisible && (
-              <TrashPage onClose={() => openPageTab("gallery")} />
-            )}
-
-            {/* Archive */}
-            {page === "archive" && !editorVisible && (
-              <ArchivePage onClose={() => openPageTab("gallery")} />
-            )}
-
-            {/* Settings */}
-            {page === "settings" && !editorVisible && (
-              <SettingsPage onClose={() => openPageTab("gallery")} />
-            )}
-
-            {showGallery && (
-              <div className="mx-1 mb-1">
-                <BottomToolbar
+                <Gallery
                   onAddVideoClick={() => setShowExtractor(true)}
-                  onArchiveClick={() => openPageTab("archive")}
-                  onExportSelected={handleExportSelected}
+                  onExportClick={requestExportThumbnail}
                   onNewFolderClick={() => setNewFolderOpen(true)}
                   onNewProjectClick={() => setNewProjectOpen(true)}
-                  onSettingsClick={() => openPageTab("settings")}
-                  onTrashClick={() => openPageTab("trash")}
-                  onViewModeChange={setViewMode}
+                  onThumbnailClick={handleEditThumbnail}
                   viewMode={viewMode}
                 />
               </div>
-            )}
+
+              {/* Editor — stays mounted while a project tab exists; right panel for settings / AI */}
+              {editorTab && editorThumbnail && (
+                <div
+                  className="mx-1 mb-1 flex flex-1 overflow-hidden"
+                  style={{ display: editorVisible ? "flex" : "none" }}
+                >
+                  <div
+                    className="relative flex flex-1 flex-col overflow-hidden rounded-xl border-2 border-border bg-background"
+                    data-dialog-container={editorVisible ? "active" : undefined}
+                  >
+                    <ImageEditor
+                      onAiGenerate={handleOpenAiGenerate}
+                      onClose={() => openPageTab("gallery")}
+                      onExport={() => requestExportThumbnail(editorThumbnail)}
+                      onOpenSettings={() =>
+                        setEditorRightPanel((panel) =>
+                          panel === "settings" ? null : "settings"
+                        )
+                      }
+                      snapshot={editorTab.snapshot}
+                      tabId={editorTab.id}
+                      thumbnail={editorThumbnail}
+                    />
+                  </div>
+
+                  {editorRightPanel && (
+                    <ResizablePanel
+                      className="ml-1"
+                      defaultWidth={600}
+                      maxWidth={1100}
+                      minWidth={400}
+                      side="right"
+                    >
+                      {editorRightPanel === "settings" ? (
+                        <SettingsPage
+                          onClose={() => setEditorRightPanel(null)}
+                        />
+                      ) : (
+                        <div className="flex h-full flex-col overflow-hidden rounded-xl border-2 border-border bg-background">
+                          <GeminiImagePage
+                            canvasHeight={aiCanvasHeight}
+                            canvasWidth={aiCanvasWidth}
+                            editorLayers={aiEditorLayers}
+                            onClose={handleCloseAiGenerate}
+                            onSaveAsImage={handleSaveAiImage}
+                            onSaveAsLayer={handleSaveAiLayer}
+                            onSettings={() => setEditorRightPanel("settings")}
+                          />
+                        </div>
+                      )}
+                    </ResizablePanel>
+                  )}
+                </div>
+              )}
+
+              {/* AI Generate — full page from gallery or remix */}
+              {page === "ai-generate" &&
+                (aiGenerateSource === "gallery" ||
+                  aiGenerateSource === "remix") && (
+                  <GeminiImagePage
+                    canvasHeight={aiCanvasHeight}
+                    canvasWidth={aiCanvasWidth}
+                    editorLayers={null}
+                    fullPage
+                    onClose={handleCloseAiGenerate}
+                    onSaveAsImage={handleSaveAiImage}
+                    onSaveAsLayer={undefined}
+                    onSettings={() => openPageTab("settings")}
+                    remixSourceUrl={remixSourceUrl ?? undefined}
+                    remixTitle={remixTitle ?? undefined}
+                  />
+                )}
+
+              {/* AI Projects */}
+              {page === "ai-projects" &&
+                !editorVisible &&
+                (openAiProjectId ? (
+                  <div
+                    className={contentClassWithBottom}
+                    data-dialog-container="active"
+                  >
+                    <AiProjectPage
+                      onClose={() => setOpenAiProjectId(null)}
+                      onSettings={() => openPageTab("settings")}
+                      projectId={openAiProjectId}
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className={contentClassWithBottom}
+                    data-dialog-container="active"
+                  >
+                    <AiProjectsGallery
+                      onOpenProject={(id) => setOpenAiProjectId(id)}
+                    />
+                  </div>
+                ))}
+
+              {/* Explore */}
+              {page === "explore" && !editorVisible && (
+                <ExplorePage
+                  onClose={() => openPageTab("gallery")}
+                  onRemix={handleRemix}
+                  onSettings={() => openPageTab("settings")}
+                />
+              )}
+
+              {/* My Channel */}
+              {page === "my-channel" && !editorVisible && (
+                <MyChannelPage
+                  onClose={() => openPageTab("gallery")}
+                  onRemix={handleRemix}
+                  onSettings={() => openPageTab("settings")}
+                />
+              )}
+
+              {/* Trash */}
+              {page === "trash" && !editorVisible && (
+                <TrashPage onClose={() => openPageTab("gallery")} />
+              )}
+
+              {/* Archive */}
+              {page === "archive" && !editorVisible && (
+                <ArchivePage onClose={() => openPageTab("gallery")} />
+              )}
+
+              {/* Settings */}
+              {page === "settings" && !editorVisible && (
+                <SettingsPage onClose={() => openPageTab("gallery")} />
+              )}
+
+              {showGallery && (
+                <div className="mx-1 mb-1">
+                  <BottomToolbar
+                    onAddVideoClick={() => setShowExtractor(true)}
+                    onArchiveClick={() => openPageTab("archive")}
+                    onExportSelected={handleExportSelected}
+                    onNewFolderClick={() => setNewFolderOpen(true)}
+                    onNewProjectClick={() => setNewProjectOpen(true)}
+                    onSettingsClick={() => openPageTab("settings")}
+                    onTrashClick={() => openPageTab("trash")}
+                    onViewModeChange={setViewMode}
+                    viewMode={viewMode}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Global assistant chat — resizable right panel, like the editor's
-              AI/settings panels */}
-          {chatOpen && (
-            <ResizablePanel
-              className="mr-1 mb-1 ml-1"
-              defaultWidth={460}
-              maxWidth={900}
-              minWidth={340}
-              side="right"
-            >
-              <ChatPanel onClose={() => setChatOpen(false)} />
-            </ResizablePanel>
+          {showExtractor && (
+            <VideoExtractor onClose={() => setShowExtractor(false)} />
           )}
-        </div>
-
-        {showExtractor && (
-          <VideoExtractor onClose={() => setShowExtractor(false)} />
-        )}
-        {exportingThumbnail && (
-          <ExportDialog
-            onClose={() => setExportingThumbnail(null)}
-            thumbnail={exportingThumbnail}
-            useCurrentEditorState={editorVisible}
-          />
-        )}
-        {exportingThumbnails.length > 0 && (
-          <ExportDialog
-            onClose={() => setExportingThumbnails([])}
-            thumbnails={exportingThumbnails}
-          />
-        )}
-        {licenseGateOpen && !isValidated && (
-          <div className="fixed inset-0 z-[1100]">
-            <LicenseActivation
-              onBack={() => {
-                pendingExportRef.current = null;
-                closeLicenseGate();
-              }}
+          {exportingThumbnail && (
+            <ExportDialog
+              onClose={() => setExportingThumbnail(null)}
+              thumbnail={exportingThumbnail}
+              useCurrentEditorState={editorVisible}
             />
-          </div>
-        )}
-        <NewProjectDialog
-          onCreate={handleCreateProject}
-          onOpenChange={setNewProjectOpen}
-          open={newProjectOpen}
-        />
-        <Dialog
-          onOpenChange={(open) => {
-            open ? sounds.dialogOpen() : sounds.dialogClose();
-            setNewFolderOpen(open);
-            if (!open) {
-              setNewFolderName("");
-              setNewFolderColor(null);
-            }
-          }}
-          open={newFolderOpen}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>New Folder</DialogTitle>
-            </DialogHeader>
-            <Input
-              autoFocus
-              onChange={(e) => setNewFolderName(e.target.value)}
-              onKeyDown={async (e) => {
-                if (e.key === "Enter" && newFolderName.trim()) {
-                  await useFolderStore
-                    .getState()
-                    .createFolder(newFolderName.trim(), newFolderColor);
-                  sileo.success({
-                    title: `Folder "${newFolderName.trim()}" created`,
-                  });
-                  setNewFolderName("");
-                  setNewFolderColor(null);
-                  setNewFolderOpen(false);
-                }
-              }}
-              placeholder="Folder name"
-              value={newFolderName}
+          )}
+          {exportingThumbnails.length > 0 && (
+            <ExportDialog
+              onClose={() => setExportingThumbnails([])}
+              thumbnails={exportingThumbnails}
             />
-            <FolderColorPicker
-              onChange={setNewFolderColor}
-              value={newFolderColor}
-            />
-            <DialogFooter>
-              <DialogClose
-                render={<Button onClick={sounds.click} variant="ghost" />}
-              >
-                Cancel
-              </DialogClose>
-              <Button
-                disabled={!newFolderName.trim()}
-                onClick={async () => {
-                  if (!newFolderName.trim()) return;
-                  sounds.success();
-                  await useFolderStore
-                    .getState()
-                    .createFolder(newFolderName.trim(), newFolderColor);
-                  sileo.success({
-                    title: `Folder "${newFolderName.trim()}" created`,
-                  });
-                  setNewFolderName("");
-                  setNewFolderColor(null);
-                  setNewFolderOpen(false);
+          )}
+          {licenseGateOpen && !isValidated && (
+            <div className="fixed inset-0 z-[1100]">
+              <LicenseActivation
+                onBack={() => {
+                  pendingExportRef.current = null;
+                  closeLicenseGate();
                 }}
-              >
-                Create
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        <CommandPalette
-          onAddVideo={() => setShowExtractor(true)}
-          onAiGenerate={handleOpenAiGenerateFromGallery}
-          onNewFolder={() => setNewFolderOpen(true)}
-          onNewProject={() => setNewProjectOpen(true)}
-          onOpenChange={setCommandOpen}
-          onPageChange={goToPage}
-          open={commandOpen}
-        />
-        <Toaster />
-        {/* Assistant launcher — gated behind experimental features, and hidden
+              />
+            </div>
+          )}
+          <NewProjectDialog
+            onCreate={handleCreateProject}
+            onOpenChange={setNewProjectOpen}
+            open={newProjectOpen}
+          />
+          <Dialog
+            onOpenChange={(open) => {
+              open ? sounds.dialogOpen() : sounds.dialogClose();
+              setNewFolderOpen(open);
+              if (!open) {
+                setNewFolderName("");
+                setNewFolderColor(null);
+              }
+            }}
+            open={newFolderOpen}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>New Folder</DialogTitle>
+              </DialogHeader>
+              <Input
+                autoFocus
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={async (e) => {
+                  if (e.key === "Enter" && newFolderName.trim()) {
+                    await useFolderStore
+                      .getState()
+                      .createFolder(newFolderName.trim(), newFolderColor);
+                    sileo.success({
+                      title: `Folder "${newFolderName.trim()}" created`,
+                    });
+                    setNewFolderName("");
+                    setNewFolderColor(null);
+                    setNewFolderOpen(false);
+                  }
+                }}
+                placeholder="Folder name"
+                value={newFolderName}
+              />
+              <FolderColorPicker
+                onChange={setNewFolderColor}
+                value={newFolderColor}
+              />
+              <DialogFooter>
+                <DialogClose
+                  render={<Button onClick={sounds.click} variant="ghost" />}
+                >
+                  Cancel
+                </DialogClose>
+                <Button
+                  disabled={!newFolderName.trim()}
+                  onClick={async () => {
+                    if (!newFolderName.trim()) return;
+                    sounds.success();
+                    await useFolderStore
+                      .getState()
+                      .createFolder(newFolderName.trim(), newFolderColor);
+                    sileo.success({
+                      title: `Folder "${newFolderName.trim()}" created`,
+                    });
+                    setNewFolderName("");
+                    setNewFolderColor(null);
+                    setNewFolderOpen(false);
+                  }}
+                >
+                  Create
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <CommandPalette
+            onAddVideo={() => setShowExtractor(true)}
+            onAiGenerate={handleOpenAiGenerateFromGallery}
+            onNewFolder={() => setNewFolderOpen(true)}
+            onNewProject={() => setNewProjectOpen(true)}
+            onOpenChange={setCommandOpen}
+            onPageChange={goToPage}
+            open={commandOpen}
+          />
+          <Toaster />
+          {/* Assistant launcher — gated behind experimental features, and hidden
             on the settings page and while the chat panel is open. Uses the
             default (primary) button variant. */}
-        {experimentalFeaturesEnabled && !(isSettingsPage || chatOpen) && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                aria-label="Open assistant"
-                className="fixed right-5 bottom-16 z-50 size-14 rounded-full shadow-lg transition-transform hover:scale-110"
-                onClick={() => {
-                  sounds.click();
-                  setChatOpen(true);
-                }}
-                size="icon"
-                type="button"
-              >
-                <MessageCircle className="size-6" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">Assistant</TooltipContent>
-          </Tooltip>
-        )}
-        <BackgroundRemovalQueue />
-        <AutoRenameQueue />
-        <UpdateChecker />
-        <VersionGateModal />
-        <WindowBoundsManager />
-      </div>
+          {experimentalFeaturesEnabled && !(isSettingsPage || chatOpen) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  aria-label="Open assistant"
+                  className="fixed right-5 bottom-16 z-50 size-14 rounded-full shadow-lg transition-transform hover:scale-110"
+                  onClick={() => {
+                    sounds.click();
+                    setChatOpen(true);
+                  }}
+                  size="icon"
+                  type="button"
+                >
+                  <MessageCircle className="size-6" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">Assistant</TooltipContent>
+            </Tooltip>
+          )}
+          <BackgroundRemovalQueue />
+          <AutoRenameQueue />
+          <UpdateChecker />
+          <VersionGateModal />
+          <WindowBoundsManager />
+        </div>
+        <Sidebar
+          className="border-l opacity-100 transition-[right,width,opacity] duration-200 ease-out group-data-[collapsible=offcanvas]:opacity-0"
+          collapsible="offcanvas"
+          side="right"
+        >
+          <SidebarContent className="gap-0 overflow-hidden p-0">
+            <ChatPanel onClose={() => setChatOpen(false)} />
+          </SidebarContent>
+        </Sidebar>
+      </SidebarProvider>
     </TooltipProvider>
   );
 }

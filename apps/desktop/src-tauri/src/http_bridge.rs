@@ -1,10 +1,13 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, atomic::{AtomicU64, Ordering}};
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc, Mutex,
+};
 use std::time::Duration;
 
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::response::IntoResponse;
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
@@ -36,6 +39,13 @@ struct ToolCallRequest {
     arguments: serde_json::Value,
 }
 
+#[derive(Deserialize)]
+struct McpRequest {
+    id: Option<serde_json::Value>,
+    method: String,
+    params: Option<serde_json::Value>,
+}
+
 #[derive(Serialize)]
 struct ToolCallResponse {
     content: Vec<ToolContent>,
@@ -61,6 +71,14 @@ async fn handle_tool_call(
     State(s): State<HttpBridgeState>,
     Json(body): Json<ToolCallRequest>,
 ) -> impl IntoResponse {
+    call_tool(s, body.name, body.arguments).await
+}
+
+async fn call_tool(
+    s: HttpBridgeState,
+    name: String,
+    arguments: serde_json::Value,
+) -> (StatusCode, Json<ToolCallResponse>) {
     let call_id = generate_call_id();
 
     let (tx, rx) = std::sync::mpsc::sync_channel::<Result<serde_json::Value, String>>(1);
@@ -70,8 +88,8 @@ async fn handle_tool_call(
         "acp-tool-call",
         serde_json::json!({
             "callId": call_id,
-            "toolName": body.name,
-            "arguments": body.arguments,
+            "toolName": name,
+            "arguments": arguments,
         }),
     );
 
@@ -89,8 +107,8 @@ async fn handle_tool_call(
         );
     }
 
-    let result = tokio::task::spawn_blocking(move || rx.recv_timeout(Duration::from_secs(30)))
-        .await;
+    let result =
+        tokio::task::spawn_blocking(move || rx.recv_timeout(Duration::from_secs(30))).await;
 
     s.pending.lock().unwrap().remove(&call_id);
 
@@ -131,6 +149,81 @@ async fn handle_tool_call(
     }
 }
 
+async fn handle_mcp(State(s): State<HttpBridgeState>, Json(body): Json<McpRequest>) -> Response {
+    let id = body.id.unwrap_or(serde_json::Value::Null);
+    let response = match body.method.as_str() {
+        "initialize" => serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "result": {
+                "protocolVersion": body
+                    .params
+                    .as_ref()
+                    .and_then(|p| p.get("protocolVersion"))
+                    .cloned()
+                    .unwrap_or_else(|| serde_json::json!("2024-11-05")),
+                "capabilities": {
+                    "tools": {}
+                },
+                "serverInfo": {
+                    "name": "backstage",
+                    "version": "0.0.1"
+                }
+            }
+        }),
+        "tools/list" => serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "result": {
+                "tools": tool_definitions()
+            }
+        }),
+        "tools/call" => {
+            let params = body.params.unwrap_or_default();
+            let name = params
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let arguments = params
+                .get("arguments")
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!({}));
+            let (status, Json(result)) = call_tool(s, name, arguments).await;
+            if status == StatusCode::OK {
+                serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "result": result
+                })
+            } else {
+                serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "error": {
+                        "code": -32000,
+                        "message": result
+                            .content
+                            .first()
+                            .map(|content| content.text.clone())
+                            .unwrap_or_else(|| "Tool call failed".to_string())
+                    }
+                })
+            }
+        }
+        _ => serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "error": {
+                "code": -32601,
+                "message": format!("Method not found: {}", body.method)
+            }
+        }),
+    };
+
+    Json(response).into_response()
+}
+
 pub async fn start(
     pending: Arc<Mutex<HashMap<String, ToolResultSender>>>,
     app: AppHandle,
@@ -141,6 +234,7 @@ pub async fn start(
     let router = Router::new()
         .route("/api/tools", get(handle_list_tools))
         .route("/api/tools/call", post(handle_tool_call))
+        .route("/mcp", post(handle_mcp))
         .with_state(state);
 
     let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
