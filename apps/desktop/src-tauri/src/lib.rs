@@ -1,4 +1,6 @@
 use tauri::{Emitter, Manager};
+#[cfg(any(target_os = "windows", target_os = "linux"))]
+use tauri_plugin_decorum::WebviewWindowExt;
 
 // Declare modules
 #[cfg(feature = "bria")]
@@ -151,6 +153,7 @@ async fn import_backup(app: tauri::AppHandle, zip_path: String) -> Result<(), St
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_decorum::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_sql::Builder::new().build())
@@ -164,6 +167,12 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
+            #[cfg(any(target_os = "windows", target_os = "linux"))]
+            {
+                let main_window = app.get_webview_window("main").unwrap();
+                main_window.create_overlay_titlebar().unwrap();
+            }
+
             // Initialize Secure Storage
             let app_data_dir = app.path().app_data_dir().unwrap();
             let app_name = app.package_info().name.clone();

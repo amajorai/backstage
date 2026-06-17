@@ -24,7 +24,7 @@
     },
     "apps/desktop": {
       "name": "desktop",
-      "version": "1.5.0",
+      "version": "1.5.2",
       "dependencies": {
         "@axiomhq/js": "^1.6.1",
         "@axiomhq/logging": "^0.2.1",
