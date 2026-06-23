@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "desktop:build": "tauri build",
+    "desktop:build:signed": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:TAURI_SIGNING_PRIVATE_KEY = Get-Content -Raw 'D:\\.keys\\backstage.key'; bun run desktop:build\"",
     "test:e2e": "cd e2e && npm test"
   },
   "dependencies": {
