@@ -1,5 +1,5 @@
-use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::Engine;
 use rand::RngCore;
 use sha2::Digest;
 use std::time::SystemTime;
@@ -321,13 +321,20 @@ pub async fn youtube_token_refresh(
 
 #[tauri::command]
 pub async fn youtube_oauth_revoke(access_token: String) -> Result<(), String> {
-    let client = reqwest::Client::new();
-    let url = format!(
-        "https://oauth2.googleapis.com/revoke?token={token}",
-        token = urlencoding_encode(&access_token)
-    );
-    // Ignore errors — the token may already be expired
-    let _ = client.post(&url).send().await;
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|_| "Could not initialize token revocation".to_string())?;
+    client
+        .post("https://oauth2.googleapis.com/revoke")
+        .form(&[("token", access_token)])
+        .send()
+        .await
+        .map_err(|_| "Token revocation request failed; credentials retained for retry".to_string())?
+        .error_for_status()
+        .map_err(|_| {
+            "Provider rejected token revocation; credentials retained for retry".to_string()
+        })?;
     Ok(())
 }
 
@@ -336,13 +343,9 @@ fn urlencoding_encode(input: &str) -> String {
     let mut out = String::with_capacity(input.len());
     for byte in input.bytes() {
         match byte {
-            b'A'..=b'Z'
-            | b'a'..=b'z'
-            | b'0'..=b'9'
-            | b'-'
-            | b'_'
-            | b'.'
-            | b'~' => out.push(byte as char),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(byte as char)
+            }
             b => out.push_str(&format!("%{b:02X}")),
         }
     }

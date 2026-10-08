@@ -1,0 +1,157 @@
+{
+  "ubuntu": {
+    "archive": "e5aa6eb131234b87c0c51f82b89390f5e3e642b7b70f2b9bbe95b6a285a40c96",
+    "files": {
+      "models/realesr-animevideov3-x2.bin": {
+        "sha256": "548a36f9c3f4ab8da56cd3b13badf23968bee207b396dad14d04b830e5f2ab2d",
+        "bytes": 1247368
+      },
+      "models/realesr-animevideov3-x2.param": {
+        "sha256": "b88ff4f00ebf019a7fdac17fdd45a7fd3665d37509efc5baf2e4da2e24420a04",
+        "bytes": 3173
+      },
+      "models/realesr-animevideov3-x3.bin": {
+        "sha256": "548a36f9c3f4ab8da56cd3b13badf23968bee207b396dad14d04b830e5f2ab2d",
+        "bytes": 1247368
+      },
+      "models/realesr-animevideov3-x3.param": {
+        "sha256": "d1a5755008791d09b57e3425fc9dd0bd26b00fdf79c606210bc0e693f8230881",
+        "bytes": 3173
+      },
+      "models/realesr-animevideov3-x4.bin": {
+        "sha256": "548a36f9c3f4ab8da56cd3b13badf23968bee207b396dad14d04b830e5f2ab2d",
+        "bytes": 1247368
+      },
+      "models/realesr-animevideov3-x4.param": {
+        "sha256": "850a248e7c14c27e5bd8cf7265113a9441036a7db63963bb8aa5169d788a435e",
+        "bytes": 3077
+      },
+      "models/realesrgan-x4plus-anime.bin": {
+        "sha256": "fe01c269cfd10cdef8e018ab66ebe750cf79c7af4d1f9c16c737e1295229bacc",
+        "bytes": 8943500
+      },
+      "models/realesrgan-x4plus-anime.param": {
+        "sha256": "2b8fb6e0ae4d2d85704ca08c119a2f5ea40add4f2ecd512eb7f4cd44b6127ed4",
+        "bytes": 30290
+      },
+      "models/realesrgan-x4plus.bin": {
+        "sha256": "713ee713b0353afaa27976f0563a64a5043bd70b9bd8936c2e26e25ebcdbcddf",
+        "bytes": 33424520
+      },
+      "models/realesrgan-x4plus.param": {
+        "sha256": "35330ececcea33b6c397a72548e788d5d53becee4734c50b7fada36e89f10a86",
+        "bytes": 116029
+      },
+      "realesrgan-ncnn-vulkan": {
+        "sha256": "22c2296a39b40cc43ac92615c827ab6d4b60b7142e8cee59f718e3f8e2cdbda9",
+        "bytes": 11399776
+      }
+    }
+  },
+  "macos": {
+    "archive": "e0ad05580abfeb25f8d8fb55aaf7bedf552c375b5b4d9bd3c8d59764d2cc333a",
+    "files": {
+      "models/realesr-animevideov3-x2.bin": {
+        "sha256": "548a36f9c3f4ab8da56cd3b13badf23968bee207b396dad14d04b830e5f2ab2d",
+        "bytes": 1247368
+      },
+      "models/realesr-animevideov3-x2.param": {
+        "sha256": "b88ff4f00ebf019a7fdac17fdd45a7fd3665d37509efc5baf2e4da2e24420a04",
+        "bytes": 3173
+      },
+      "models/realesr-animevideov3-x3.bin": {
+        "sha256": "548a36f9c3f4ab8da56cd3b13badf23968bee207b396dad14d04b830e5f2ab2d",
+        "bytes": 1247368
+      },
+      "models/realesr-animevideov3-x3.param": {
+        "sha256": "d1a5755008791d09b57e3425fc9dd0bd26b00fdf79c606210bc0e693f8230881",
+        "bytes": 3173
+      },
+      "models/realesr-animevideov3-x4.bin": {
+        "sha256": "548a36f9c3f4ab8da56cd3b13badf23968bee207b396dad14d04b830e5f2ab2d",
+        "bytes": 1247368
+      },
+      "models/realesr-animevideov3-x4.param": {
+        "sha256": "850a248e7c14c27e5bd8cf7265113a9441036a7db63963bb8aa5169d788a435e",
+        "bytes": 3077
+      },
+      "models/realesrgan-x4plus-anime.bin": {
+        "sha256": "fe01c269cfd10cdef8e018ab66ebe750cf79c7af4d1f9c16c737e1295229bacc",
+        "bytes": 8943500
+      },
+      "models/realesrgan-x4plus-anime.param": {
+        "sha256": "2b8fb6e0ae4d2d85704ca08c119a2f5ea40add4f2ecd512eb7f4cd44b6127ed4",
+        "bytes": 30290
+      },
+      "models/realesrgan-x4plus.bin": {
+        "sha256": "713ee713b0353afaa27976f0563a64a5043bd70b9bd8936c2e26e25ebcdbcddf",
+        "bytes": 33424520
+      },
+      "models/realesrgan-x4plus.param": {
+        "sha256": "35330ececcea33b6c397a72548e788d5d53becee4734c50b7fada36e89f10a86",
+        "bytes": 116029
+      },
+      "realesrgan-ncnn-vulkan": {
+        "sha256": "c1c35d92079085de96b9d547fd7e4464bc8a2e9ccf28d7b8c712d72ade91b7cc",
+        "bytes": 26787080
+      }
+    }
+  },
+  "windows": {
+    "archive": "abc02804e17982a3be33675e4d471e91ea374e65b70167abc09e31acb412802d",
+    "files": {
+      "models/realesr-animevideov3-x2.bin": {
+        "sha256": "548a36f9c3f4ab8da56cd3b13badf23968bee207b396dad14d04b830e5f2ab2d",
+        "bytes": 1247368
+      },
+      "models/realesr-animevideov3-x2.param": {
+        "sha256": "b88ff4f00ebf019a7fdac17fdd45a7fd3665d37509efc5baf2e4da2e24420a04",
+        "bytes": 3173
+      },
+      "models/realesr-animevideov3-x3.bin": {
+        "sha256": "548a36f9c3f4ab8da56cd3b13badf23968bee207b396dad14d04b830e5f2ab2d",
+        "bytes": 1247368
+      },
+      "models/realesr-animevideov3-x3.param": {
+        "sha256": "d1a5755008791d09b57e3425fc9dd0bd26b00fdf79c606210bc0e693f8230881",
+        "bytes": 3173
+      },
+      "models/realesr-animevideov3-x4.bin": {
+        "sha256": "548a36f9c3f4ab8da56cd3b13badf23968bee207b396dad14d04b830e5f2ab2d",
+        "bytes": 1247368
+      },
+      "models/realesr-animevideov3-x4.param": {
+        "sha256": "850a248e7c14c27e5bd8cf7265113a9441036a7db63963bb8aa5169d788a435e",
+        "bytes": 3077
+      },
+      "models/realesrgan-x4plus-anime.bin": {
+        "sha256": "fe01c269cfd10cdef8e018ab66ebe750cf79c7af4d1f9c16c737e1295229bacc",
+        "bytes": 8943500
+      },
+      "models/realesrgan-x4plus-anime.param": {
+        "sha256": "2b8fb6e0ae4d2d85704ca08c119a2f5ea40add4f2ecd512eb7f4cd44b6127ed4",
+        "bytes": 30290
+      },
+      "models/realesrgan-x4plus.bin": {
+        "sha256": "713ee713b0353afaa27976f0563a64a5043bd70b9bd8936c2e26e25ebcdbcddf",
+        "bytes": 33424520
+      },
+      "models/realesrgan-x4plus.param": {
+        "sha256": "35330ececcea33b6c397a72548e788d5d53becee4734c50b7fada36e89f10a86",
+        "bytes": 116029
+      },
+      "realesrgan-ncnn-vulkan.exe": {
+        "sha256": "07e49f7cbb4ede01ae4dd4c399d3a7e5846e3d2085c3128eff881e55cb7b1a0c",
+        "bytes": 6161408
+      },
+      "vcomp140.dll": {
+        "sha256": "8f72ef2e483465444b2059fc6744d6cb22cd8d8a27f6fa56befd2a42dcd0f78b",
+        "bytes": 182704
+      },
+      "vcomp140d.dll": {
+        "sha256": "34980f5a28002967d4f2659b10a417b1b9a242e240195947c89195083d146c53",
+        "bytes": 207736
+      }
+    }
+  }
+}

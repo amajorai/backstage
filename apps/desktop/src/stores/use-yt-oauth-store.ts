@@ -141,28 +141,26 @@ export const useYtOAuthStore = create<YtOAuthState>()((set) => ({
   },
 
   disconnect: async () => {
-    set({
-      isConnected: false,
-      isConnecting: false,
-      channelId: null,
-      channelName: null,
-      channelThumbnail: null,
-    });
     try {
       await revokeOAuth();
+      await removeOAuthCredentials();
+      set({
+        isConnected: false,
+        isConnecting: false,
+        channelId: null,
+        channelName: null,
+        channelThumbnail: null,
+      });
     } catch (error) {
       logger.error(
         { err: error },
         "[YtOAuthStore] Failed to revoke OAuth token"
       );
-    }
-    try {
-      await removeOAuthCredentials();
-    } catch (error) {
-      logger.error(
-        { err: error },
-        "[YtOAuthStore] Failed to remove OAuth credentials"
-      );
+      sileo.error({
+        title: "Disconnect failed",
+        description:
+          "YouTube access could not be revoked. Your credentials were retained so you can retry.",
+      });
     }
   },
 }));

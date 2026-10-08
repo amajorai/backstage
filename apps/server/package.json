@@ -32,6 +32,7 @@
     "@types/bun": "catalog:",
     "typescript": "^5",
     "tsdown": "^0.16.5",
-    "@backstage/config": "workspace:*"
+    "@backstage/config": "workspace:*",
+    "mongodb": "^6.16.0"
   }
 }

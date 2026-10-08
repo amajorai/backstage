@@ -10,6 +10,13 @@ import { bytesToDataUrl, dataUrlToBytes, ensureDir } from "@/lib/fs-utils";
 import { logger } from "@/lib/logger";
 import { migrate } from "@/lib/schema-migration";
 
+const THUMBNAIL_ID = /^[a-zA-Z0-9_-]{1,200}$/;
+function assertThumbnailId(id: string): void {
+  if (!THUMBNAIL_ID.test(id)) {
+    throw new Error("Invalid thumbnail identifier");
+  }
+}
+
 const THUMBNAILS_DIR = "thumbnails";
 const LAYERS_SCHEMA_VERSION = 1;
 const PREVIEW_SIZE = 1920; // Preview thumbnail max dimension in pixels
@@ -29,6 +36,7 @@ async function getThumbnailsBaseDir(): Promise<string> {
  */
 async function getThumbDir(id: string): Promise<string> {
   const baseDir = await getThumbnailsBaseDir();
+  assertThumbnailId(id);
   return await join(baseDir, id);
 }
 
@@ -299,6 +307,7 @@ async function getTrashBaseDir(): Promise<string> {
  */
 async function getTrashDir(id: string): Promise<string> {
   const baseDir = await getTrashBaseDir();
+  assertThumbnailId(id);
   return await join(baseDir, id);
 }
 

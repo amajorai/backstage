@@ -1,4 +1,5 @@
-import { timingSafeEqual } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
+import { auth } from "@backstage/auth";
 import { env } from "@backstage/env/server";
 import { Hono } from "hono";
 
@@ -11,29 +12,50 @@ export const polarRouter = new Hono();
 
 /**
  * POST /api/polar/customer-session
- * Looks up a customer by email and creates a Polar customer portal session.
+ * Creates a portal session for the authenticated, email-verified account.
  * Returns the session token the client can use to call Polar portal endpoints directly.
  */
+async function verifiedCustomerEmail(request: Request): Promise<string | null> {
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session?.user.emailVerified) {
+    return null;
+  }
+  if (request.headers.has("cookie")) {
+    const origin = request.headers.get("origin");
+    if (
+      !(
+        origin &&
+        [
+          env.CORS_ORIGIN,
+          "tauri://localhost",
+          "https://tauri.localhost",
+        ].includes(origin)
+      )
+    ) {
+      return null;
+    }
+  }
+  return session.user.email.trim().toLowerCase();
+}
+
 polarRouter.post("/customer-session", async (c) => {
-  let body: unknown;
+  const email = await verifiedCustomerEmail(c.req.raw);
+  if (!email) {
+    return c.json({ error: "Verified account required" }, 401);
+  }
   try {
-    body = await c.req.json();
+    await c.req.json();
   } catch {
     return c.json({ error: "Invalid JSON" }, 400);
   }
-
-  const email =
-    typeof (body as Record<string, unknown>).email === "string"
-      ? ((body as Record<string, unknown>).email as string).trim().toLowerCase()
-      : null;
-
-  if (!email) return c.json({ error: "email is required" }, 400);
 
   const customersRes = await fetch(
     `${POLAR_BASE}/v1/customers/?email=${encodeURIComponent(email)}&limit=1`,
     { headers: { Authorization: `Bearer ${env.POLAR_ACCESS_TOKEN}` } }
   );
-  if (!customersRes.ok) return c.json({ error: "Failed to reach Polar" }, 502);
+  if (!customersRes.ok) {
+    return c.json({ error: "Failed to reach Polar" }, 502);
+  }
 
   const customers = (await customersRes.json()) as {
     items: Array<{ id: string }>;
@@ -52,7 +74,9 @@ polarRouter.post("/customer-session", async (c) => {
     },
     body: JSON.stringify({ customer_id: customer.id }),
   });
-  if (!sessionRes.ok) return c.json({ error: "Failed to create session" }, 502);
+  if (!sessionRes.ok) {
+    return c.json({ error: "Failed to create session" }, 502);
+  }
 
   const session = (await sessionRes.json()) as {
     token: string;
@@ -70,10 +94,13 @@ polarRouter.post("/customer-session", async (c) => {
  * Finds a license key under a customer account and deactivates all existing activations
  * so the client can re-activate on the current device.
  *
- * Accepts either a sessionToken (already have one from /customer-session) or an email
- * (will create a new session internally).
+ * Uses the authenticated, email-verified account to establish key ownership.
  */
 polarRouter.post("/transfer", async (c) => {
+  const email = await verifiedCustomerEmail(c.req.raw);
+  if (!email) {
+    return c.json({ error: "Verified account required" }, 401);
+  }
   let body: unknown;
   try {
     body = await c.req.json();
@@ -81,30 +108,29 @@ polarRouter.post("/transfer", async (c) => {
     return c.json({ error: "Invalid JSON" }, 400);
   }
 
-  const b = body as Record<string, string>;
-  const licenseKey = b.licenseKey?.trim();
-  const organizationId = b.organizationId?.trim();
-  const email = b.email?.trim().toLowerCase();
-  const sessionToken = b.sessionToken?.trim();
+  if (!body || typeof body !== "object") {
+    return c.json({ error: "Invalid JSON" }, 400);
+  }
+  const b = body as Record<string, unknown>;
+  const licenseKey =
+    typeof b.licenseKey === "string" ? b.licenseKey.trim() : "";
+  const organizationId =
+    typeof b.organizationId === "string" ? b.organizationId.trim() : "";
 
   if (!(licenseKey && organizationId)) {
     return c.json({ error: "licenseKey and organizationId are required" }, 400);
   }
-  if (!(email || sessionToken)) {
-    return c.json({ error: "email or sessionToken is required" }, 400);
-  }
-
-  let token = sessionToken;
+  let token: string | undefined;
 
   if (!token) {
-    // email is guaranteed non-null here: the guard above ensures email || sessionToken is set,
-    // and we only enter this branch when sessionToken is falsy.
+    // The authenticated verified email is the only customer lookup identity.
     const customersRes = await fetch(
-      `${POLAR_BASE}/v1/customers/?email=${encodeURIComponent(email as string)}&limit=1`,
+      `${POLAR_BASE}/v1/customers/?email=${encodeURIComponent(email)}&limit=1`,
       { headers: { Authorization: `Bearer ${env.POLAR_ACCESS_TOKEN}` } }
     );
-    if (!customersRes.ok)
+    if (!customersRes.ok) {
       return c.json({ error: "Failed to reach Polar" }, 502);
+    }
 
     const customers = (await customersRes.json()) as {
       items: Array<{ id: string }>;
@@ -122,8 +148,9 @@ polarRouter.post("/transfer", async (c) => {
       },
       body: JSON.stringify({ customer_id: customer.id }),
     });
-    if (!sessionRes.ok)
+    if (!sessionRes.ok) {
       return c.json({ error: "Failed to create session" }, 502);
+    }
 
     const session = (await sessionRes.json()) as { token: string };
     token = session.token;
@@ -136,13 +163,16 @@ polarRouter.post("/transfer", async (c) => {
       headers: { Authorization: `Bearer ${token}` },
     }
   );
-  if (!keysRes.ok)
+  if (!keysRes.ok) {
     return c.json({ error: "Failed to fetch license keys" }, 502);
+  }
 
   const keysData = (await keysRes.json()) as {
-    items: Array<{ id: string; key: string }>;
+    items: Array<{ id: string; key: string; organization_id?: string }>;
   };
-  const matchedKey = keysData.items?.find((k) => k.key === licenseKey);
+  const matchedKey = keysData.items?.find(
+    (k) => k.key === licenseKey && k.organization_id === organizationId
+  );
 
   if (!matchedKey) {
     return c.json(
@@ -158,8 +188,9 @@ polarRouter.post("/transfer", async (c) => {
       headers: { Authorization: `Bearer ${env.POLAR_ACCESS_TOKEN}` },
     }
   );
-  if (!keyDetailRes.ok)
+  if (!keyDetailRes.ok) {
     return c.json({ error: "Failed to fetch activation details" }, 502);
+  }
 
   const keyDetail = (await keyDetailRes.json()) as {
     activations?: Array<{ id: string; label?: string }>;
@@ -168,7 +199,7 @@ polarRouter.post("/transfer", async (c) => {
   const activations = keyDetail.activations ?? [];
 
   // Deactivate all existing activations in parallel
-  await Promise.allSettled(
+  const outcomes = await Promise.allSettled(
     activations.map((activation) =>
       fetch(`${POLAR_BASE}/v1/customer-portal/license-keys/deactivate`, {
         method: "POST",
@@ -182,13 +213,21 @@ polarRouter.post("/transfer", async (c) => {
     )
   );
 
+  if (
+    outcomes.some((result) => result.status === "rejected" || !result.value.ok)
+  ) {
+    return c.json(
+      { error: "Some license activations could not be deactivated" },
+      502
+    );
+  }
   return c.json({ success: true, deactivated: activations.length });
 });
 
 /**
  * POST /api/polar/renew-updates
  * Extends the update window on a customer's license key by 1 year.
- * Identified solely by email — no key entry needed on the user side.
+ * A verified paid renewal order identifies the customer and product.
  *
  * Auth is required, enforced two ways:
  *   1. Polar webhook signature (Standard Webhooks format) — three headers
@@ -200,9 +239,9 @@ polarRouter.post("/transfer", async (c) => {
  *      `Authorization: Bearer <RENEWAL_BEARER_SECRET>`.
  * Without one of these, the request is rejected.
  */
-type AuthCtx = {
+interface AuthCtx {
   req: { header: (name: string) => string | undefined; raw: Request };
-};
+}
 
 const WEBHOOK_TOLERANCE_SECONDS = 5 * 60;
 
@@ -210,7 +249,9 @@ const WEBHOOK_TOLERANCE_SECONDS = 5 * 60;
 function safeEqual(a: string, b: string): boolean {
   const aBuf = Buffer.from(a, "utf8");
   const bBuf = Buffer.from(b, "utf8");
-  if (aBuf.length !== bBuf.length) return false;
+  if (aBuf.length !== bBuf.length) {
+    return false;
+  }
   return timingSafeEqual(aBuf, bBuf);
 }
 
@@ -260,7 +301,9 @@ async function verifyRenewalAuth(
   }
 
   if (webhookId && webhookTimestamp && webhookSigHeader) {
-    if (!webhookSecret) return { ok: false, reason: "Unauthorized" };
+    if (!webhookSecret) {
+      return { ok: false, reason: "Unauthorized" };
+    }
 
     const ts = Number.parseInt(webhookTimestamp, 10);
     if (!Number.isFinite(ts)) {
@@ -281,8 +324,12 @@ async function verifyRenewalAuth(
     // The header is space-separated `v1,<sig> v1,<sig2> ...` to support key rotation
     for (const versioned of webhookSigHeader.split(" ").filter(Boolean)) {
       const [version, sig] = versioned.split(",", 2);
-      if (version !== "v1" || !sig) continue;
-      if (safeEqual(expected, sig)) return { ok: true, bodyText };
+      if (version !== "v1" || !sig) {
+        continue;
+      }
+      if (safeEqual(expected, sig)) {
+        return { ok: true, bodyText };
+      }
     }
     return { ok: false, reason: "Invalid webhook signature" };
   }
@@ -297,7 +344,9 @@ async function verifyRenewalAuth(
 
 polarRouter.post("/renew-updates", async (c) => {
   const auth = await verifyRenewalAuth(c);
-  if (!auth.ok) return c.json({ error: auth.reason }, 401);
+  if (!auth.ok) {
+    return c.json({ error: auth.reason }, 401);
+  }
 
   let body: unknown;
   try {
@@ -306,50 +355,84 @@ polarRouter.post("/renew-updates", async (c) => {
     return c.json({ error: "Invalid JSON" }, 400);
   }
 
-  // Accept either a flat { email } payload or a Polar webhook envelope
-  // { type, data: { customer: { email } } }.
-  const flat = body as { email?: unknown };
-  const webhook = body as {
-    type?: string;
-    data?: { customer?: { email?: unknown } };
+  if (!body || typeof body !== "object") {
+    return c.json({ error: "Invalid JSON" }, 400);
+  }
+  const event = body as {
+    type?: unknown;
+    orderId?: unknown;
+    data?: { id?: unknown };
   };
-  const rawEmail =
-    typeof flat.email === "string"
-      ? flat.email
-      : typeof webhook.data?.customer?.email === "string"
-        ? webhook.data.customer.email
-        : null;
-  const email = rawEmail?.trim().toLowerCase() ?? null;
-  if (!email) return c.json({ error: "email is required" }, 400);
-
+  const webhookRequest = c.req.header("webhook-signature") !== undefined;
+  if (webhookRequest && event.type !== "order.paid") {
+    return c.json({ ignored: true });
+  }
+  const orderId = webhookRequest ? event.data?.id : event.orderId;
+  if (typeof orderId !== "string" || !/^[a-zA-Z0-9_-]{1,200}$/.test(orderId)) {
+    return c.json({ error: "Paid renewal order required" }, 400);
+  }
+  const renewalProduct = process.env.POLAR_RENEWAL_PRODUCT_ID;
+  if (!renewalProduct) {
+    return c.json({ error: "Renewal product unavailable" }, 503);
+  }
+  const orderResponse = await fetch(
+    `${POLAR_BASE}/v1/orders/${encodeURIComponent(orderId)}`,
+    {
+      headers: { Authorization: `Bearer ${env.POLAR_ACCESS_TOKEN}` },
+      signal: AbortSignal.timeout(15_000),
+    }
+  );
+  if (!orderResponse.ok) {
+    return c.json({ error: "Order verification failed" }, 502);
+  }
+  const order = (await orderResponse.json()) as {
+    id?: string;
+    paid?: boolean;
+    product_id?: string;
+    customer_id?: string;
+    customer?: { email?: string };
+  };
+  if (
+    order.id !== orderId ||
+    order.paid !== true ||
+    order.product_id !== renewalProduct ||
+    typeof order.customer_id !== "string" ||
+    typeof order.customer?.email !== "string"
+  ) {
+    return c.json({ error: "Not a paid renewal order" }, 400);
+  }
+  const email = order.customer.email.trim().toLowerCase();
   const customersRes = await fetch(
     `${POLAR_BASE}/v1/customers/?email=${encodeURIComponent(email)}&limit=1`,
     { headers: { Authorization: `Bearer ${env.POLAR_ACCESS_TOKEN}` } }
   );
-  if (!customersRes.ok) return c.json({ error: "Failed to reach Polar" }, 502);
+  if (!customersRes.ok) {
+    return c.json({ error: "Failed to reach Polar" }, 502);
+  }
 
   const customers = (await customersRes.json()) as {
     items: Array<{ id: string }>;
   };
   const customer = customers.items?.[0];
-  if (!customer)
-    return c.json({ error: "No account found for this email" }, 404);
+  if (!customer || customer.id !== order.customer_id) {
+    return c.json({ error: "Order customer mismatch" }, 400);
+  }
 
   // Polar's /v1/license-keys/ list endpoint silently ignores customer_id as a
   // query parameter — it only honours organization_id/benefit_id/page/limit.
   // So we have to fetch org-wide and filter on `customer_id` client-side.
   // We paginate so an org with many license keys still finds the customer's.
-  type LicenseKey = {
+  interface LicenseKey {
     id: string;
     customer_id: string;
     expires_at: string | null;
     status: string;
     created_at: string;
-  };
-  type ListResponse = {
+  }
+  interface ListResponse {
     items: LicenseKey[];
     pagination?: { total_count?: number; max_page?: number };
-  };
+  }
 
   const matchingKeys: LicenseKey[] = [];
   const PAGE_LIMIT = 100;
@@ -361,8 +444,9 @@ polarRouter.post("/renew-updates", async (c) => {
       `${POLAR_BASE}/v1/license-keys/?limit=${PAGE_LIMIT}&page=${page}`,
       { headers: { Authorization: `Bearer ${env.POLAR_ACCESS_TOKEN}` } }
     );
-    if (!keysRes.ok)
+    if (!keysRes.ok) {
       return c.json({ error: "Failed to fetch license keys" }, 502);
+    }
 
     const keysData = (await keysRes.json()) as ListResponse;
     for (const k of keysData.items ?? []) {
@@ -379,38 +463,98 @@ polarRouter.post("/renew-updates", async (c) => {
     (a, b) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   )[0];
-  if (!activeKey)
+  if (!activeKey) {
     return c.json(
       { error: "No active license key found for this customer" },
       404
     );
-
-  // Extend: max(current expiresAt, now) + 1 year
-  const base = activeKey.expires_at
-    ? new Date(Math.max(new Date(activeKey.expires_at).getTime(), Date.now()))
-    : new Date();
-  base.setFullYear(base.getFullYear() + 1);
-
-  const patchRes = await fetch(
-    `${POLAR_BASE}/v1/license-keys/${activeKey.id}`,
-    {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${env.POLAR_ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ expires_at: base.toISOString() }),
-    }
-  );
-
-  if (!patchRes.ok) {
-    const err = await patchRes.text();
-    return c.json({ error: `Failed to extend license: ${err}` }, 502);
   }
 
-  return c.json({
-    success: true,
-    licenseKeyId: activeKey.id,
-    newExpiresAt: base.toISOString(),
-  });
+  const { client } = await import("@backstage/db");
+  const locks = client.collection<{ _id: string; until: Date; owner: string }>(
+    "renewal_locks"
+  );
+  const receipts = client.collection<{
+    _id: string;
+    licenseKeyId: string;
+    newExpiresAt: string;
+    applied: boolean;
+  }>("renewal_receipts");
+  const now = new Date();
+  const lockOwner = randomUUID();
+  await locks.deleteOne({ _id: activeKey.id, until: { $lte: now } });
+  try {
+    await locks.insertOne({
+      _id: activeKey.id,
+      until: new Date(now.getTime() + 120_000),
+      owner: lockOwner,
+    });
+  } catch {
+    return c.json({ error: "Renewal in progress; retry later" }, 409);
+  }
+  try {
+    let receipt = await receipts.findOne({ _id: orderId });
+    if (receipt && receipt.licenseKeyId !== activeKey.id) {
+      return c.json({ error: "Order already consumed" }, 409);
+    }
+    if (!receipt) {
+      if (
+        await receipts.findOne({ licenseKeyId: activeKey.id, applied: false })
+      ) {
+        return c.json({ error: "Previous renewal must complete first" }, 409);
+      }
+      const currentResponse = await fetch(
+        `${POLAR_BASE}/v1/license-keys/${activeKey.id}`,
+        {
+          headers: { Authorization: `Bearer ${env.POLAR_ACCESS_TOKEN}` },
+          signal: AbortSignal.timeout(15_000),
+        }
+      );
+      if (!currentResponse.ok) {
+        return c.json({ error: "License lookup failed" }, 502);
+      }
+      const current = (await currentResponse.json()) as {
+        expires_at?: string | null;
+      };
+      const base = current.expires_at
+        ? new Date(Math.max(new Date(current.expires_at).getTime(), Date.now()))
+        : new Date();
+      if (!Number.isFinite(base.getTime())) {
+        return c.json({ error: "Invalid license expiry" }, 502);
+      }
+      base.setFullYear(base.getFullYear() + 1);
+      receipt = {
+        _id: orderId,
+        licenseKeyId: activeKey.id,
+        newExpiresAt: base.toISOString(),
+        applied: false,
+      };
+      await receipts.insertOne(receipt);
+    }
+    if (!receipt.applied) {
+      const patchRes = await fetch(
+        `${POLAR_BASE}/v1/license-keys/${activeKey.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${env.POLAR_ACCESS_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ expires_at: receipt.newExpiresAt }),
+          signal: AbortSignal.timeout(15_000),
+        }
+      );
+      if (!patchRes.ok) {
+        return c.json({ error: "Failed to extend license" }, 502);
+      }
+      await receipts.updateOne({ _id: orderId }, { $set: { applied: true } });
+    }
+    return c.json({
+      success: true,
+      licenseKeyId: activeKey.id,
+      newExpiresAt: receipt.newExpiresAt,
+    });
+  } finally {
+    await locks.deleteOne({ _id: activeKey.id, owner: lockOwner });
+  }
 });
