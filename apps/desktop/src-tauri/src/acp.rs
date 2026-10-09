@@ -5,7 +5,6 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, State};
-use tauri_plugin_store::StoreExt;
 
 pub type ToolResultSender = mpsc::SyncSender<Result<serde_json::Value, String>>;
 
