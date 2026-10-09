@@ -4,23 +4,42 @@ import { expo } from "@better-auth/expo";
 import { checkout, polar, portal } from "@polar-sh/better-auth";
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
-import { PostHog } from "posthog-node";
-
+import {
+  APIError,
+  createAuthMiddleware,
+  getSessionFromCtx,
+} from "better-auth/api";
+import { sendAccountVerification } from "./email-verification";
 import { polarClient } from "./lib/payments";
-
-const posthog =
-  env.POSTHOG_API_KEY && env.POSTHOG_HOST
-    ? new PostHog(env.POSTHOG_API_KEY, {
-        host: env.POSTHOG_HOST,
-        enableExceptionAutocapture: true,
-      })
-    : null;
+import { ensureVerifiedPolarCustomer } from "./polar-customer";
 
 export const auth = betterAuth({
   database: mongodbAdapter(client),
   trustedOrigins: [env.CORS_ORIGIN, "mybettertapp://", "exp://"],
   emailAndPassword: {
     enabled: true,
+  },
+  emailVerification: {
+    sendOnSignUp: true,
+    sendOnSignIn: true,
+    sendVerificationEmail: ({ user, url }) =>
+      sendAccountVerification(user, url),
+  },
+  hooks: {
+    before: createAuthMiddleware(async (context) => {
+      if (
+        !(context.path.startsWith("/customer/") || context.path === "/checkout")
+      ) {
+        return;
+      }
+      const session = await getSessionFromCtx(context);
+      if (context.query?.referenceId) {
+        throw new APIError("FORBIDDEN", {
+          message: "Customer references are not supported",
+        });
+      }
+      await ensureVerifiedPolarCustomer(session?.user, polarClient);
+    }),
   },
   advanced: {
     defaultCookieAttributes: {
@@ -29,43 +48,10 @@ export const auth = betterAuth({
       httpOnly: true,
     },
   },
-  databaseHooks: {
-    user: {
-      create: {
-        after: (user) => {
-          posthog?.identify({
-            distinctId: user.id,
-            properties: {
-              $set: { email: user.email, name: user.name },
-              $set_once: { first_seen: new Date().toISOString() },
-            },
-          });
-          posthog?.capture({
-            distinctId: user.id,
-            event: "user_signed_up",
-            properties: { email: user.email, name: user.name },
-          });
-          return Promise.resolve();
-        },
-      },
-    },
-    session: {
-      create: {
-        after: (session) => {
-          posthog?.capture({
-            distinctId: session.userId,
-            event: "user_signed_in",
-            properties: { session_id: session.id },
-          });
-          return Promise.resolve();
-        },
-      },
-    },
-  },
   plugins: [
     polar({
       client: polarClient,
-      createCustomerOnSignUp: true,
+      createCustomerOnSignUp: false,
       enableCustomerPortal: true,
       use: [
         checkout({

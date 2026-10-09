@@ -2222,20 +2222,10 @@ function StorageSettings({
       // - Missing manifest is OK (legacy backups from before manifest support).
       // - Present but malformed → abort (don't risk corrupting current data).
       // - Present and any data schema version exceeds what this app supports → abort.
-      const zipBytes = await readFile(zipPath);
-      const peekZip = await JSZip.loadAsync(zipBytes);
-      const manifestFile = peekZip.file("manifest.json");
-      if (manifestFile) {
-        let manifest: {
-          dataSchemaVersions?: Record<string, number>;
-        };
-        try {
-          manifest = JSON.parse(await manifestFile.async("string"));
-        } catch {
-          throw new Error(
-            "Backup manifest is corrupt. Refusing to restore — file an issue if this backup was produced by a recent version."
-          );
-        }
+      const manifest = await invoke<{
+        dataSchemaVersions?: Record<string, number>;
+      } | null>("backup_manifest", { zipPath });
+      if (manifest) {
         const backupVersions = manifest.dataSchemaVersions ?? {};
         const currentSqliteVersion = await getSqliteSchemaVersion();
         const currentVersions: Record<string, number> = {
@@ -2423,7 +2413,7 @@ function StorageSettings({
             </Button>
           </SettingRow>
           <SettingRow
-            description="Restore from a previously exported backup ZIP."
+            description="Restore from a previously exported backup ZIP. ACP agent commands must be reconfigured after restoring."
             title="Import Backup"
           >
             <Button
@@ -3023,6 +3013,11 @@ const DEFAULT_MCP_PORT = 37_842;
 function McpServerSettings() {
   const { mcpPort, setMcpPort } = useAppSettingsStore();
   const [bridgeRunning, setBridgeRunning] = useState<boolean | null>(null);
+  const [bridgeConfiguration, setBridgeConfiguration] = useState<{
+    url: string;
+    token: string;
+    configuredPort: number;
+  } | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -3030,7 +3025,14 @@ function McpServerSettings() {
 
     const poll = async () => {
       try {
-        const res = await fetch(`http://localhost:${mcpPort}/api/tools`, {
+        const configuration = await invoke<{
+          url: string;
+          token: string;
+          configuredPort: number;
+        }>("mcp_bridge_configuration");
+        setBridgeConfiguration(configuration);
+        const res = await fetch(`${configuration.url}/api/tools`, {
+          headers: { Authorization: `Bearer ${configuration.token}` },
           signal: controller.signal,
         });
         setBridgeRunning(res.ok);
@@ -3055,7 +3057,12 @@ function McpServerSettings() {
         backstage: {
           command: "node",
           args: ["/path/to/backstage-mcp/dist/index.js"],
-          env: { BACKSTAGE_API_URL: `http://localhost:${mcpPort}` },
+          env: {
+            BACKSTAGE_API_URL:
+              bridgeConfiguration?.url ?? `http://127.0.0.1:${mcpPort}`,
+            BACKSTAGE_API_TOKEN:
+              bridgeConfiguration?.token ?? "<bridge not ready>",
+          },
         },
       },
     },
@@ -3064,6 +3071,8 @@ function McpServerSettings() {
   );
 
   const handleCopy = async () => {
+    if (!bridgeConfiguration || bridgeConfiguration.configuredPort !== mcpPort)
+      return;
     await navigator.clipboard.writeText(claudeConfig);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -3133,7 +3142,8 @@ function McpServerSettings() {
           </div>
         </SettingRow>
         <p className="pl-4 text-muted-foreground text-xs">
-          Port changes require app restart
+          Port changes require app restart before copying the updated client
+          configuration
         </p>
       </div>
       <div className="space-y-2">
@@ -3147,6 +3157,10 @@ function McpServerSettings() {
           <button
             aria-label="Copy config to clipboard"
             className="absolute top-2 right-2 flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground text-xs transition-colors hover:bg-muted hover:text-foreground"
+            disabled={
+              !bridgeConfiguration ||
+              bridgeConfiguration.configuredPort !== mcpPort
+            }
             onClick={() => {
               sounds.click();
               handleCopy();

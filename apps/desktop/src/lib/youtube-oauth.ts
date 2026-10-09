@@ -264,16 +264,23 @@ export async function refreshAccessToken(): Promise<void> {
 
 export async function revokeOAuth(): Promise<void> {
   try {
+    const refreshToken = await invoke<string | null>(
+      "secure_storage_retrieve",
+      {
+        key: KEY_REFRESH_TOKEN,
+      }
+    );
     const accessToken = await invoke<string | null>("secure_storage_retrieve", {
       key: KEY_ACCESS_TOKEN,
     });
 
-    if (accessToken) {
-      await invoke("youtube_oauth_revoke", { accessToken });
+    const token = refreshToken || accessToken;
+    if (token) {
+      await invoke("youtube_oauth_revoke", { accessToken: token });
     }
   } catch (error) {
     logger.error({ err: error }, "[YouTubeOAuth] Failed to revoke OAuth token");
-  } finally {
-    await clearOAuthTokens();
+    throw error;
   }
+  await clearOAuthTokens();
 }

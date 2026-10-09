@@ -100,22 +100,25 @@ jobs:
       - name: Get tag message
         id: tag_message
         shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
           git fetch --tags --force
-          TAG_MSG=$(git for-each-ref refs/tags/${{ steps.version.outputs.tag }} --format='%(contents:subject)' 2>/dev/null | head -1)
+          TAG_MSG=$(git for-each-ref "refs/tags/$RELEASE_TAG" --format='%(contents:subject)' 2>/dev/null | head -1)
           echo "message=$TAG_MSG" >> $GITHUB_OUTPUT
 
       - name: Generate changelog
         id: changelog
         shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.tag }}
+          PREV_TAG: ${{ steps.prev_tag.outputs.prev_tag }}
+          REPO: ${{ github.repository }}
         run: |
-          VERSION="${{ steps.version.outputs.tag }}"
-          PREV_TAG="${{ steps.prev_tag.outputs.prev_tag }}"
-          REPO="${{ github.repository }}"
 
           # Get commits
           if [ -n "$PREV_TAG" ]; then
-            COMMITS=$(git log ${PREV_TAG}..HEAD --pretty=format:"%s|%h|%H")
+            COMMITS=$(git log "${PREV_TAG}..HEAD" --pretty=format:"%s|%h|%H")
           else
             COMMITS=$(git log --pretty=format:"%s|%h|%H")
           fi
@@ -200,6 +203,9 @@ jobs:
       - name: Select bundles
         id: bundles
         shell: bash
+        env:
+          BUNDLE_PLATFORM: ${{ matrix.name }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
           # WiX MSI rejects non-numeric semver pre-release identifiers (e.g.
           # "1.4.0-beta.1" fails with "pre-release identifier ... must be
@@ -208,7 +214,7 @@ jobs:
           # updater artifacts come from NSIS either way
           # (bundle.createUpdaterArtifacts = true).
           EXTRA=""
-          case "${{ matrix.name }}|${{ steps.version.outputs.tag }}" in
+          case "$BUNDLE_PLATFORM|$RELEASE_TAG" in
             Windows*beta*|Windows*alpha*|Windows*rc*|Windows*nightly*)
               EXTRA=" --bundles nsis" ;;
           esac
@@ -275,6 +281,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
           cd apps/desktop/src-tauri/target
 
@@ -291,6 +298,6 @@ jobs:
             find . -name "*.sha256" -type f | while read file; do
               filename=$(basename "$file")
               echo "Uploading $filename"
-              gh release upload "${{ steps.version.outputs.tag }}" "$file" --clobber || true
+              gh release upload "$RELEASE_TAG" "$file" --clobber || true
             done
           fi

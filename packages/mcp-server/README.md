@@ -21,7 +21,8 @@ Add to your `claude_desktop_config.json` under `mcpServers`:
   "mcpServers": {
     "backstage": {
       "command": "node",
-      "args": ["/absolute/path/to/packages/mcp-server/dist/index.js"]
+      "args": ["/absolute/path/to/packages/mcp-server/dist/index.js"],
+      "env": { "BACKSTAGE_API_TOKEN": "<copy from Backstage Settings>" }
     }
   }
 }
@@ -31,7 +32,8 @@ Backstage must be running for tool calls to succeed. The server will start but r
 
 ## Environment Variables
 
-- `BACKSTAGE_API_URL` - Override the default bridge URL (`http://localhost:37842`). Useful if Backstage is configured to use a non-default port.
+- `BACKSTAGE_API_TOKEN` - Required bearer token. Copy the authenticated configuration from Backstage Settings; keep it private. The token persists across app restarts in encrypted storage.
+- `BACKSTAGE_API_URL` - Override the default bridge URL (`http://127.0.0.1:37842`). Only local HTTP origins are accepted. Useful if Backstage is configured to use a non-default port.
 
 Example:
 
@@ -42,7 +44,8 @@ Example:
       "command": "node",
       "args": ["/path/to/dist/index.js"],
       "env": {
-        "BACKSTAGE_API_URL": "http://localhost:9000"
+        "BACKSTAGE_API_URL": "http://127.0.0.1:9000",
+        "BACKSTAGE_API_TOKEN": "<copy from Backstage Settings>"
       }
     }
   }

@@ -42,7 +42,8 @@
     "tailwind-merge": "^3.6.0",
     "three": "^0.184.0",
     "tw-animate-css": "^1.3.4",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "mongodb": "^6.16.0"
   },
   "devDependencies": {
     "@backstage/config": "workspace:*",

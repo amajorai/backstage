@@ -52,5 +52,14 @@ jobs:
               working-directory: apps/desktop
 
             - name: Run E2E tests
-              run: npm test
+              run: |
+                  npm test 2>&1 | Tee-Object -FilePath e2e-test-output.log
+                  $testExit = $LASTEXITCODE
+                  if ($testExit -ne 0) {
+                      Get-Content e2e-test-output.log -Tail 120 | ForEach-Object {
+                          $line = "$_".Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+                          Write-Output "::error::$line"
+                      }
+                  }
+                  exit $testExit
               working-directory: apps/desktop/e2e

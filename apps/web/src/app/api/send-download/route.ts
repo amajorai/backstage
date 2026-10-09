@@ -1,43 +1,51 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
+import { reserveDownloadEmail } from "@/lib/download-email-budget";
 
 const USESEND_API_KEY = process.env.USESEND_API_KEY;
 const USESEND_HOST = process.env.USESEND_HOST ?? "https://send.amajor.ai";
 const DOWNLOAD_URL = "https://github.com/amajorai/backstage/releases/latest";
-const CONTACT_BOOK_ID = "cmpcmk30t000zmo2zk6dq7jzm";
-
-async function addContact(email: string, name: string) {
-  const [firstName, ...rest] = name.split(/\s+/);
-  const res = await fetch(
-    `${USESEND_HOST}/api/v1/contactBooks/${CONTACT_BOOK_ID}/contacts`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${USESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email,
-        firstName: firstName ?? "",
-        lastName: rest.join(" "),
-        subscribed: true,
-      }),
-    }
-  );
-  return res.ok;
-}
-
 export async function POST(req: Request) {
-  const body = await req.json().catch(() => null);
-  const email = typeof body?.email === "string" ? body.email.trim() : "";
-  const name = typeof body?.name === "string" ? body.name.trim() : "";
-
-  if (!(email && email.includes("@"))) {
-    return NextResponse.json({ error: "Invalid email" }, { status: 400 });
+  const reader = req.body?.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  if (reader) {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > 4096) {
+        await reader.cancel();
+        return NextResponse.json(
+          { error: "Request too large" },
+          { status: 413 }
+        );
+      }
+      chunks.push(value);
+    }
   }
-
-  if (!name) {
-    return NextResponse.json({ error: "Name is required" }, { status: 400 });
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
   }
+  const parsed = z
+    .object({
+      email: z.email().max(254),
+      name: z.string().trim().min(1).max(200),
+    })
+    .safeParse(
+      await Promise.resolve()
+        .then(() => JSON.parse(new TextDecoder().decode(bytes)))
+        .catch(() => null)
+    );
+  if (!parsed.success)
+    return NextResponse.json(
+      { error: "Invalid email or name" },
+      { status: 400 }
+    );
+  const { email } = parsed.data;
 
   if (!USESEND_API_KEY) {
     return NextResponse.json(
@@ -46,7 +54,24 @@ export async function POST(req: Request) {
     );
   }
 
-  await addContact(email, name).catch(() => false);
+  try {
+    if (!(await reserveDownloadEmail(email)))
+      return NextResponse.json(
+        {
+          error:
+            "Download email limit reached. Download directly from GitHub releases.",
+        },
+        { status: 429 }
+      );
+  } catch {
+    return NextResponse.json(
+      {
+        error:
+          "Email service temporarily unavailable. Download directly from GitHub releases.",
+      },
+      { status: 503 }
+    );
+  }
 
   const html = `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#09090b;color:#fff;border-radius:12px">
@@ -67,6 +92,7 @@ export async function POST(req: Request) {
   `;
 
   const res = await fetch(`${USESEND_HOST}/api/v1/emails`, {
+    signal: AbortSignal.timeout(15_000),
     method: "POST",
     headers: {
       Authorization: `Bearer ${USESEND_API_KEY}`,
@@ -81,9 +107,8 @@ export async function POST(req: Request) {
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
     return NextResponse.json(
-      { error: `Failed to send email: ${text}` },
+      { error: "Failed to send email" },
       { status: 502 }
     );
   }

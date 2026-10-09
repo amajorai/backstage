@@ -5,7 +5,6 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, State};
-use tauri_plugin_store::StoreExt;
 
 pub type ToolResultSender = mpsc::SyncSender<Result<serde_json::Value, String>>;
 
@@ -494,17 +493,17 @@ fn execute_acp_session(
 
     // 2. Create a session. Current ACP uses `session/new`; older adapters used
     // `newSession`, so keep a fallback for existing custom agent configs.
-    let bridge_port = bridge_port(app);
     let cwd = std::env::current_dir()
         .ok()
         .map(|path| path.to_string_lossy().into_owned())
         .unwrap_or_default();
     let mcp_servers = if supports_http_mcp {
+        let bridge = crate::http_bridge::mcp_bridge_configuration()?;
         serde_json::json!([{
             "name": "backstage",
             "type": "http",
-            "url": format!("http://127.0.0.1:{bridge_port}/mcp"),
-            "headers": []
+            "url": format!("{}/mcp", bridge.url),
+            "headers": [{ "name": "Authorization", "value": format!("Bearer {}", bridge.token) }]
         }])
     } else {
         serde_json::json!([])
@@ -714,20 +713,6 @@ fn execute_acp_session(
     }
 
     Ok(collected_text.trim().to_string())
-}
-
-fn bridge_port(app: &AppHandle) -> u16 {
-    std::env::var("BACKSTAGE_HTTP_PORT")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .or_else(|| {
-            let store = app.store("settings.json").ok()?;
-            store
-                .get("mcp_port")
-                .and_then(|v| v.as_u64())
-                .and_then(|n| u16::try_from(n).ok())
-        })
-        .unwrap_or(37842)
 }
 
 fn collect_agent_message_chunk(msg: &serde_json::Value, collected_text: &mut String) {

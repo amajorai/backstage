@@ -1,5 +1,6 @@
 import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
+import { fetchFile } from "@ffmpeg/util";
+import { verifiedAssetURL } from "./verified-asset";
 
 let ffmpegInstance: FFmpeg | null = null;
 let loadPromise: Promise<FFmpeg> | null = null;
@@ -21,13 +22,30 @@ export async function loadFFmpeg(): Promise<FFmpeg> {
 
     const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd";
 
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-      wasmURL: await toBlobURL(
+    // Digests are from the official npm @ffmpeg/core 0.12.6 tarball's UMD assets.
+    const urls: string[] = [];
+    try {
+      const coreURL = await verifiedAssetURL(
+        `${baseURL}/ffmpeg-core.js`,
+        "a34873964b0f62aec516bac75e3aa9086ec3535d4d07f0269aa94ea748b6cb71",
+        128 * 1024,
+        "text/javascript"
+      );
+      urls.push(coreURL);
+      const wasmURL = await verifiedAssetURL(
         `${baseURL}/ffmpeg-core.wasm`,
+        "2390efa7fb66e7e42dbae15427571a5ffc96b829480904c30f471f0a78967f61",
+        33 * 1024 * 1024,
         "application/wasm"
-      ),
-    });
+      );
+      urls.push(wasmURL);
+      await ffmpeg.load({ coreURL, wasmURL });
+    } catch (error) {
+      loadPromise = null;
+      throw error;
+    } finally {
+      for (const url of urls) URL.revokeObjectURL(url);
+    }
 
     ffmpegInstance = ffmpeg;
     return ffmpeg;

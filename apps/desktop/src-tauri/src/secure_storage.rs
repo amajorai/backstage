@@ -69,13 +69,13 @@ pub struct SecureStorageManager {
 
 impl SecureStorageManager {
     /// Initialize secure storage with a persistent random master key.
-    pub fn new(_app_name: &str, app_data_dir: &PathBuf) -> SecureStorageResult<Self> {
+    pub fn new(app_name: &str, app_data_dir: &PathBuf) -> SecureStorageResult<Self> {
         let storage_dir = app_data_dir.join("secure_storage");
         if let Err(e) = fs::create_dir_all(&storage_dir) {
             return Err(SecureStorageError::IoError(e));
         }
 
-        let master_key = Self::load_or_create_master_key(&storage_dir)?;
+        let master_key = Self::load_or_create_master_key(app_name, &storage_dir)?;
 
         Ok(Self {
             master_key,
@@ -83,32 +83,12 @@ impl SecureStorageManager {
         })
     }
 
-    /// Load the persisted master key, or generate and save a new one on first run.
-    ///
-    /// Using a randomly-generated key stored on disk is stable across restarts and
-    /// avoids the previous approach of deriving the key from system info (computer
-    /// name, hostname) which could fail silently in sandboxed builds and produce a
-    /// different key between runs, causing all stored secrets to be silently wiped.
-    fn load_or_create_master_key(storage_dir: &PathBuf) -> SecureStorageResult<Key<Aes256Gcm>> {
-        let key_file = storage_dir.join(".mk");
-
-        if key_file.exists() {
-            let key_bytes = fs::read(&key_file)?;
-            if key_bytes.len() == 32 {
-                let mut arr = [0u8; 32];
-                arr.copy_from_slice(&key_bytes);
-                #[allow(deprecated)]
-                return Ok(*Key::<Aes256Gcm>::from_slice(&arr));
-            }
-            // File is corrupt — fall through to regenerate
-        }
-
-        let mut key_bytes = [0u8; 32];
-        OsRng.fill_bytes(&mut key_bytes);
-        fs::write(&key_file, &key_bytes)?;
-
+    /// Keep the key outside the ciphertext directory and preserve legacy secrets.
+    fn load_or_create_master_key(app_name: &str, storage_dir: &PathBuf) -> SecureStorageResult<Key<Aes256Gcm>> {
+        let bytes = crate::storage_key::master_key(app_name, storage_dir)
+            .map_err(SecureStorageError::SystemInfoError)?;
         #[allow(deprecated)]
-        Ok(*Key::<Aes256Gcm>::from_slice(&key_bytes))
+        Ok(*Key::<Aes256Gcm>::from_slice(&bytes))
     }
 
     /// Encrypt sensitive data
@@ -234,16 +214,8 @@ impl SecureStorageManager {
             SecureStorageError::InvalidFormat(format!("JSON deserialization failed: {}", e))
         })?;
 
-        // Decrypt — if decryption fails the stored data is unreadable (e.g. key
-        // rotated after reinstall), so delete the corrupted file and return None.
-        let decrypted = match self.decrypt(&encrypted) {
-            Ok(v) => v,
-            Err(SecureStorageError::DecryptionFailed(_)) => {
-                let _ = fs::remove_file(&file_path);
-                return Ok(None);
-            }
-            Err(e) => return Err(e),
-        };
+        // A failed decrypt must never destroy ciphertext needed for recovery.
+        let decrypted = self.decrypt(&encrypted)?;
 
         Ok(Some(decrypted))
     }
