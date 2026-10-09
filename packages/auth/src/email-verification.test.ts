@@ -16,8 +16,8 @@ test("verification delivery uses a server-generated link and fails clearly when 
     )
   );
   try {
-    process.env.RESEND_API_KEY = undefined;
-    process.env.VERIFICATION_FROM_EMAIL = undefined;
+    Reflect.deleteProperty(process.env, "RESEND_API_KEY");
+    Reflect.deleteProperty(process.env, "VERIFICATION_FROM_EMAIL");
     await expect(
       sendAccountVerification(
         { email: "owner@example.com" },
@@ -43,12 +43,12 @@ test("verification delivery uses a server-generated link and fails clearly when 
   } finally {
     spy.mockRestore();
     if (originalKey === undefined) {
-      process.env.RESEND_API_KEY = undefined;
+      Reflect.deleteProperty(process.env, "RESEND_API_KEY");
     } else {
       process.env.RESEND_API_KEY = originalKey;
     }
     if (originalFrom === undefined) {
-      process.env.VERIFICATION_FROM_EMAIL = undefined;
+      Reflect.deleteProperty(process.env, "VERIFICATION_FROM_EMAIL");
     } else {
       process.env.VERIFICATION_FROM_EMAIL = originalFrom;
     }

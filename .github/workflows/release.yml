@@ -58,6 +58,10 @@ jobs:
           else
             VERSION="$REF"
           fi
+          if [[ ! "$VERSION" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+            echo "Ref is not a valid v-prefixed SemVer release: $VERSION" >&2
+            exit 1
+          fi
           echo "tag=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Setup Bun

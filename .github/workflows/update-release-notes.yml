@@ -21,31 +21,47 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get tag message
-        id: tag_message
+      - name: Validate release tag
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
         run: |
           git fetch --tags --force
-          TAG_MSG=$(git for-each-ref refs/tags/${{ inputs.tag }} --format='%(contents:subject)' 2>/dev/null | head -1)
+          if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+            echo "Input is not a valid v-prefixed SemVer release" >&2
+            exit 1
+          fi
+          git rev-parse --verify --quiet "refs/tags/$RELEASE_TAG^{commit}" >/dev/null
+
+      - name: Get tag message
+        id: tag_message
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          git fetch --tags --force
+          TAG_MSG=$(git for-each-ref "refs/tags/$RELEASE_TAG" --format='%(contents:subject)' 2>/dev/null | head -1)
           echo "message=$TAG_MSG" >> $GITHUB_OUTPUT
 
       - name: Get previous tag
         id: prev_tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          PREV_TAG=$(git describe --tags --abbrev=0 ${{ inputs.tag }}^ 2>/dev/null || echo "")
+          PREV_TAG=$(git describe --tags --abbrev=0 "$RELEASE_TAG^" 2>/dev/null || echo "")
           echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
 
       - name: Generate changelog
         id: changelog
+        env:
+          VERSION: ${{ inputs.tag }}
+          PREV_TAG: ${{ steps.prev_tag.outputs.prev_tag }}
+          REPO: ${{ github.repository }}
         run: |
-          VERSION="${{ inputs.tag }}"
-          PREV_TAG="${{ steps.prev_tag.outputs.prev_tag }}"
-          REPO="${{ github.repository }}"
-
           # Get commits
           if [ -n "$PREV_TAG" ]; then
-            COMMITS=$(git log ${PREV_TAG}..${VERSION} --pretty=format:"%s|%h|%H")
+            COMMITS=$(git log "${PREV_TAG}..${VERSION}" --pretty=format:"%s|%h|%H")
           else
-            COMMITS=$(git log ${VERSION} --pretty=format:"%s|%h|%H")
+            COMMITS=$(git log "$VERSION" --pretty=format:"%s|%h|%H")
           fi
 
           # Initialize sections
@@ -123,18 +139,17 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       - name: Write changelog to file
+        env:
+          CHANGELOG_BODY: ${{ steps.changelog.outputs.body }}
         run: |
-          cat << 'CHANGELOG_EOF' > changelog.md
-          ${{ steps.changelog.outputs.body }}
-          CHANGELOG_EOF
+          printf '%s\n' "$CHANGELOG_BODY" > changelog.md
 
       - name: Update release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+          TAG_MSG: ${{ steps.tag_message.outputs.message }}
         run: |
-          TAG="${{ inputs.tag }}"
-          TAG_MSG="${{ steps.tag_message.outputs.message }}"
-
           if [ -n "$TAG_MSG" ]; then
             RELEASE_NAME="${TAG} - ${TAG_MSG}"
           else
